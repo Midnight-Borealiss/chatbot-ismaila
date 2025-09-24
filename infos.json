@@ -1,0 +1,207 @@
+[
+    {
+        "questions": [
+            "Où trouver mon emploi du temps ?",
+            "Mon planning ?",
+            "Comment voir mes horaires de cours ?",
+            "Quel est mon emploi du temps ?",
+            "Où est ce que je peux voir mes cours ?",
+            "Où se trouve mes classes pour cette semaine ?",
+            "Mes classes pour cette semaine",
+            "Mon Agenda ?",
+            "Où je peux voir mes cours ?",
+            "Où je peux voir mon planning ?",
+            "Où je peux voir mon agenda ?",
+            "Emploie du temps ",
+            "Cours"
+        ],
+        "answer": "Il faut vous rendre au niveau de votre mail edu puis chercher le mail dont le libellé est \"Mon agenda\" après cliquer sur cet email pour l'ouvrir. Vous verrez un agenda portant le nom de votre classe. Il vous suffit de cliquer sur le lien \"Ajouter cet Agenda\" de sorte à pouvoir le visualiser sur votre google agenda. Pour chaque cours vous verrez l'intitulé du module, le nom du professeur, la salle de classe, l'heure de début et de fin du cours"
+    },
+    {
+        "questions": [
+            "Comment trouver ma classe",
+            "Je sais pas où se trouve ma classe",
+            "Ma Classe ?",
+            "Ma salle ?",
+            "Numéro de ma salle ?",
+            ""
+            
+        ],
+        "answer": "Au niveau de votre agenda vous verrez qu'en fonction de votre cours la salle de classe est indiqué. Cela dit, si vous ne comprenez ma la nomenclature sachez que le premier chiffre désigne l'étage et le n dernier la salle. La première salla de chaque se trouve à coté du bureau admin et le dernier à coté d'un espace coworking.  "
+    },
+    
+    {
+        "questions": [
+            "Comment contacter l'administration ?",
+            "Coordonnées de l'administration ?",
+            "Numéro de téléphone de l'université",
+            "Adresse email de l'administration",
+            "Parler à l'administration",
+            "Donnez-moi les contacts de l'université",
+            "Comment puis-je m'adresser au bureau administratif ?",
+            "Administration",
+            "Contact Administration",
+            "Coordonnées administration"
+        ],
+        "answer": "Vous pouvez contacter l'administration par email à info@ism.edu ou au +221 77 092 00 96 pendant les heures d'ouverture."
+    },
+    {
+        "questions": [
+            "Je cherche à joindre le service d'admission ?",
+            "Admission",
+            "Contact admission"
+            
+        ],
+        "answer": "Vous pouvez contacter l'admission par email à admission@ism.edu ou au +221 77 092 00 96 pendant les heures d'ouverture."
+    },
+    {
+        "questions": [
+            "Je cherche à joindre le service de la scolarité ?",
+            "Scolarité",
+            "Contact scolarité"
+            
+        ],
+        "answer": "Vous pouvez contacter la scolarité par email scolarité@ism.edu ou au +221 77 092 00 96 pendant les heures d'ouverture."
+    },
+    {
+        "questions": [
+            "Comment se connecter à un cours en ligne?",
+            "Cours en ligne ?",
+            "Où faire les cours en ligne ?"
+            
+        ],
+        "answer": "Pour vous connecter au cours en ligne, rendez-vous sur le blackboard de ISM à l'adresse learn.groupeism.sn. Vous n’aurez ensuite qu’à renseigner votre mail ism.edu.sn puis le mot de passe “ISMonline21” ou “ISMonline22”. Une fois connectée, renseignez le code du cours puis rejoignez la salle."
+    },
+    {
+        "questions": [
+            "Comment voir les enregistrements des cours en ligne?",
+            "Enregistrement ",
+            "Enregistrement cours en ligne ?",
+            "Où se trouve les enregistrements des cours en ligne ? ",
+            "Comment trouver les enregistrements des cours en ligne ? "
+            
+        ],
+        "answer": "Rendez-vous sur le blackboard de ISM à l'adresse learn.groupeism.sn. Vous n’aurez ensuite qu’à renseigner votre mail ism.edu.sn puis le mot de passe “ISMonline21” ou “ISMonline22”. Une fois connectée, renseignez le code du cours. Une fois le cours retrouvé, vous cliquez sur les points à côté de “rejoindre la session” puis sur “afficher les enregistrements”. Si vous ne trouvez pas l’enregistrement recherché, je vous invite à filtrer les enregistrements en fonction de la période dans laquelle ledit cours a été dispensé"
+    },
+    {
+        "questions": [
+            "Qu’est ce que le code d’un cours ?",
+            "Code cours c'est quoi ?",
+            "Code cours "
+            
+        ],
+        "answer": "C’est l'appellation unique d’un cours qui permet de le distinguer des autres portant le même nom"
+    },
+    {
+        "questions": [
+            "Quelle est la tenue réglementaire autorisée à ISM?",
+            "Éléments obligatoires de la tenue"
+            
+        ],
+        "answer": "Depuis plusieurs années la tenue réglementaire autorisée à ISM est la veste de couleurs bleu nuit, un pantalon ou une jupe bleu de nuit et, une chemise de couleur blanche et des chaussures de ville de couleur noire."
+    },
+    {
+        "questions": [
+            "Est-ce que je dois porter la veste tous les jours ?"
+            
+        ],
+        "answer": "Oui, vous devez la mettre à chaque jour de semaine où vous avez cours à moins"
+    },
+    {
+        "questions": [
+            "Quels sont les éléments facultatifs de  la tenue réglementaire autorisée à ISM?"
+            
+        ],
+        "answer": "Le gilet, le pull, l’écharpe"
+    },
+    {
+        "questions": [
+            "Puis-je mettre une chaussure blanche pour aller au cours?"
+            
+        ],
+        "answer": "Je crains que cette couleur de chaussure ne vous attire des problèmes à l’école. Une chaussure de type soulier et de couleur noire serait beaucoup plus appropriée."
+    },
+    {
+        "questions": [
+            "Comment avoir mon certificat de scolarité?"
+            
+        ],
+        "answer": "Il faut se rendre au rez-de -chaussée du Campus Baobab et demander après la scolarité."
+    },
+    {
+        "questions": [
+            "Comment puis-je accéder à mon planning ?"
+            
+        ],
+        "answer": "Il faut se rendre au niveau de sa boîte mail puis consulter le mail envoyé dénommé planning.. Vous verrez qu’il y a un lien qui mène au planning qu’il vous a partagé; il faut cliquer sur ce lien qui va s’ouvrir au niveau de votre calendrier ou de votre Google Agenda. A ce niveau vous avez juste à “ajouter ce planning à votre agenda”"
+    },
+    {
+        "questions": [
+            "Comment je sais qu’un cours est annulé ?"
+            
+        ],
+        "answer": "Un cours annulé ne sera plus affiché sur le planning alors c’est à vous de le consulter régulièrement en attendant que l’option notification soit disponible au niveau du planning"
+    },
+    {
+        "questions": [
+            "J'ai oublié",
+            "Mot de passe oublié "
+
+            
+        ],
+        "answer": ""
+    },
+     {
+        "questions": [
+            ""
+            
+        ],
+        "answer": ""
+    },
+    {
+        "questions": [
+            "Comment obtenir une bourse ?",
+            "Demander une bourse",
+            "Aides financières pour étudiants",
+            "Conditions pour une bourse",
+            "Informations sur les bourses",
+            "Je veux une aide pour mes études",
+            "Quelles sont les bourses disponibles ?",
+            "A qui s'adresser pour une aide financière ?"
+        ],
+        "answer": "Les informations sur les bourses d'études sont disponibles sur le site du CROUS et sur la page \"Aides financières\" de l'université."
+    },
+    {
+        "questions": [
+            "Je n'arrive pas à me connecter au Wi-Fi",
+            "Problème de connexion internet",
+            "Comment me connecter au réseau de l'université ?",
+            "Wi-Fi ne marche pas",
+            "Accès internet campus",
+            "Mon ordinateur n'a pas internet",
+            "Le réseau sans fil ne fonctionne pas",
+            "Aide pour la connexion Wi-Fi"
+        ],
+        "answer": "Veuillez contacter le support technique de l'université au 01 23 45 67 80 ou consulter la section \"Assistance Réseau\" sur l'intranet."
+    },
+    {
+        "questions": [
+            "Y a-t-il une bibliothèque ?",
+            "Horaires de la bibliothèque",
+            "Accès à la BU",
+            "La bibliothèque est-elle ouverte ?",
+            "Où est la bibliothèque ?",
+            "Je cherche la bibliothèque universitaire",
+            "Les heures d'ouverture de la BU",
+            "Puis-je aller à la bibliothèque ce week-end ?"
+        ],
+        "answer": "Oui, la bibliothèque universitaire est ouverte du lundi au vendredi de 9h à 18h."
+    },
+    {
+        "questions": [
+            ""
+            
+        ],
+        "answer": ""
+    }
+]
