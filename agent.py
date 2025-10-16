@@ -1,58 +1,52 @@
-import json
-import os
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+# agent.py
 
-# --- Configuration et Chargement de la Base de Connaissances ---
-# Le chemin doit être relatif à l'emplacement de ce fichier 'agent.py'
-json_file_path = os.path.join(os.path.dirname(__file__), 'infos.json')
+from db_connector import knowledge_base
+from logger import log_interaction 
 
-try:
-    with open(json_file_path, 'r', encoding='utf-8') as f:
-        qa_data = json.load(f)
-except FileNotFoundError:
-    print(f"Erreur : Le fichier {json_file_path} n'a pas été trouvé. Assurez-vous qu'il est dans le même répertoire que agent.py.")
-    # Quitter ou gérer l'erreur de manière plus robuste si l'application ne peut pas fonctionner sans
-    exit()
+DEFAULT_FALLBACK_ANSWER = "Désolé, je n'ai pas trouvé de réponse pertinente à votre question. Je l'ai notée pour nos administrateurs."
 
-# Initialisation des listes pour toutes les questions et leurs réponses correspondantes
-all_questions_for_vectorizer = []
-corresponding_answers = []
-
-# Parcourir chaque entrée dans les données QA
-for item in qa_data:
-    answer = item['answer']
-    # Pour chaque question équivalente, l'ajouter à la liste des questions
-    # et associer la même réponse
-    for q in item['questions']:
-        all_questions_for_vectorizer.append(q)
-        corresponding_answers.append(answer)
-
-# Vectorisation de TOUTES les questions pour la similarité
-vectorizer = TfidfVectorizer()
-question_vectors = vectorizer.fit_transform(all_questions_for_vectorizer)
-
-# Seuil de similarité global pour l'agent
-similarity_threshold = 0.4 # Ce seuil peut être ajusté ici
-
-# --- Fonction principale de Traitement de la Question (Logique IA) ---
-def get_agent_response(user_question):
+def get_agent_response(user_question: str, user_profile: str = "GUEST", username: str = "unknown") -> tuple[str, bool]:
     """
-    Traite la question de l'utilisateur et retourne la réponse de l'agent.
+    Fonction principale qui cherche la réponse à la question de l'utilisateur, 
+    adapte la réponse selon le profil, et journalise l'interaction.
     """
-    if not user_question.strip():
-        return "Veuillez poser une question."
+    
+    processed_question = user_question.lower().strip()
+    best_match_answer = None
+    
+    if not knowledge_base:
+        bot_response = "La base de connaissances n'a pas pu être chargée. Veuillez contacter l'administrateur."
+        log_interaction(user_question, bot_response, False, user_profile, username)
+        return bot_response, False
+        
+    # Logique de Recherche Simple par Mot-Clé
+    for entry in knowledge_base:
+        search_text_entry = entry['search_text'] 
+        
+        # Correspondance exacte ou inclusion
+        if processed_question == search_text_entry or processed_question in search_text_entry:
+            best_match_answer = entry['answer']
+            break
+        
+        # Correspondance inverse
+        if search_text_entry in processed_question:
+             best_match_answer = entry['answer']
+             break
 
-    user_question_vector = vectorizer.transform([user_question])
-    similarities = cosine_similarity(user_question_vector, question_vectors)
+    # Génération de la Réponse et Adaptation (Exemple)
+    if best_match_answer:
+        bot_response = best_match_answer
+        
+        # Exemple: Adapter l'aide pour un administrateur
+        if user_profile == "ADMINISTRATION" and "certificat de scolarité" in processed_question:
+             bot_response += "\n\n(Note Admin: Le processus interne se trouve dans le drive partagé 'Documents Administratifs')"
 
-    most_similar_index = similarities.argmax()
-    similarity_score = similarities[0, most_similar_index]
-
-    if similarity_score >= similarity_threshold:
-        return corresponding_answers[most_similar_index]
+        is_handled = True
     else:
-        return "Désolé, je n'ai pas trouvé de réponse pertinente à votre question. Pouvez-vous reformuler ou me poser une autre question ?"
-
-# Vous pouvez ajouter d'autres fonctions de logique IA ici si nécessaire
-# Par exemple, pour des statistiques, du logging, etc.
+        bot_response = DEFAULT_FALLBACK_ANSWER
+        is_handled = False
+        
+    # Journalisation de l'interaction
+    log_interaction(user_question, bot_response, is_handled, user_profile, username)
+    
+    return bot_response, is_handled

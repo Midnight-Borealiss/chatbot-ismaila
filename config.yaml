@@ -1,0 +1,13 @@
+# config.yaml
+
+# --- Définition des Rôles/Profils (Par email) ---
+user_profiles:
+  ADMINISTRATION:
+    # Les emails de ces comptes auront le profil ADMINISTRATION
+    - admin@ism.edu
+    - votre.email@gmail.com
+  ENSEIGNANT:
+    - prof.info@ism.edu
+  
+# Profil par défaut pour tous les autres utilisateurs qui se connectent
+default_profile: ÉTUDIANT
