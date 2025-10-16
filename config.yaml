@@ -1,5 +1,7 @@
 # config.yaml
-
+# requirements.txt
+streamlit
+pyyaml
 # --- Définition des Rôles/Profils (Par email) ---
 user_profiles:
   ADMINISTRATION:
@@ -10,4 +12,5 @@ user_profiles:
     - prof.info@ism.edu
   
 # Profil par défaut pour tous les autres utilisateurs qui se connectent
+
 default_profile: ÉTUDIANT
