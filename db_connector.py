@@ -1,5 +1,3 @@
-# db_connector.py
-
 import json
 import os 
 
@@ -46,4 +44,3 @@ def load_knowledge_base_from_json():
     except Exception:
         return []
 
-load_knowledge_base_from_json()

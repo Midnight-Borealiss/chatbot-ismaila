@@ -1,5 +1,3 @@
-# agent.py
-
 from db_connector import knowledge_base
 from logger import log_interaction 
 
@@ -49,4 +47,3 @@ def get_agent_response(user_question: str, user_profile: str = "GUEST", username
     # Journalisation de l'interaction
     log_interaction(user_question, bot_response, is_handled, user_profile, username)
     
-    return bot_response, is_handled

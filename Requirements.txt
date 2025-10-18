@@ -1,4 +1,4 @@
-# Fichier requis pour installer l'environnement Python
+
 streamlit
 
 # Ajoutez ici vos dépendances RAG quand vous les intégrerez (ex: )
@@ -6,3 +6,4 @@ streamlit
 # transformers
 # faiss-cpu
 # sentence-transformers 
+
