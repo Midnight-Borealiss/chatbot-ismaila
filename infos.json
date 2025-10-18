@@ -146,17 +146,8 @@
         "questions": [
             "J'ai oublié",
             "Mot de passe oublié "
-
-            
         ],
-        "answer": ""
-    },
-     {
-        "questions": [
-            ""
-            
-        ],
-        "answer": ""
+        "answer": "Faites le savoir à votre assistant de programme pour qu'il se charge de faire la demande de réinitialisation"
     },
     {
         "questions": [
@@ -197,6 +188,175 @@
         ],
         "answer": "Oui, la bibliothèque universitaire est ouverte du lundi au vendredi de 9h à 18h."
     },
+    {"Catégorie": [ "----------------------------Les activités pédagogiques et parascolaires----------------------------------" ]},
+    {
+        "questions": [
+            "Le retard est-il autorisé à l’école ?"
+        ],
+        "answer": "Le respect des horaires de cours est une obligation égale pour tous. Le retard est effectif au-delà de 15 minutes après le début du cours ou de l’activité programmée à 8h00. Cette disposition ne concerne pas les cours qui commencent au-delà de 8h00."
+    },
+
+    {
+        "questions": [
+            "A qui dois-je m’adresser en cas de besoin ?"
+        ],
+        "answer": "Mon interlocuteur direct en cas de besoin dans l’administration est mon assistant de programme, qui veille soigneusement au bon déroulé de ma vie scolaire."
+    },
+    
+    {
+        "questions": [
+            "Comment je reçois les informations importantes ?"
+        ],
+        "answer": "L’administration communique avec les étudiants par affichage, par mail et/ou par whatsapp. Ce sont les moyens officiels de diffusion de toutes les informations, sauf cas d’urgence. Il est donc vivement recommandé de consulter régulièrement les tableaux d’affichage, e-mail, votre agenda, et de bien lire les messages qui vous seront envoyés."
+    },
+    {
+        "questions": [
+            "Comment se passe la cérémonie de remise des diplômes et à quelle période se tient-elle ?"
+        ],
+        "answer": "A la fin de chaque cycle, le Groupe ISM fête ses lauréats lors d’une grande manifestation, qui rassemble parents, amis, corps professoral, autorités étatiques et lauréats de la promotion sortante : c’est la GRADUATION !Elle se tient chaque année au cours du mois de juin. Un parrain est choisi à cet effet pour la promotion sortante."
+    },
+    {
+        "questions": [
+            "Y a t-il une bibliothèque pour les étudiants ?"
+        ],
+        "answer": "Le campus dispose d’une bibliothèque, située au 1er étage du bâtiment où se trouve la caisse, non loin du bâtiment administratif."
+    },
+    {
+        "questions": [
+            "Je suis en classe et je ne me sens pas bien ?"
+        ],
+        "answer": "Le campus dispose d’une infirmerie, située au 2em étage"
+    },
+    {
+        "questions": [
+            "Comment se déroulent les évaluations et soutenances ?"
+        ],
+        "answer": "Au cours de l’année, l’étudiant est soumis à un contrôle continu des connaissances et à des examens périodiques sous forme d’épreuves écrites ou orales, dans toutes les matières. Des devoirs et travaux à faire à la maison peuvent également être organisés. Si toutefois l’étudiant rate un cours, il peut se rapprocher de son assistant de programme pour connaitre les possibilités de rattrapage de certaines matières. En fin de cycle, chaque étudiant prépare et soutient un projet de création d’entreprise ou un mémoire de recherche devant un jury (selon le programme)"
+    },
+
+    {"Catégorie": [ "-------------------------------------Le Paiement de la scolarité-------------------------------------------" ]},
+
+    {
+        "questions": [
+            "Comment dois-je payer mes frais de scolarité ?"
+        ],
+        "answer": "Les frais de scolarité, déterminés annuellement, peuvent être payables intégralement à la rentrée ou étalés sur 10 mois. Ainsi les mensualités sont payables d’avance au plus tard le 05 du mois.Plusieurs possibilités de paiement s’offrent à l’étudiant Par espèces au niveau des caisses situées à Dakar Point E dans les locaux du Groupe ISM;Par virement bancaire sur le compte CAMPUS SAS à la BICIS;Par Orange Money via l’application d’Orange;Par Wave directement sur l’application; En ligne sur ClassExpert via l’application Touch Pay qui offre divers moyens de paiement : Wave, OM, Free Money, e-money, Wizall ou encore par carte bancaire Visa ou MasterCard;Via l’application MyTouchPoint : https://www.mytouchpoint.net/groupeism"
+    },
+    {
+        "questions": [
+            "J’ai des problèmes liés au paiement et je ne veux pas rater mes cours ?"
+        ],
+        "answer": "Certains étudiants peuvent rencontrer des difficultés financières temporaires, et le service de recouvrement peut les orienter vers des ressources d’aide financière ou travailler avec eux pour trouver des solutions adaptées. L’étudiant, sur autorisation de son parent/tuteur, peut se rendre au service recouvrement au 4éme étage du bâtiment administratif pour demander : un laisser passer en cas de retard de paiement : ce qui permet à l’étudiant d’aller en salle sur une durée limitée avant de procéder au paiement de sa scolarité un moratoire de paiement : une mesure exceptionnelle en réponse à des situations économiques familiales, octroyant à l’étudiant la possibilité d’avoir des changements temporaires dans ses paiements des frais de scolarité."
+    },
+        {"Catégorie": [ "-----------------------------------Les outils digitaux de l’étudiant----------------------------------------" ]},
+    {
+        "questions": [
+            "M’est-il possible de consulter mes notes en ligne ?"
+        ],
+        "answer": "Il est possible de consulter vos notes en ligne sur la plateforme Classexpert, accessible depuis tous les supports à partir de ce lien : https://online.classexpert.com. Seul une connexion internet est requise."
+    },
+    {
+        "questions": [
+            "Puis-je consulter mon solde de scolarité en ligne ?"
+        ],
+        "answer": "Pour consulter votre solde de la scolarité, connectez-vous sur la plateforme https://online.classexpert.com puis allez à l’onglet «solde»."
+    },
+    {
+        "questions": [
+            "Comment pourrai-je participer aux cours en ligne programmés dans mon agenda ?"
+        ],
+        "answer": "Les cours en ligne se font sur blackboard ultra acccessible sur http://learn.groupeism.sn.Blackboard Ultra est un espace où se rencontrent professeurs et étudiants afin de participer à un cours organisé en ligne depuis un ordinateur, une tablette ou un smartphone, et de partager des ressources relatives à la documentation des cours."
+    },
+     {"Catégorie": [ "-----------------------------------Le programme des bourses d’excellence----------------------------------------" ]},
+    {
+        "questions": [
+            "Comment devenir boursier du Programme d’excellence ISM"
+        ],
+        "answer": ""
+    },
+    {
+        "questions": [
+            "Je suis boursier du Programme d’excellence ISM ?"
+        ],
+        "answer": "L’étudiant boursier s’engage en contrepartie à être exemplaire tant sur le plan académique en obtenant une moyenne générale supérieure ou égale à 13/20 que sur le plan comportemental. En outre, il peut être sollicité pour appuyer un service en tant que bénévole."
+    },
+         {"Catégorie": [ "---------------------L’admission à l’international et les programmes d’échanges---------------------------" ]},
+
+    {
+        "questions": [
+            ""
+        ],
+        "answer": ""
+    },
+    {
+        "questions": [
+            "Comment se fait la sélection des candidats au programme d’échange ?"
+        ],
+        "answer": "Les étudiants sont sélectionnés tenant compte de leurs résultats académiques et de leur niveau linguistique (bon niveau d’anglais). Sur la base du programme d’échange, ils ne paient aucun frais de scolarité à l’école d’accueil. Cependant ils supportent les frais liés à leur hébergement et autres frais de vie"
+    },
+    {
+        "questions": [
+            "Dans quelle école/université à l’international je peux continuer mes études ?"
+        ],
+        "answer": "En offrant aux étudiants l’opportunité d’une mobilité internationale, l’ISM leur assure l’exposition à de nouvelles pédagogies, de nouveaux environnements culturels, économiques et technologiques qui renforcent leurs compétences et leur adaptabilité. Continuer ses études à l’international, c’est bénéficier d’un réseau de 50 partenaires institutionnels en Afrique, Europe, Asie et en Amérique, en plus de 60 autres écoles du réseau Galiléo, l’étudiant bénéficie d’une réduction de 15% sur ses frais de scolarité.Consulter la liste des écoles partenaires : https://www.groupeism.sn/groupe-ism/partenariats-et-echanges-internationaux."
+    },
+     {"Catégorie": [ "---------------------L’admission à l’international et les programmes d’échanges---------------------------" ]},
+
+    {
+        "questions": [
+            "Comment se fait la sélection des candidats au programme d’échange ?"
+        ],
+        "answer": "Les étudiants sont sélectionnés tenant compte de leurs résultats académiques et de leur niveau linguistique (bon niveau d’anglais). Sur la base du programme d’échange, ils ne paient aucun frais de scolarité à l’école d’accueil. Cependant ils supportent les frais liés à leur hébergement et autres frais de vie."
+    },
+    {
+        "questions": [
+            "Dans quelle école/université à l’international je peux continuer mes études ?"
+        ],
+        "answer": "En offrant aux étudiants l’opportunité d’une mobilité internationale, l’ISM leur assure l’exposition à de nouvelles pédagogies, de nouveaux environnements culturels, économiques et technologiques qui renforcent leurs compétences et leur adaptabilité. Continuer ses études à l’international, c’est bénéficier d’un réseau de 50 partenaires institutionnels en Afrique, Europe, Asie et en Amérique, en plus de 60 autres écoles du réseau Galiléo, l’étudiant bénéficie d’une réduction de 15% sur ses frais de scolarité.Consulter la liste des écoles partenaires : https://www.groupeism.sn/groupe-ism/partenariats-et-echanges-internationaux."
+    },
+{"Catégorie": [ "---------------------L’admission à l’international et les programmes d’échanges---------------------------" ]},
+    {
+        "questions": [
+            "L’appui à l’insertion professionnelle"
+        ],
+        "answer": ""
+    },
+    {
+        "questions": [
+            ""
+        ],
+        "answer": ""
+    },
+    {
+        "questions": [
+            ""
+        ],
+        "answer": ""
+    },
+    {
+        "questions": [
+            ""
+        ],
+        "answer": ""
+    },
+    {
+        "questions": [
+            ""
+        ],
+        "answer": ""
+    },
+    {
+        "questions": [
+            ""
+        ],
+        "answer": ""
+    },
+    {
+        "questions": [
+            ""
+        ],
+        "answer": ""
+    },
     {
         "questions": [
             ""
@@ -204,4 +364,5 @@
         ],
         "answer": ""
     }
+
 ]
