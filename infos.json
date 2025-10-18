@@ -240,7 +240,7 @@
         "questions": [
             "Comment dois-je payer mes frais de scolarité ?"
         ],
-        "answer": "Les frais de scolarité, déterminés annuellement, peuvent être payables intégralement à la rentrée ou étalés sur 10 mois. Ainsi les mensualités sont payables d’avance au plus tard le 05 du mois.Plusieurs possibilités de paiement s’offrent à l’étudiant Par espèces au niveau des caisses situées à Dakar Point E dans les locaux du Groupe ISM;Par virement bancaire sur le compte CAMPUS SAS à la BICIS;Par Orange Money via l’application d’Orange;Par Wave directement sur l’application; En ligne sur ClassExpert via l’application Touch Pay qui offre divers moyens de paiement : Wave, OM, Free Money, e-money, Wizall ou encore par carte bancaire Visa ou MasterCard;Via l’application MyTouchPoint : https://www.mytouchpoint.net/groupeism"
+        "answer": "Les frais de scolarité, déterminés annuellement, peuvent être payables intégralement à la rentrée ou étalés sur 10 mois. Ainsi les mensualités sont payables d’avance au plus tard le 05 du mois.Plusieurs possibilités de paiement s’offrent à l’étudiant ; Par espèces au niveau des caisses situées à Dakar Point E dans les locaux du Groupe ISM;Par virement bancaire sur le compte CAMPUS SAS à la BICIS;Par Orange Money via l’application d’Orange;Par Wave directement sur l’application; En ligne sur ClassExpert via l’application Touch Pay qui offre divers moyens de paiement : Wave, OM, Free Money, e-money, Wizall ou encore par carte bancaire Visa ou MasterCard;Via l’application MyTouchPoint : https://www.mytouchpoint.net/groupeism"
     },
     {
         "questions": [
@@ -364,5 +364,6 @@
         ],
         "answer": ""
     }
+
 
 ]

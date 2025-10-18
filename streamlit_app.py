@@ -1,11 +1,9 @@
-# streamlit_app.py (VERSION SANS YAML ET AVEC JOURNAL DE CONNEXION)
+# streamlit_app.py (VERSION FINALE SANS YAML)
 
 import streamlit as st
-# REMPLACER le yaml par la définition des règles directement dans le code
 import time 
 
 from agent import get_agent_response
-# Importation de la nouvelle fonction de journalisation
 from logger import log_connection_event 
 
 
@@ -55,7 +53,6 @@ def get_user_profile_from_email(user_email):
 
 def logout():
     """Déconnecte l'utilisateur et journalise l'événement."""
-    # 1. Journaliser la déconnexion AVANT de vider l'état
     log_connection_event(
         event_type="LOGOUT",
         username=st.session_state.username,
@@ -63,7 +60,6 @@ def logout():
         profile=st.session_state.user_profile
     )
     
-    # 2. Vider l'état
     st.session_state["logged_in"] = False
     st.session_state["username"] = None
     st.session_state["name"] = None
@@ -89,10 +85,8 @@ def render_login_page():
                 with st.spinner("Vérification du profil..."):
                     time.sleep(0.5) 
                     
-                # Détermination du profil
                 user_profile = get_user_profile_from_email(user_email)
                 
-                # Stockage des données
                 st.session_state.logged_in = True
                 st.session_state.username = user_email
                 st.session_state.name = user_name
@@ -106,7 +100,6 @@ def render_login_page():
                     profile=user_profile
                 )
                 
-                # Message de bienvenue
                 st.session_state.messages.append({"role": "assistant", "content": f"Bonjour {user_name} (Profil: {user_profile}) ! Bienvenue sur le Chatbot ISMAILA. Comment puis-je vous aider ?"})
                 st.rerun() 
 
