@@ -1,0 +1,9 @@
+
+streamlit
+
+# Ajoutez ici vos dépendances RAG quand vous les intégrerez (ex: )
+# torch
+# transformers
+# faiss-cpu
+# sentence-transformers 
+
