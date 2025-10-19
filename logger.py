@@ -1,42 +1,73 @@
-# logger.py (Mise à jour complète)
+# logger.py (VERSION AIRTABLE)
 
-import csv
-import os
 from datetime import datetime
+import streamlit as st
+from pyairtable import Table
 
-# Journal des interactions (déjà existant)
-LOG_FILE_INTERACTIONS = "chatbot_interactions.csv"
-HEADERS_INTERACTIONS = ["timestamp", "user_question", "bot_response", "is_handled", "profile", "username"] 
+# --- CONFIGURATION AIRTABLE (Chargement via st.secrets) ---
+try:
+    AIRTABLE_API_KEY = st.secrets["airtable"]["API_KEY"]
+    AIRTABLE_BASE_ID = st.secrets["airtable"]["BASE_ID"]
+    
+    # Noms des tables pour la journalisation
+    LOGS_TABLE_NAME = st.secrets["airtable"]["TABLE_LOGS"] # Logs
+    NEW_QUESTIONS_TABLE_NAME = st.secrets["airtable"]["TABLE_NEW_QUESTIONS"] # New_Questions
 
-# NOUVEAU Journal des connexions
-LOG_FILE_CONNECTIONS = "user_logins.csv"
-HEADERS_CONNECTIONS = ["timestamp", "event_type", "username", "name", "profile"]
+    # Initialisation de la connexion Airtable (si secrets existent)
+    AIRTABLE_LOGS_TABLE = Table(AIRTABLE_API_KEY, AIRTABLE_BASE_ID, LOGS_TABLE_NAME)
+    AIRTABLE_NEW_QUESTIONS_TABLE = Table(AIRTABLE_API_KEY, AIRTABLE_BASE_ID, NEW_QUESTIONS_TABLE_NAME)
 
-def initialize_log_file(file_path, headers):
-    """Initialise un fichier CSV de log si nécessaire."""
-    if not os.path.exists(file_path):
-        with open(file_path, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(headers)
+    IS_AIRTABLE_READY = True
+except (KeyError, AttributeError, ValueError):
+    IS_AIRTABLE_READY = False
 
-def log_interaction(user_question: str, bot_response: str, is_handled: bool, profile: str = "GUEST", username: str = "unknown"):
-    """Enregistre une interaction dans le fichier CSV."""
-    initialize_log_file(LOG_FILE_INTERACTIONS, HEADERS_INTERACTIONS)
+
+def log_to_airtable(table_obj, fields):
+    """Fonction générique pour enregistrer une ligne dans une table Airtable."""
+    if not IS_AIRTABLE_READY:
+        print("Airtable non configuré. Journalisation ignorée.")
+        return
+
     try:
-        with open(LOG_FILE_INTERACTIONS, 'a', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            timestamp = datetime.now().isoformat()
-            writer.writerow([timestamp, user_question, bot_response, str(is_handled), profile, username])
-    except Exception:
-        pass 
+        table_obj.create(fields)
+    except Exception as e:
+        print(f"ERREUR d'écriture Airtable: {e}")
+
 
 def log_connection_event(event_type: str, username: str, name: str, profile: str):
-    """Enregistre un événement de connexion ou de déconnexion."""
-    initialize_log_file(LOG_FILE_CONNECTIONS, HEADERS_CONNECTIONS)
-    try:
-        with open(LOG_FILE_CONNECTIONS, 'a', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            timestamp = datetime.now().isoformat()
-            writer.writerow([timestamp, event_type, username, name, profile])
-    except Exception:
-        pass
+    """Enregistre un événement de connexion ou de déconnexion dans la table 'Logs'."""
+    fields = {
+        "Timestamp": datetime.now().isoformat(),
+        "Type": event_type, # LOGIN ou LOGOUT
+        "Email": username,
+        "Nom": name,
+        "Profile": profile
+        # Le champ 'Question' et 'Réponse' seront laissés vides pour ces événements
+    }
+    log_to_airtable(AIRTABLE_LOGS_TABLE, fields)
+
+
+def log_interaction(user_question: str, bot_response: str, is_handled: bool, profile: str = "GUEST", username: str = "unknown"):
+    """Enregistre une interaction (question/réponse) dans la table 'Logs'."""
+    fields = {
+        "Timestamp": datetime.now().isoformat(),
+        "Type": "INTERACTION",
+        "Email": username,
+        "Profile": profile,
+        "Question": user_question,
+        "Réponse": bot_response,
+        "Géré": is_handled 
+    }
+    log_to_airtable(AIRTABLE_LOGS_TABLE, fields)
+
+
+def log_unhandled_question(user_question: str, profile: str, username: str):
+    """Enregistre les questions sans réponse trouvée dans la table 'New_Questions'."""
+    fields = {
+        "Date": datetime.now().isoformat(),
+        "Question": user_question,
+        "Email": username,
+        "Profile": profile,
+        "Statut": "À Traiter" # Le statut par défaut dans votre table
+    }
+    log_to_airtable(AIRTABLE_NEW_QUESTIONS_TABLE, fields)

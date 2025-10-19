@@ -11,18 +11,21 @@ from logger import log_connection_event
 # Les emails doivent être en minuscules pour garantir la correspondance
 USER_PROFILES_RULES = {
     "ADMINISTRATION": [
-        "admin@ism.edu",
+        "votre.email@admin",
         "votre.email@gmail.com"
     ],
     "ENSEIGNANT": [
-        "prof.info@ism.edu"
+        "votre.email@prof"
+    ],
+    "ÉTUDIANT":[
+        "votre.email@edu"
     ]
 }
-DEFAULT_PROFILE = "ÉTUDIANT"
+DEFAULT_PROFILE = "Testeur"
 
 
 # --- Configuration de la Page Streamlit ---
-st.set_page_config(page_title="Chatbot ISMAILA", layout="wide")
+st.set_page_config(page_title="Assistant ISMaiLa", layout="wide")
 
 
 # --- Initialisation des États de Session ---
@@ -69,12 +72,12 @@ def logout():
 
 def render_login_page():
     """Affiche la page de saisie du pseudonyme et de l'email."""
-    st.title("Accès au Chatbot ISMAILA 👤")
+    st.title("Bienvenue sur la page de l'assistant ISMaiLa 👤")
     st.markdown("Veuillez saisir votre nom et votre email pour démarrer la conversation.")
     
     with st.form("access_form"):
         user_name = st.text_input("Votre Nom/Pseudonyme", key="input_name")
-        user_email = st.text_input("Votre Email (ex: nom@ism.edu)", key="input_email")
+        user_email = st.text_input("Votre Email (ex: votre.email@edu, votre.email@prof, votre.email@admin)", key="input_email")
         
         submitted = st.form_submit_button("Démarrer le Chat")
         
@@ -100,7 +103,7 @@ def render_login_page():
                     profile=user_profile
                 )
                 
-                st.session_state.messages.append({"role": "assistant", "content": f"Bonjour {user_name} (Profil: {user_profile}) ! Bienvenue sur le Chatbot ISMAILA. Comment puis-je vous aider ?"})
+                st.session_state.messages.append({"role": "assistant", "content": f"Salut {user_name} ! Comment puis-je vous aider ?"})
                 st.rerun() 
 
 
@@ -108,7 +111,6 @@ def render_chatbot_page():
     """Affiche l'interface du chatbot."""
     
     st.sidebar.markdown(f"**Utilisateur:** {st.session_state['name']}")
-    st.sidebar.markdown(f"**Profil:** {st.session_state.user_profile}")
     st.sidebar.button('Changer d\'utilisateur 🚪', on_click=logout)
     
     st.title("Chatbot ISMAILA - Aide Étudiant")
