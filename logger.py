@@ -1,45 +1,53 @@
-# logger.py (VERSION AIRTABLE FINALE AVEC GESTION D'ERREUR)
+# logger.py (VERSION FINALE AVEC CACHE)
 
 from datetime import datetime
 import streamlit as st
 from pyairtable import Table
 
-# Initialisation des variables globales de connexion
-AIRTABLE_LOGS_TABLE = None
-AIRTABLE_NEW_QUESTIONS_TABLE = None
-IS_AIRTABLE_READY = False
+# --- CONFIGURATION AIRTABLE (Chargement sécurisé) ---
 
-# --- CONFIGURATION AIRTABLE (Chargement via st.secrets) ---
-try:
-    # 1. Charger les clés
-    AIRTABLE_API_KEY = st.secrets["airtable"]["API_KEY"]
-    AIRTABLE_BASE_ID = st.secrets["airtable"]["BASE_ID"]
-    
-    # 2. Charger les noms de tables (assurez-vous que la casse est correcte dans secrets.toml)
-    LOGS_TABLE_NAME = st.secrets["airtable"]["TABLE_LOGS"] 
-    NEW_QUESTIONS_TABLE_NAME = st.secrets["airtable"]["TABLE_NEW_QUESTIONS"] 
-
-    # 3. Vérifier que toutes les clés sont présentes
-    if AIRTABLE_API_KEY and AIRTABLE_BASE_ID and LOGS_TABLE_NAME and NEW_QUESTIONS_TABLE_NAME:
-        # 4. Initialisation des objets Table
-        # La connexion échoue souvent ici si les clés sont invalides ou si la base/table n'existe pas.
-        AIRTABLE_LOGS_TABLE = Table(AIRTABLE_API_KEY, AIRTABLE_BASE_ID, LOGS_TABLE_NAME)
-        AIRTABLE_NEW_QUESTIONS_TABLE = Table(AIRTABLE_API_KEY, AIRTABLE_BASE_ID, NEW_QUESTIONS_TABLE_NAME)
+# Fonction pour charger l'objet Table de manière sécurisée et le mettre en cache
+@st.cache_resource
+def get_airtable_table(table_name):
+    """Charge un objet Table Airtable en toute sécurité et le met en cache."""
+    try:
+        api_key = st.secrets["airtable"]["API_KEY"]
+        base_id = st.secrets["airtable"]["BASE_ID"]
         
-        IS_AIRTABLE_READY = True
-        print("Airtable: Connexion établie et tables initialisées.")
-    else:
-        print("Airtable: Des secrets sont manquants ou vides. Journalisation désactivée.")
+        # Vérification simple de l'existence des clés
+        if not api_key or not base_id or not table_name:
+            print(f"Airtable: Clés ou nom de table '{table_name}' manquants dans les secrets.")
+            return None
 
-except Exception as e:
-    # Si le chargement des secrets ou l'initialisation de Table échoue
-    print(f"================================================================")
-    print(f"!!! ÉCHEC DE LA CONFIGURATION AIRTABLE (DÉMARRAGE) !!!")
-    print(f"L'application DÉMARRE mais ne peut pas logger. Erreur: {e}") 
-    print(f"Vérifiez l'API_KEY, BASE_ID et les noms de tables dans secrets.toml.")
-    print(f"================================================================")
-    IS_AIRTABLE_READY = False
+        # Tente de créer l'objet Table (là où l'erreur d'API peut se produire)
+        table = Table(api_key, base_id, table_name)
+        print(f"Airtable: Table '{table_name}' chargée avec succès.")
+        return table
 
+    except Exception as e:
+        # Si le chargement des secrets échoue ou l'initialisation de Table plante
+        print(f"================================================================")
+        print(f"!!! ÉCHEC CRITIQUE DE LA CONFIGURATION AIRTABLE !!!")
+        print(f"Table: {table_name}")
+        print(f"Erreur: {e}") 
+        print(f"Vérifiez l'API_KEY, BASE_ID.")
+        print(f"================================================================")
+        return None
+
+# --- Récupération des objets Table (S'ils sont dans les secrets) ---
+try:
+    LOGS_TABLE_NAME = st.secrets["airtable"]["TABLE_LOGS"] 
+    NEW_QUESTIONS_TABLE_NAME = st.secrets["airtable"]["TABLE_NEW_QUESTIONS"]
+except KeyError:
+    LOGS_TABLE_NAME = None
+    NEW_QUESTIONS_TABLE_NAME = None
+
+# Les objets Table sont récupérés ici, mais la connexion ne se fait qu'au premier appel
+AIRTABLE_LOGS_TABLE = get_airtable_table(LOGS_TABLE_NAME)
+AIRTABLE_NEW_QUESTIONS_TABLE = get_airtable_table(NEW_QUESTIONS_TABLE_NAME)
+
+# L'indicateur de préparation est maintenant basé sur la réussite du chargement
+IS_AIRTABLE_READY = AIRTABLE_LOGS_TABLE is not None and AIRTABLE_NEW_QUESTIONS_TABLE is not None
 
 # --- FONCTIONS DE JOURNALISATION ---
 
@@ -49,33 +57,29 @@ def log_to_airtable(table_obj, fields):
         print("Airtable non prêt. Log ignoré.")
         return
 
-    # Vérification secondaire pour s'assurer que l'objet Table n'est pas None
     if table_obj is None:
         print(f"Airtable: L'objet Table cible est None pour les données: {fields}. Log ignoré.")
         return
 
     try:
-        # Enregistrement des données
         table_obj.create(fields)
-        # print("Airtable: Log enregistré avec succès.") # (Optionnel : peut surcharger les logs)
 
     except Exception as e:
         # Affiche l'erreur complète de l'API Airtable dans les logs Streamlit
         print(f"================================================================")
         print(f"!!! ERREUR D'ÉCRITURE AIRTABLE !!!")
-        print(f"Tentative d'écriture dans la table: {table_obj.table_name}")
+        print(f"Table: {table_obj.table_name}")
         print(f"Détails de l'erreur Airtable: {e}") 
-        print(f"Les causes fréquentes sont: nom de colonne incorrect ou permissions insuffisantes du jeton.")
+        print(f"Vérifiez les noms de colonnes et les types de champs.")
         print(f"Données envoyées: {fields}")
         print(f"================================================================")
 
 
 def log_connection_event(event_type: str, username: str, name: str, profile: str):
     """Enregistre un événement de connexion ou de déconnexion dans la table 'Logs'."""
-    # Assurez-vous que les noms des champs correspondent aux colonnes de votre table Logs
     fields = {
         "Timestamp": datetime.now().isoformat(),
-        "Type": event_type, # LOGIN ou LOGOUT
+        "Type": event_type, 
         "Email": username,
         "Nom": name,
         "Profile": profile
@@ -85,7 +89,6 @@ def log_connection_event(event_type: str, username: str, name: str, profile: str
 
 def log_interaction(user_question: str, bot_response: str, is_handled: bool, profile: str = "GUEST", username: str = "unknown"):
     """Enregistre une interaction (question/réponse) dans la table 'Logs'."""
-    # Assurez-vous que les noms des champs correspondent aux colonnes de votre table Logs
     fields = {
         "Timestamp": datetime.now().isoformat(),
         "Type": "INTERACTION",
@@ -100,7 +103,6 @@ def log_interaction(user_question: str, bot_response: str, is_handled: bool, pro
 
 def log_unhandled_question(user_question: str, profile: str, username: str):
     """Enregistre les questions sans réponse trouvée dans la table 'New_Questions'."""
-    # Assurez-vous que les noms des champs correspondent aux colonnes de votre table New_Questions
     fields = {
         "Date": datetime.now().isoformat(), 
         "Question": user_question,
