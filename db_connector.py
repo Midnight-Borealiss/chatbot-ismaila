@@ -89,6 +89,7 @@ def get_knowledge_base():
         knowledge_base = []
         
     return knowledge_base
+knowledge_base = get_knowledge_base()
 
 # Le code suivant est nécessaire pour s'assurer que la base est chargée au démarrage
 # et affichera les messages de débogage.
