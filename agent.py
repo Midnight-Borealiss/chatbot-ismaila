@@ -1,9 +1,8 @@
-# agent.py (VERSION AIRTABLE FINALE)
+# agent.py (VERSION AIRTABLE : Appel de l'API)
 
 from logger import log_interaction, log_unhandled_question 
-from db_connector import knowledge_base # La base est chargée par db_connector depuis Airtable
+from db_connector import knowledge_base # La base est chargée par db_connector
 
-# Le message de repli n'a pas besoin de changer
 DEFAULT_FALLBACK_ANSWER = "Désolé, je n'ai pas trouvé de réponse pertinente à votre question. Je l'ai notée pour nos administrateurs."
 
 
@@ -18,14 +17,11 @@ def get_agent_response(user_question: str, user_profile: str = "GUEST", username
     
     # --- 1. Vérification de la Base de Connaissances ---
     if not knowledge_base:
-        # Note : Nous ne journalisons pas cette erreur d'application dans Logs/New_Questions
-        # car la connexion à Airtable a déjà échoué au niveau de db_connector/logger.
         bot_response = "La base de connaissances n'a pas pu être chargée. Veuillez contacter l'administrateur."
         return bot_response, False
         
     # --- 2. Logique de Recherche Simple par Mot-Clé ---
     
-    # Nous itérons sur la base chargée depuis la table 'FAQ'
     for entry in knowledge_base:
         search_text_entry = entry['search_text'] 
         
@@ -42,7 +38,7 @@ def get_agent_response(user_question: str, user_profile: str = "GUEST", username
     if best_match_answer:
         bot_response = best_match_answer
         
-        # Exemple: Adapter l'aide pour un administrateur (si besoin)
+        # Logique d'adaptation pour les profils (si nécessaire)
         if user_profile == "ADMINISTRATION" and "certificat de scolarité" in processed_question:
              bot_response += "\n\n(Note Admin: Le processus interne se trouve dans le drive partagé 'Documents Administratifs')"
 
@@ -52,10 +48,10 @@ def get_agent_response(user_question: str, user_profile: str = "GUEST", username
         bot_response = DEFAULT_FALLBACK_ANSWER
         is_handled = False
         
-        # NOUVEAU : Enregistrer la question non gérée dans la table 'New_Questions'
+        # Enregistrer la question non gérée dans la table 'New_Questions'
         log_unhandled_question(user_question, user_profile, username)
         
-    # Journalisation de l'interaction (log_interaction enregistre dans la table 'Logs')
+    # Journalisation de l'interaction (enregistre dans la table 'Logs')
     log_interaction(user_question, bot_response, is_handled, user_profile, username)
     
     return bot_response, is_handled
