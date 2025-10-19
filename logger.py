@@ -1,12 +1,17 @@
-# logger.py (VERSION FINALE AVEC CACHE)
+# logger.py (VERSION FINALE ET SÉCURISÉE)
 
 from datetime import datetime
 import streamlit as st
 from pyairtable import Table
 
-# --- CONFIGURATION AIRTABLE (Chargement sécurisé) ---
+# --- INITIALISATION GLOBALE ET DÉFENSSIVE ---
+# Ces variables DOIVENT être définies, même à None, pour éviter l'erreur NameError.
+AIRTABLE_LOGS_TABLE = None
+AIRTABLE_NEW_QUESTIONS_TABLE = None
+IS_AIRTABLE_READY = False
 
-# Fonction pour charger l'objet Table de manière sécurisée et le mettre en cache
+# --- CONFIGURATION AIRTABLE (Chargement sécurisé et mis en cache) ---
+
 @st.cache_resource
 def get_airtable_table(table_name):
     """Charge un objet Table Airtable en toute sécurité et le met en cache."""
@@ -30,19 +35,21 @@ def get_airtable_table(table_name):
         print(f"!!! ÉCHEC CRITIQUE DE LA CONFIGURATION AIRTABLE !!!")
         print(f"Table: {table_name}")
         print(f"Erreur: {e}") 
-        print(f"Vérifiez l'API_KEY, BASE_ID.")
+        print(f"Vérifiez l'API_KEY et BASE_ID dans secrets.toml.")
         print(f"================================================================")
         return None
 
-# --- Récupération des objets Table (S'ils sont dans les secrets) ---
+# --- Récupération des objets Table ---
 try:
+    # On utilise le try/except ici pour intercepter les erreurs de "KeyError" si le bloc [airtable] manque
     LOGS_TABLE_NAME = st.secrets["airtable"]["TABLE_LOGS"] 
     NEW_QUESTIONS_TABLE_NAME = st.secrets["airtable"]["TABLE_NEW_QUESTIONS"]
 except KeyError:
     LOGS_TABLE_NAME = None
     NEW_QUESTIONS_TABLE_NAME = None
 
-# Les objets Table sont récupérés ici, mais la connexion ne se fait qu'au premier appel
+# Les objets Table sont récupérés ici, et grâce à l'initialisation au début, 
+# même si cette partie plante, les variables existent (elles seront None).
 AIRTABLE_LOGS_TABLE = get_airtable_table(LOGS_TABLE_NAME)
 AIRTABLE_NEW_QUESTIONS_TABLE = get_airtable_table(NEW_QUESTIONS_TABLE_NAME)
 
@@ -62,15 +69,16 @@ def log_to_airtable(table_obj, fields):
         return
 
     try:
+        # Enregistrement des données
         table_obj.create(fields)
 
     except Exception as e:
         # Affiche l'erreur complète de l'API Airtable dans les logs Streamlit
         print(f"================================================================")
         print(f"!!! ERREUR D'ÉCRITURE AIRTABLE !!!")
-        print(f"Table: {table_obj.table_name}")
+        print(f"Table: {table_obj.table_name if table_obj else 'INCONNU'}")
         print(f"Détails de l'erreur Airtable: {e}") 
-        print(f"Vérifiez les noms de colonnes et les types de champs.")
+        print(f"Vérifiez les noms de colonnes et les types de champs Airtable.")
         print(f"Données envoyées: {fields}")
         print(f"================================================================")
 
