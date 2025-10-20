@@ -76,7 +76,7 @@ def log_to_airtable(table_obj, fields):
         # Affiche l'erreur complète de l'API Airtable dans les logs Streamlit
         print(f"================================================================")
         print(f"!!! ERREUR D'ÉCRITURE AIRTABLE !!!")
-        print(f"Table: {table_obj.table_name if table_obj else 'INCONNU'}")
+        print(f"Table: {getattr(table_obj, '_table_name', 'INCONNU')}")
         print(f"Détails de l'erreur Airtable: {e}") 
         print(f"Vérifiez les noms de colonnes et les types de champs Airtable.")
         print(f"Données envoyées: {fields}")
