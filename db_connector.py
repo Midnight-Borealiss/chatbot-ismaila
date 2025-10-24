@@ -58,26 +58,37 @@ def get_knowledge_base():
         return []
 
     try:
-        # Récupérer tous les enregistrements
         records = faq_table.all()
         
         for record in records:
-            # Assurez-vous que les noms des champs correspondent exactement à la casse de vos colonnes Airtable
             fields = record.get("fields", {})
             
-            # Ici, on ne filtre que si 'Statut' est présent et n'est pas 'Archivé'
-            # Adaptez cette condition si vos colonnes ont des noms différents.
+            # 1. Lecture des champs (comme vous l'aviez fait)
             if fields.get("Statut") != "Archivé": 
                 knowledge_base.append({
                     "id": record.get("id"),
-                    "question": fields.get("Questions"),         # Assurez-vous que "Questions" est le nom exact
-                    "formulations": fields.get("Formulations"),  # Assurez-vous que "Formulations" est le nom exact
-                    "reponse": fields.get("Réponses"),           # Assurez-vous que "Réponses" est le nom exact
-                    "mots_cles": fields.get("Mots-clés")         # Assurez-vous que "Mots-clés" est le nom exact
+                    "question": fields.get("Questions"),         
+                    "formulations": fields.get("Formulations (Input RAG)"), # <-- Nom exact corrigé
+                    "reponse": fields.get("Réponses"),           
+                    "mots_cles": fields.get("Mots-clés")         
                 })
         
+        # 2. <<< NOUVEAU BLOC : CRÉATION DU CHAMP DE RECHERCHE >>>
+        print("DEBUG DB: Démarrage du pré-traitement RAG.")
+        
+        for entry in knowledge_base:
+            # Concaténer les champs pertinents pour créer le texte de recherche
+            search_content = (
+                f"{entry.get('question', '')} "
+                f"{entry.get('formulations', '')} "
+                f"{entry.get('mots_cles', '')}"
+            )
+            # Ajouter la clé 'search_text' que agent.py attend
+            entry['search_text'] = search_content.lower() 
+        # <<< FIN DU NOUVEAU BLOC >>>
+        
         # Affichage du statut dans les logs Streamlit Cloud
-        print(f"DEBUG DB: Succès. Base de connaissances chargée avec {len(knowledge_base)} entrées actives.")
+        print(f"DEBUG DB: Succès. Base de connaissances chargée et prête pour le RAG avec {len(knowledge_base)} entrées.")
         
     except Exception as e:
         # Ceci capture les erreurs de lecture de la table (ex: champ non trouvé)
