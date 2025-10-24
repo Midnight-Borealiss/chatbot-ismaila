@@ -27,11 +27,11 @@ def get_agent_response(user_question: str, user_profile: str = "GUEST", username
         
         # Le champ 'search_text' contient les Questions + Formulations concaténées
         if processed_question == search_text_entry or processed_question in search_text_entry:
-            best_match_answer = entry['answer']
+            best_match_answer = entry['reponse']
             break
         
         if search_text_entry in processed_question:
-             best_match_answer = entry['answer']
+             best_match_answer = entry['reponse']
              break
 
     # --- 3. Génération de la Réponse et Journalisation ---

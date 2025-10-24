@@ -68,7 +68,7 @@ def get_knowledge_base():
                 knowledge_base.append({
                     "id": record.get("id"),
                     "question": fields.get("Questions"),         
-                    "formulations": fields.get("Formulations (Input RAG)"), # <-- Nom exact corrigé
+                    "formulations": fields.get("Formulations"), 
                     "reponse": fields.get("Réponses"),           
                     "mots_cles": fields.get("Mots-clés")         
                 })
