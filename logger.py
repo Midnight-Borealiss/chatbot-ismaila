@@ -3,6 +3,7 @@
 from datetime import datetime
 import streamlit as st
 from pyairtable import Table
+import pytz
 
 # --- INITIALISATION GLOBALE ET DÉFENSSIVE ---
 # Ces variables DOIVENT être définies, même à None, pour éviter l'erreur NameError.
@@ -82,11 +83,15 @@ def log_to_airtable(table_obj, fields):
         print(f"Données envoyées: {fields}")
         print(f"================================================================")
 
+# Crée un horodatage avec le fuseau horaire (UTC ou autre)
+current_time = datetime.now(pytz.utc).isoformat()
+# OU si vous voulez l'heure de Dakar (plus sûr avec l'API)
+# current_time = datetime.now(pytz.timezone('Africa/Dakar')).isoformat()
 
 def log_connection_event(event_type: str, username: str, name: str, profile: str):
     """Enregistre un événement de connexion ou de déconnexion dans la table 'Logs'."""
     fields = {
-        "Timestamp": datetime.now().isoformat(),
+        "Timestamp": current_time,
         "Type": event_type, 
         "Email": username,
         "Nom": name,
@@ -98,7 +103,7 @@ def log_connection_event(event_type: str, username: str, name: str, profile: str
 def log_interaction(user_question: str, bot_response: str, is_handled: bool, profile: str = "GUEST", username: str = "unknown"):
     """Enregistre une interaction (question/réponse) dans la table 'Logs'."""
     fields = {
-        "Timestamp": datetime.now().isoformat(),
+        "Timestamp": current_time,
         "Type": "INTERACTION",
         "Email": username,
         "Profile": profile,
@@ -112,7 +117,7 @@ def log_interaction(user_question: str, bot_response: str, is_handled: bool, pro
 def log_unhandled_question(user_question: str, profile: str, username: str):
     """Enregistre les questions sans réponse trouvée dans la table 'New_Questions'."""
     fields = {
-        "Date": datetime.now().isoformat(), 
+        "Date": current_time, 
         "Question": user_question,
         "Email": username,
         "Profile": profile,
