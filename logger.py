@@ -91,7 +91,7 @@ current_time = datetime.now(pytz.utc).isoformat()
 def log_connection_event(event_type: str, username: str, name: str, profile: str):
     """Enregistre un événement de connexion ou de déconnexion dans la table 'Logs'."""
     fields = {
-        "Timestamp": current_time,
+        "Timestamp": datetime.now(pytz.utc).isoformat(),
         "Type": event_type, 
         "Email": username,
         "Nom": name,
@@ -103,7 +103,7 @@ def log_connection_event(event_type: str, username: str, name: str, profile: str
 def log_interaction(user_question: str, bot_response: str, is_handled: bool, profile: str = "GUEST", username: str = "unknown"):
     """Enregistre une interaction (question/réponse) dans la table 'Logs'."""
     fields = {
-        "Timestamp": current_time,
+        "Timestamp": datetime.now(pytz.utc).isoformat(),
         "Type": "INTERACTION",
         "Email": username,
         "Profile": profile,
