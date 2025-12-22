@@ -20,7 +20,7 @@ USER_PROFILES_RULES = {
         "votre.email@edu"
     ]
 }
-DEFAULT_PROFILE = "Étudiant"
+DEFAULT_PROFILE = "ÉTUDIANT"
 
 
 # --- Configuration de la Page Streamlit ---

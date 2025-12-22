@@ -43,7 +43,7 @@ def safe_log(table, fields):
         table.create(fields)
     except Exception as e:
         # Nous imprimons le VRAI message d'erreur Airtable (e)
-        print(f"LOGGER ERROR: Écriture vers {table.table_name} échouée. Message Airtable: {e}")
+        print(f"LOGGER ERROR: Écriture vers Airtable échouée. Message: {e}")
 
 
 # --- Le reste des fonctions de log (inchangé) ---
@@ -55,9 +55,9 @@ def log_connection_event(event_type: str, username: str, name: str, profile: str
         "Email": str(username),
         "Nom": str(name),
         "Profile": str(profile),
-        "Question": "",
-        "Réponse": "",
-        "Géré": False # <--- CORRECTION 1 : Booléen natif False
+        "Questions": "",
+        "Réponses": "",
+        "Géré": False
     }
     safe_log(AIRTABLE_LOGS_STAGING, fields)
 
@@ -68,16 +68,16 @@ def log_interaction(user_question: str, bot_response: str, is_handled: bool, pro
         "Email": str(username),
         "Nom": st.session_state.get("name", ""),
         "Profile": str(profile),
-        "Question": str(user_question),
-        "Réponse": str(bot_response),
-        "Géré": is_handled # <--- CORRECTION 2 : Utilise le booléen is_handled (True ou False)
+        "Questions": str(user_question),
+        "Réponses": str(bot_response),
+        "Géré": is_handled
     }
     safe_log(AIRTABLE_LOGS_STAGING, fields)
 
 def log_unhandled_question(user_question: str, profile: str, username: str):
     fields = {
         "Date": datetime.now(pytz.utc).strftime('%Y-%m-%dT%H:%M:%S'),
-        "Question": str(user_question),
+        "Questions": str(user_question),
         "Email": str(username),
         "Profile": str(profile),
         "Statut": "À Traiter"

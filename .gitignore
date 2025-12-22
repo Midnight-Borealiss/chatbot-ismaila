@@ -7,5 +7,7 @@ env/
 venv/
 __pycache__/
 
-# Fichiers de données ou logs générés localement
+# Fichiers de donnï¿½es ou logs gï¿½nï¿½rï¿½s localement
 *.log
+
+.streamlit/secrets.toml
