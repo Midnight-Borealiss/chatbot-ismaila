@@ -10,4 +10,4 @@ __pycache__/
 # Fichiers de donn�es ou logs g�n�r�s localement
 *.log
 
-.streamlit/secrets.toml
+.streamlit
