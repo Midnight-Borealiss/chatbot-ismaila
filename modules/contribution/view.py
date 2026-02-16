@@ -3,57 +3,52 @@ from db_connector import mongo_db
 
 def render_contribution_page():
     st.title("🌍 Contribuer à ISMaiLa")
-    st.write("Posez une question ou proposez une réponse pour enrichir la base.")
+    st.write("Posez une question ou proposez une réponse.")
 
-    # Liste des catégories (tu peux en ajouter d'autres ici)
-    CATEGORIES = [
-        "Scolarité & Inscriptions",
-        "Examens & Évaluations",
-        "Vie Étudiante",
-        "Stages & Emplois",
-        "Technique & Plateforme",
-        "Autre"
-    ]
-
-    # Formulaire avec vidage automatique après soumission
+    # 1. Gestion des catégories (Statique + Dynamique)
+    LISTE_BASE = ["Scolarité", "Examens", "Vie Étudiante", "Stages", "Technique", "Autre..."]
+    
     with st.form("contribution_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
-        with col1:
-            # L'utilisateur choisit obligatoirement une catégorie
-            category = st.selectbox("Catégorie de votre question", CATEGORIES)
-        with col2:
-            user_name = st.text_input("Votre nom", value=st.session_state.name)
-
-        # La question est OBLIGATOIRE
-        question = st.text_area("Votre Question *", placeholder="Ex: Quelle est la date limite pour le dépôt des mémoires ?")
         
-        # La réponse est FACULTATIVE
-        response = st.text_area("Votre Réponse (si vous la connaissez)", 
-                                placeholder="Laissez vide si vous ne connaissez pas la réponse.")
+        with col1:
+            choix_cat = st.selectbox("Thématique", LISTE_BASE)
+            # Si "Autre..." est sélectionné, on affiche un champ texte
+            custom_cat = ""
+            if choix_cat == "Autre...":
+                custom_cat = st.text_input("Précisez la catégorie :", placeholder="Ex: Bibliothèque")
+        
+        with col2:
+            # CORRECTION : On force l'utilisation du nom en session
+            # On utilise st.session_state.name (défini lors du login)
+            nom_auteur = st.session_state.get('name', 'Utilisateur')
+            st.info(f"Auteur : **{nom_auteur}**")
+
+        question = st.text_area("Votre Question *")
+        response = st.text_area("Votre Réponse (optionnel)")
 
         submitted = st.form_submit_button("Envoyer la contribution")
 
         if submitted:
             if question.strip():
-                # On prépare le document pour MongoDB
-                # Si la réponse est vide, on met un texte par défaut pour l'admin
-                final_response = response.strip() if response.strip() else "En attente de réponse admin..."
+                # Détermination de la catégorie finale
+                categorie_finale = custom_cat.strip() if choix_cat == "Autre..." and custom_cat.strip() else choix_cat
+                
+                # Réponse par défaut si vide
+                reponse_finale = response.strip() if response.strip() else "En attente de réponse admin..."
                 
                 contribution_doc = {
                     "question": question.strip(),
-                    "response": final_response,
-                    "category": category,
-                    "user_name": user_name,
+                    "response": reponse_finale,
+                    "category": categorie_finale,
+                    "user_name": nom_auteur, # Utilise le nom de la session
                     "status": "en_attente",
-                    "submitted_by": st.session_state.username
+                    "submitted_by": st.session_state.username # Email de la session
                 }
                 
-                # Enregistrement en base de données
                 mongo_db.contributions.insert_one(contribution_doc)
-                
-                # Notification visuelle
-                st.toast(f"✅ Question enregistrée dans '{category}'", icon='📩')
+                st.toast(f"✅ Enregistré dans '{categorie_finale}'", icon='📩')
             else:
-                st.error("⚠️ La question est obligatoire pour pouvoir l'enregistrer.")
+                st.error("⚠️ La question ne peut pas être vide.")
 
-    st.info("💡 Si vous ne mettez pas de réponse, un administrateur se chargera d'y répondre prochainement.")
+    st.info("💡 Vos contributions aident toute la communauté !")
