@@ -2,10 +2,10 @@ import streamlit as st
 from db_connector import mongo_db
 
 def render_contribution_page():
-    st.title("🌍 Contribuer à la connaissance d'ISMaiLa")
-    st.write("Aidez l'assistant à devenir plus intelligent en proposant des questions/réponses.")
+    st.title("🌍 Contribuer à ISMaiLa")
+    st.write("Proposez une nouvelle question et sa réponse pour enrichir la base.")
 
-    # Liste des catégories prédéfinies
+    # Liste des catégories
     CATEGORIES = [
         "Scolarité & Inscriptions",
         "Examens & Évaluations",
@@ -15,19 +15,25 @@ def render_contribution_page():
         "Autre"
     ]
 
-    with st.form("contribution_form"):
+    # Utilisation d'un formulaire qui se vide après soumission (clear_on_submit)
+    with st.form("contribution_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
-            category = st.selectbox("Catégorie", CATEGORIES) # <-- Menu déroulant
+            category = st.selectbox("Catégorie", CATEGORIES)
         with col2:
-            user_name = st.text_input("Votre nom (optionnel)", value=st.session_state.name)
+            # On utilise le nom de la session, mais on laisse la possibilité de modifier
+            user_name = st.text_input("Auteur", value=st.session_state.name)
 
-        question = st.text_area("La question (soyez précis)")
-        response = st.text_area("La réponse suggérée")
+        # Champs séparés pour Question et Réponse
+        question = st.text_area("La Question :", placeholder="Ex: Comment obtenir un relevé de notes ?")
+        response = st.text_area("La Réponse suggérée :", placeholder="Ex: Vous devez faire la demande au service de la scolarité...")
 
-        if st.form_submit_button("Soumettre la contribution"):
+        submitted = st.form_submit_button("Enregistrer la contribution")
+
+        if submitted:
             if question.strip() and response.strip():
-                contribution = {
+                # Préparation des données
+                new_doc = {
                     "question": question.strip(),
                     "response": response.strip(),
                     "category": category,
@@ -35,7 +41,16 @@ def render_contribution_page():
                     "status": "en_attente",
                     "submitted_by": st.session_state.username
                 }
-                mongo_db.contributions.insert_one(contribution)
-                st.success("Merci ! Votre contribution est en attente de validation.")
+                
+                # Insertion MongoDB
+                mongo_db.contributions.insert_one(new_doc)
+                
+                # Notification de succès (Toast est plus discret et élégant pour des saisies multiples)
+                st.toast("✅ Contribution enregistrée avec succès !", icon='🎉')
+                
+                # Note: Le formulaire se vide déjà grâce à clear_on_submit=True
+                # On ne fait pas de rerun immédiat ici pour laisser l'utilisateur voir le toast
             else:
-                st.error("Veuillez remplir tous les champs.")
+                st.error("⚠️ Veuillez remplir à la fois la question et la réponse.")
+
+    st.info("💡 Vos contributions seront visibles par tous une fois validées par un administrateur.")
