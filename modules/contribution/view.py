@@ -3,9 +3,9 @@ from db_connector import mongo_db
 
 def render_contribution_page():
     st.title("🌍 Contribuer à ISMaiLa")
-    st.write("Proposez une nouvelle question et sa réponse pour enrichir la base.")
+    st.write("Posez une question ou proposez une réponse pour enrichir la base.")
 
-    # Liste des catégories
+    # Liste des catégories (tu peux en ajouter d'autres ici)
     CATEGORIES = [
         "Scolarité & Inscriptions",
         "Examens & Évaluations",
@@ -15,42 +15,45 @@ def render_contribution_page():
         "Autre"
     ]
 
-    # Utilisation d'un formulaire qui se vide après soumission (clear_on_submit)
+    # Formulaire avec vidage automatique après soumission
     with st.form("contribution_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
-            category = st.selectbox("Catégorie", CATEGORIES)
+            # L'utilisateur choisit obligatoirement une catégorie
+            category = st.selectbox("Catégorie de votre question", CATEGORIES)
         with col2:
-            # On utilise le nom de la session, mais on laisse la possibilité de modifier
-            user_name = st.text_input("Auteur", value=st.session_state.name)
+            user_name = st.text_input("Votre nom", value=st.session_state.name)
 
-        # Champs séparés pour Question et Réponse
-        question = st.text_area("La Question :", placeholder="Ex: Comment obtenir un relevé de notes ?")
-        response = st.text_area("La Réponse suggérée :", placeholder="Ex: Vous devez faire la demande au service de la scolarité...")
+        # La question est OBLIGATOIRE
+        question = st.text_area("Votre Question *", placeholder="Ex: Quelle est la date limite pour le dépôt des mémoires ?")
+        
+        # La réponse est FACULTATIVE
+        response = st.text_area("Votre Réponse (si vous la connaissez)", 
+                                placeholder="Laissez vide si vous ne connaissez pas la réponse.")
 
-        submitted = st.form_submit_button("Enregistrer la contribution")
+        submitted = st.form_submit_button("Envoyer la contribution")
 
         if submitted:
-            if question.strip() and response.strip():
-                # Préparation des données
-                new_doc = {
+            if question.strip():
+                # On prépare le document pour MongoDB
+                # Si la réponse est vide, on met un texte par défaut pour l'admin
+                final_response = response.strip() if response.strip() else "En attente de réponse admin..."
+                
+                contribution_doc = {
                     "question": question.strip(),
-                    "response": response.strip(),
+                    "response": final_response,
                     "category": category,
                     "user_name": user_name,
                     "status": "en_attente",
                     "submitted_by": st.session_state.username
                 }
                 
-                # Insertion MongoDB
-                mongo_db.contributions.insert_one(new_doc)
+                # Enregistrement en base de données
+                mongo_db.contributions.insert_one(contribution_doc)
                 
-                # Notification de succès (Toast est plus discret et élégant pour des saisies multiples)
-                st.toast("✅ Contribution enregistrée avec succès !", icon='🎉')
-                
-                # Note: Le formulaire se vide déjà grâce à clear_on_submit=True
-                # On ne fait pas de rerun immédiat ici pour laisser l'utilisateur voir le toast
+                # Notification visuelle
+                st.toast(f"✅ Question enregistrée dans '{category}'", icon='📩')
             else:
-                st.error("⚠️ Veuillez remplir à la fois la question et la réponse.")
+                st.error("⚠️ La question est obligatoire pour pouvoir l'enregistrer.")
 
-    st.info("💡 Vos contributions seront visibles par tous une fois validées par un administrateur.")
+    st.info("💡 Si vous ne mettez pas de réponse, un administrateur se chargera d'y répondre prochainement.")
