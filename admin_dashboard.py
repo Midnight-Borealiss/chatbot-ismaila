@@ -3,46 +3,41 @@ import pandas as pd
 from db_connector import mongo_db
 
 def render_admin_dashboard():
-    st.header("📊 Dashboard Analyse ISMaiLa")
-    st.info("Suivez l'activité et l'affluence des étudiants en temps réel.")
-
-    # 1. Récupération des données (On pointe vers la collection de logs de ton logger)
-    # Ton logger.py utilise "logs_interactions"
-    logs_data = list(mongo_db.db['logs_interactions'].find())
+    st.subheader("📊 Analyse des contributions")
     
-    if not logs_data:
-        # Si vide, on essaie la collection "logs" par défaut
-        logs_data = list(mongo_db.db['logs'].find())
-
-    df = pd.DataFrame(logs_data)
-
-    if df.empty:
-        st.warning("En attente de données pour générer les analyses...")
+    # Récupération de toutes les contributions
+    data = list(mongo_db.contributions.find())
+    
+    if not data:
+        st.info("Pas assez de données pour générer des statistiques.")
         return
 
-    # Nettoyage de l'ID technique MongoDB
-    if '_id' in df.columns:
-        df = df.drop(columns=['_id'])
+    # Transformation en DataFrame Pandas pour manipulation facile
+    df = pd.DataFrame(data)
 
-    # 2. Conversion du temps
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    df['heure'] = df['timestamp'].dt.hour
+    # 1. Graphique par Catégorie
+    if 'category' in df.columns:
+        st.write("### Répartition par thématique")
+        category_counts = df['category'].value_counts()
+        st.bar_chart(category_counts)
 
-    # 3. Indicateurs Clés (KPIs)
+    # 2. Indicateurs Clés (KPIs)
+    st.write("### Indicateurs clés")
     col1, col2, col3 = st.columns(3)
     
-    # On vérifie les noms de colonnes disponibles pour éviter les crashs
-    user_col = 'username' if 'username' in df.columns else ('user_email' if 'user_email' in df.columns else None)
+    total = len(df)
+    valides = len(df[df['status'] == 'valide'])
+    en_attente = len(df[df['status'] == 'en_attente'])
     
-    with col1:
-        st.metric("Total Questions", len(df))
-    with col2:
-        n_users = df[user_col].nunique() if user_col else 0
-        st.metric("Utilisateurs Uniques", n_users)
-    with col3:
-        st.metric("Heure de pointe", f"{df['heure'].mode()[0]}h" if not df['heure'].empty else "N/A")
+    col1.metric("Total Questions", total)
+    col2.metric("Validées", valides, f"{int(valides/total*100)}%" if total > 0 else "0%")
+    col3.metric("En attente", en_attente, delta_color="inverse", delta=f"-{en_attente}")
 
-    st.divider()
+    # 3. Top Contributeurs (Optionnel)
+    if 'user_name' in df.columns:
+        st.write("### Top Contributeurs")
+        top_users = df['user_name'].value_counts().head(5)
+        st.table(top_users)
 
     # 4. GRAPHIQUE D'AFFLUENCE
     st.subheader("📈 Affluence par heure")
