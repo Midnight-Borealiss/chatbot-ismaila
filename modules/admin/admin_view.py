@@ -21,26 +21,28 @@ def render_admin_page():
                 # Chaque question est présentée dans une boîte (container)
                 with st.container(border=True):
                     # --- LOGIQUE DE RÉCUPÉRATION DE LA RÉPONSE ---
-                    # On récupère ce qui est en base
                     valeur_actuelle = item.get("response", "")
                     
-                    # Si c'est le message par défaut du bot, on vide pour l'admin
-                    # Sinon, on garde la proposition du contributeur
+                    # Nettoyage pour l'admin : on ne lui montre pas le texte par défaut du bot
                     if valeur_actuelle == "En attente de réponse admin...":
                         reponse_a_afficher = ""
                     else:
                         reponse_a_afficher = valeur_actuelle
 
+                    # Affichage des informations de la question
                     st.write(f"**Question posée :** {item['question']}")
-                    st.caption(f"Auteur : {item.get('user_name', 'Anonyme')} | Catégorie : {item.get('category', 'Général')}")
                     
-                    # La zone de texte est pré-remplie avec 'value'
+                    # Affichage de la catégorie et de l'auteur avec un badge
+                    cat = item.get('category', 'Général')
+                    st.markdown(f"📂 **Catégorie :** `{cat}` | 👤 **Auteur :** {item.get('user_name', 'Anonyme')}")
+                    
+                    # La zone de texte est pré-remplie avec la proposition du contributeur
                     admin_response = st.text_area(
-                        "Réponse officielle (proposée ou à écrire) :", 
+                        "Réponse officielle (modifier la proposition si besoin) :", 
                         value=reponse_a_afficher, 
                         key=f"input_{item['_id']}",
                         height=100,
-                        placeholder="Saisissez la réponse officielle ici..."
+                        placeholder="Saisissez ou validez la réponse ici..."
                     )
 
                     c1, c2, _ = st.columns([1, 1, 2])
@@ -52,18 +54,19 @@ def render_admin_page():
                                     {"$set": {
                                         "response": admin_response.strip(), 
                                         "status": "valide", 
-                                        "validated_by": st.session_state.name
+                                        "validated_by": st.session_state.name,
+                                        "category": cat # On confirme la catégorie
                                     }}
                                 )
-                                st.toast("Réponse validée et publiée !")
+                                st.toast("Réponse publiée avec succès !")
                                 st.rerun()
                             else:
-                                st.error("Veuillez saisir une réponse avant de valider.")
+                                st.error("La réponse ne peut pas être vide.")
                     
                     with c2:
                         if st.button("Supprimer 🗑️", key=f"d_{item['_id']}"):
                             mongo_db.contributions.delete_one({"_id": item["_id"]})
-                            st.toast("Question supprimée.")
+                            st.toast("Contribution supprimée.")
                             st.rerun()
 
     with tab2:
@@ -76,8 +79,12 @@ def render_admin_page():
             for item in validated_list:
                 with st.container(border=True):
                     st.write(f"**Question :** {item['question']}")
+                    
+                    # Rappel de la catégorie dans l'historique
+                    st.markdown(f"📂 **Catégorie :** `{item.get('category', 'Général')}` | 👤 **Par :** {item.get('user_name')}")
+                    
                     st.success(f"**Réponse officielle :** {item['response']}")
-                    st.caption(f"Validé par : {item.get('validated_by', 'Admin')}")
+                    st.caption(f"✅ Validé par : {item.get('validated_by', 'Admin')}")
                     
                     if st.button("Modifier ou Invalider ↩️", key=f"rev_{item['_id']}"):
                         mongo_db.contributions.update_one(
@@ -87,5 +94,8 @@ def render_admin_page():
                         st.rerun()
 
     with tab3:
-        from admin_dashboard import render_admin_dashboard
-        render_admin_dashboard()
+        try:
+            from admin_dashboard import render_admin_dashboard
+            render_admin_dashboard()
+        except ImportError:
+            st.warning("Module de statistiques non trouvé.")

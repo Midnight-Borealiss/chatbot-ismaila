@@ -15,17 +15,17 @@ from modules.help.help_view import render_help_page # Un seul import propre ici
 
 # --- CONFIGURATION ---
 ADMIN_EMAILS = ["minawade005@gmail.com", # Pour toi Mina Super Admin
-                "kebsou@ism.sn", # Pour Kebsou Assistant Admin
-                "berniechou@ism.sn", # Pour Bernie ingénieur
-                "mar@ism.sn", # Pour Mar ingénieur
-                "Cheikh@ism.sn", # Pour Cheikh Gueye EDM
-                "Cheihkoumar@ism.sn", # Pour Cheihk Oumar IT
-                "mariama@ism.sn", # Pour Mariama IDA
-                "mamdou@ism.sn", # Pour Mamadou Lamine IDA
-                "sangare@ism.sn", # Pour Sangaré IT
-                "seydina@ism.sn", # Pour Seydina IT
-                "keit@ism.sn", # Pour Keit Midleton IT
-                "Eden@ism.sn" # Pour Eden IT
+                "kebsou@ismaila.sn", # Pour Kebsou Assistant Admin
+                "berniechou@ismaila.sn", # Pour Bernie ingénieur
+                "mar@ismaila.sn", # Pour Mar ingénieur
+                "Cheikh@ismaila.sn", # Pour Cheikh Gueye EDM
+                "Cheihkoumar@ismaila.sn", # Pour Cheihk Oumar IT
+                "mariama@ismaila.sn", # Pour Mariama IDA
+                "mamdou@ismaila.sn", # Pour Mamadou Lamine IDA
+                "sangare@ismaila.sn", # Pour Sangaré IT
+                "seydina@ismaila.sn", # Pour Seydina IT
+                "keit@ismaila.sn", # Pour Keit Midleton IT
+                "Edem@ismaila.sn" # Pour Eden IT
                 ]
 
 st.set_page_config(page_title="ISMaiLa - Assistant Virtuel", layout="wide", page_icon="🎓")
