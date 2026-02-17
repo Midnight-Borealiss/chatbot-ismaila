@@ -16,16 +16,53 @@ from modules.help.help_view import render_help_page # Un seul import propre ici
 # --- CONFIGURATION ---
 ADMIN_EMAILS = ["minawade005@gmail.com", # Pour toi Mina Super Admin
                 "kebsou@ismaila.sn", # Pour Kebsou Assistant Admin
-                "berniechou@ismaila.sn", # Pour Bernie ingénieur
-                "mar@ismaila.sn", # Pour Mar ingénieur
-                "Cheikh@ismaila.sn", # Pour Cheikh Gueye EDM
-                "Cheihkoumar@ismaila.sn", # Pour Cheihk Oumar IT
-                "mariama@ismaila.sn", # Pour Mariama IDA
-                "mamdou@ismaila.sn", # Pour Mamadou Lamine IDA
+#-----------------------Accès Admin pour la DSI -----------------------#               
                 "sangare@ismaila.sn", # Pour Sangaré IT
                 "seydina@ismaila.sn", # Pour Seydina IT
                 "keit@ismaila.sn", # Pour Keit Midleton IT
                 "Edem@ismaila.sn" # Pour Eden IT
+                "Cheihkoumar@ismaila.sn", # Pour Cheihk Oumar IT
+
+#-----------------------Accès Admin pour l'école d'Ingénieur -----------------------#
+                "berniechou@ismaila.sn", # Pour Bernie ingénieur
+                "mar@ismaila.sn", # Pour Mar ingénieur
+                "Diaby@ismaila.sn", # Pour Diaby ingénieur
+                "Ameth@ismaila.sn", # Pour Ameth ingénieur
+                "olvier@ismaila.sn", # Pour Olivier ingénieur
+
+#-----------------------Accès Admin pour l'école de Management -----------------------#               
+                "fatoubintou@ismaila.sn", # Pour Fatou Bintou Management
+                "Cheikh@ismaila.sn", # Pour Cheikh Gueye Management
+
+#-----------------------Accès Admin pour l'école de Droit -----------------------#  
+                "mariama@ismaila.sn", # Pour Mariama IDA
+                "mamdou@ismaila.sn", # Pour Mamadou Lamine IDA
+                
+#-----------------------Accès Admin pour Com -----------------------# 
+                "zolie@ismaila.sn", # Pour Zolie Com
+                "mouhameth@ismaila.sn", # Pour Mouhameth Com
+                "lawson@ismaila.sn", # Pour Lawson Com
+
+#-----------------------Accès Admin pour  SSA -----------------------# 
+                "badara@ismaila.sn", # Pour Badara SSA
+                "maya@ismaila.sn", # Pour Maya SSA
+                "diass@ismaila.sn", # Pour Diass SSA
+                "kéwé@ismaila.sn", # Pour Kéwé SSA
+                "carlette@ismaila.sn", # Pour Carlette SSA
+
+#-----------------------Accès Admin pour admission -----------------------# 
+                ""
+
+#-----------------------Accès Admin pour scolarité  -----------------------# 
+
+#-----------------------Accès Admin pour call center  -----------------------# 
+
+#-----------------------Accès Admin pour  -----------------------# 
+
+#-----------------------Accès Admin pour  -----------------------# 
+
+#-----------------------Accès Admin pour  -----------------------# 
+
                 ]
 
 st.set_page_config(page_title="ISMaiLa - Assistant Virtuel", layout="wide", page_icon="🎓")
