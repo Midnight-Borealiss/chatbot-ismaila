@@ -13,7 +13,7 @@ def render_contribution_page():
     nom_session = st.session_state.get('name') or st.session_state.get('username') or "Contributeur"
     email_session = st.session_state.get('username', 'non_identifie')
 
-    LISTE_BASE = ["Scolarité", "Examens", "Vie Étudiante", "Stages", "Technique", "Autre..."]
+    LISTE_BASE = ["Scolarité", "Examens", "Vie Étudiante", "admission", "Accès", "Autre..."]
     
     col_cat, col_auth = st.columns(2)
     
