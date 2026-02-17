@@ -6,35 +6,35 @@ def render_admin_page():
     st.title("🛡️ Espace Modération & Validation")
     st.markdown("---")
 
-    # Onglets pour organiser l'espace admin
     tab1, tab2, tab3 = st.tabs(["⏳ À traiter", "✅ Validées récemment", "📊 Statistiques"])
 
     with tab1:
         st.subheader("Gestion des contributions en attente")
 
-        # --- 1. PRÉPARATION DES DONNÉES ET FILTRES ---
-        pending_list_raw = mongo_db.get_contributions(status="en_attente")
-        
-        # Récupération des catégories pour le filtre dynamique
+        # --- 1. RÉCUPÉRATION INITIALE ---
+        # On récupère toutes les données brutes
+        pending_list_raw = list(mongo_db.get_contributions(status="en_attente"))
         all_data = list(mongo_db.contributions.find())
-        categories_disponibles = sorted(list(set([c.get('category', 'Général') for c in all_data])))
-        categories_disponibles.insert(0, "Toutes")
-
-        # Barre de filtres
+        
+        # --- 2. BARRE DE FILTRES ---
         with st.expander("🔍 Filtres de recherche", expanded=True):
+            # Extraction dynamique des catégories présentes en base
+            categories_disponibles = sorted(list(set([c.get('category', 'Général') for c in all_data])))
+            categories_disponibles.insert(0, "Toutes")
+            
             f1, f2, f3 = st.columns(3)
             with f1:
-                f_cat = st.selectbox("Filtrer par Thématique", categories_disponibles)
+                f_cat = st.selectbox("Filtrer par Thématique", categories_disponibles, key="filter_category")
             with f2:
                 f_reponse = st.selectbox("État de la réponse", [
                     "Toutes", 
                     "Avec proposition d'étudiant", 
                     "Sans réponse (À rédiger)"
-                ])
+                ], key="filter_response")
             with f3:
-                search_query = st.text_input("Mot-clé (Question/Auteur)", placeholder="Ex: examens...")
+                search_query = st.text_input("Recherche par mot-clé", placeholder="Ex: examens...", key="filter_search")
 
-        # --- 2. LOGIQUE DE FILTRAGE ---
+        # --- 3. LOGIQUE DE FILTRAGE ACTIVE ---
         filtered_list = []
         for item in pending_list_raw:
             # Filtre Thématique
@@ -43,48 +43,50 @@ def render_admin_page():
             
             # Filtre État de la réponse
             valeur_actuelle = item.get("response", "")
-            is_empty = valeur_actuelle == "En attente de réponse admin..." or not valeur_actuelle.strip()
+            # On considère comme vide si c'est le texte par défaut ou si c'est vraiment vide
+            is_empty = (valeur_actuelle == "En attente de réponse admin..." or not str(valeur_actuelle).strip())
             
             if f_reponse == "Avec proposition d'étudiant" and is_empty:
                 continue
             if f_reponse == "Sans réponse (À rédiger)" and not is_empty:
                 continue
             
-            # Filtre Recherche
-            if search_query.lower() not in item['question'].lower() and \
-               search_query.lower() not in item.get('user_name', '').lower():
-                continue
+            # Filtre Recherche (insensible à la casse)
+            search_text = search_query.lower()
+            if search_text:
+                in_question = search_text in item.get('question', '').lower()
+                in_author = search_text in item.get('user_name', '').lower()
+                if not (in_question or in_author):
+                    continue
                 
             filtered_list.append(item)
 
-        # --- 3. AFFICHAGE DES RÉSULTATS FILTRÉS ---
-        st.write(f"📊 **{len(filtered_list)}** question(s) trouvée(s)")
+        # --- 4. AFFICHAGE ---
+        st.write(f"📊 **{len(filtered_list)}** question(s) filtrée(s) sur **{len(pending_list_raw)}** en attente.")
 
         if not filtered_list:
-            st.info("Aucune question en attente avec ces critères.")
+            st.info("Aucun résultat ne correspond à vos filtres.")
         else:
             for item in filtered_list:
                 with st.container(border=True):
-                    # Nettoyage pour l'affichage de la réponse
-                    valeur_actuelle = item.get("response", "")
-                    reponse_a_afficher = "" if valeur_actuelle == "En attente de réponse admin..." else valeur_actuelle
+                    # Préparation de l'affichage de la réponse
+                    val_raw = item.get("response", "")
+                    reponse_a_afficher = "" if val_raw == "En attente de réponse admin..." else val_raw
                     
-                    # En-tête : Catégorie et Statut visuel
                     h1, h2 = st.columns([3, 1])
                     with h1:
-                        cat = item.get('category', 'Général')
-                        st.markdown(f"📂 **Thématique :** `{cat}`")
+                        cat_label = item.get('category', 'Général')
+                        st.markdown(f"📂 **Thématique :** `{cat_label}`")
                     with h2:
-                        if reponse_a_afficher == "":
+                        if not reponse_a_afficher.strip():
                             st.warning("🚨 À RÉDIGER")
                         else:
                             st.success("📝 PROPOSITION")
 
-                    # Corps de la question
                     st.write(f"**Question :** {item['question']}")
                     st.caption(f"👤 Par : {item.get('user_name', 'Anonyme')}")
 
-                    # Affichage du Contexte (École, Niveau, Spécialité)
+                    # Affichage Contexte
                     ctx = item.get('context', {})
                     if any(ctx.values()):
                         st.markdown(f"📍 *Contexte : {ctx.get('ecole','-')} | {ctx.get('niveau','-')} | {ctx.get('specialite','-')}*")
@@ -97,7 +99,6 @@ def render_admin_page():
                         height=100
                     )
 
-                    # Boutons d'action
                     c1, c2, _ = st.columns([1, 1, 2])
                     with c1:
                         if st.button("Valider ✅", key=f"v_{item['_id']}", type="primary"):
@@ -107,14 +108,14 @@ def render_admin_page():
                                     {"$set": {
                                         "response": admin_response.strip(), 
                                         "status": "valide", 
-                                        "validated_by": st.session_state.name,
-                                        "category": cat
+                                        "validated_by": st.session_state.get('name', 'Admin'),
+                                        "category": item.get('category', 'Général')
                                     }}
                                 )
-                                st.toast("Réponse publiée !")
+                                st.toast("Publié !")
                                 st.rerun()
                             else:
-                                st.error("La réponse est vide.")
+                                st.error("La réponse ne peut pas être vide.")
                     
                     with c2:
                         if st.button("Supprimer 🗑️", key=f"d_{item['_id']}"):
@@ -123,29 +124,23 @@ def render_admin_page():
                             st.rerun()
 
     with tab2:
-        st.subheader("Historique des 10 dernières validations")
+        st.subheader("Historique récent")
         validated_list = list(mongo_db.contributions.find({"status": "valide"}).sort("_id", -1).limit(10))
-        
         if not validated_list:
-            st.info("Aucune validation récente.")
+            st.info("Aucune validation.")
         else:
             for item in validated_list:
                 with st.container(border=True):
-                    st.write(f"**Question :** {item['question']}")
-                    st.markdown(f"📂 **Catégorie :** `{item.get('category', 'Général')}` | 👤 **Par :** {item.get('user_name')}")
-                    st.success(f"**Réponse officielle :** {item['response']}")
-                    st.caption(f"✅ Validé par : {item.get('validated_by', 'Admin')}")
-                    
-                    if st.button("Modifier ou Invalider ↩️", key=f"rev_{item['_id']}"):
-                        mongo_db.contributions.update_one(
-                            {"_id": item["_id"]}, 
-                            {"$set": {"status": "en_attente"}}
-                        )
+                    st.write(f"**Q:** {item['question']}")
+                    st.markdown(f"📂 `{item.get('category')}` | 👤 {item.get('user_name')}")
+                    st.success(f"**R:** {item['response']}")
+                    if st.button("Invalider ↩️", key=f"rev_{item['_id']}"):
+                        mongo_db.contributions.update_one({"_id": item["_id"]}, {"$set": {"status": "en_attente"}})
                         st.rerun()
 
     with tab3:
         try:
             from admin_dashboard import render_admin_dashboard
             render_admin_dashboard()
-        except ImportError:
-            st.warning("Module de statistiques non trouvé.")
+        except:
+            st.warning("Dashboard non disponible.")

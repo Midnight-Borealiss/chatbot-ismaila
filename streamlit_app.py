@@ -41,7 +41,11 @@ ADMIN_EMAILS = ["minawade005@gmail.com", # Pour toi Mina Super Admin
 #-----------------------Accès Admin pour Com -----------------------# 
                 "zolie@ismaila.sn", # Pour Zolie Com
                 "mouhameth@ismaila.sn", # Pour Mouhameth Com
-                "lawson@ismaila.sn", # Pour Lawson Com
+                "anta@ismaila.sn", # Pour Anta Com
+
+#-----------------------Accès Admin pour carrier center -----------------------# 
+                "lawson@ismaila.sn", # Pour Lawson Carrier Center
+                "awa@ismaila.sn", # Pour Awa Carrier Center
 
 #-----------------------Accès Admin pour  SSA -----------------------# 
                 "badara@ismaila.sn", # Pour Badara SSA
@@ -51,11 +55,18 @@ ADMIN_EMAILS = ["minawade005@gmail.com", # Pour toi Mina Super Admin
                 "carlette@ismaila.sn", # Pour Carlette SSA
 
 #-----------------------Accès Admin pour admission -----------------------# 
-                ""
+                "Nafy@ismaila.sn", # Pour Nafy Admission
+                "Guéda@ismaila.sn", # Pour Guéda Admission
+                "Gatuzo@ismaila.sn", # Pour Gatuzo Admission
+                "Isabelle@ismaila.sn", # Pour Isabelle Admission
+                "Arafate@ismaila.sn", # Pour Arafate Admission
 
 #-----------------------Accès Admin pour scolarité  -----------------------# 
+                "Doudou@ismaila.sn", # Pour Doudou Scolarité
+                "mmeseck@ismaila.sn", # Pour Mmeseck Scolarité
 
 #-----------------------Accès Admin pour call center  -----------------------# 
+                "allé@ismaila.sn", # Pour Allé Call Center
 
 #-----------------------Accès Admin pour  -----------------------# 
 
