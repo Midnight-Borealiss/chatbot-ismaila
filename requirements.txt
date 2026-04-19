@@ -2,6 +2,7 @@ streamlit
 pymongo
 sentence-transformers
 torch
+torchvision
 pydantic[email]
 python-dotenv
 bcrypt

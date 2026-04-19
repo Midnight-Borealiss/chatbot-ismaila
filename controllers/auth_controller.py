@@ -56,7 +56,7 @@ class AuthController:
             st.session_state.user = {
                 "id":            str(user["_id"]),
                 "email":         user["email"],
-                "full_name":     user["full_name"],
+                "full_name": user.get("name", "Utilisateur"), # .get évite le crash si le champ manque
                 "role":          user["role"],
                 "expert_topics": user.get("expert_topics", []),
             }
