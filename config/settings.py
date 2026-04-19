@@ -1,0 +1,44 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# --- CONFIGURATION IA ---
+NLP_MODEL_NAME = "all-MiniLM-L6-v2"
+# Seuil RG-01 : En dessous de ce score, on bascule vers l'alerte expert
+NLP_THRESHOLD = float(os.getenv("NLP_THRESHOLD", 0.75))
+
+# --- CONFIGURATION DATABASE ---
+MONGO_URI = os.getenv("MONGO_URI")
+DB_NAME   = os.getenv("DB_NAME", "ismaila_db")
+
+# --- CONFIGURATION MAIL (RG-03) ---
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT   = int(os.getenv("SMTP_PORT", 587))
+SMTP_USER   = os.getenv("SMTP_USER")
+SMTP_PASS   = os.getenv("SMTP_PASS")
+
+# --- CONFIGURATION SALESFORCE (RG-06) ---
+SF_WEBHOOK_URL = os.getenv("SF_WEBHOOK_URL")   # URL Make/Zapier → Salesforce
+SF_TIMEOUT     = int(os.getenv("SF_TIMEOUT", 5))  # Timeout webhook (secondes)
+
+# Mapping Catégorie → Campagne Salesforce (RG-06)
+SF_CAMPAIGN_MAPPING = {
+    "Admission":     "Recrutement_2026_Admission",
+    "Bourses":       "Recrutement_2026_Bourses",
+    "MBA":           "Recrutement_2026_MBA",
+    "Cybersécurité": "Recrutement_2026_CyberSec",
+    "Licence_Pro":   "Recrutement_2026_LicencePro",
+    "General":       "Recrutement_2026_General",
+}
+
+# --- ROLES ---
+ROLE_ADMIN       = "ADMINISTRATION"
+ROLE_VALIDATOR   = "VALIDATEUR"
+ROLE_CONTRIBUTOR = "CONTRIBUTEUR"
+ROLE_STUDENT     = "ETUDIANT"
+
+# --- PARAMÈTRES MÉTIER ---
+KB_TTL_DAYS              = 365   # Durée de vie d'une connaissance (jours)
+SESSION_TIMEOUT_MINUTES  = 60
+LEAD_HOT_THRESHOLD       = 3     # Nb de questions chaudes → déclenchement RG-05

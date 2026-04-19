@@ -1,0 +1,11 @@
+{
+  "urgence_contact": "+221 XX XXX XX XX",
+  "liens_utiles": {
+    "portail": "https://portail.ismaila.sn",
+    "inscription": "https://admission.ismaila.sn"
+  },
+  "faq_critique": [
+    {"q": "Dates inscriptions", "r": "Les inscriptions sont ouvertes jusqu'au 15 Octobre."},
+    {"q": "Contact support", "r": "Support technique : support@ismaila.sn"}
+  ]
+}

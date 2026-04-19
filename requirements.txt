@@ -1,6 +1,9 @@
 streamlit
 pymongo
-pandas
+sentence-transformers
+torch
+pydantic[email]
 python-dotenv
-openai
-google-generativeai
+bcrypt
+requests
+pandas
