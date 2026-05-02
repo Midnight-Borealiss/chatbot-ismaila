@@ -4,30 +4,27 @@ from bson import ObjectId
 
 from services.db_connector import db_instance
 from services.mailer import send_answer_to_student
+from config.categories import normalize_category, get_all_canonical
 
 
 class KBController:
     """
-    Gestion de la base de connaissances — workflow de validation.
-    Après certification, notifie automatiquement l'étudiant si son email est connu.
+    Gestion de la base de connaissances.
+    Nouveautés : recatégorisation (point 6), normalisation des catégories (point 8).
     """
 
     def __init__(self):
         self.col = db_instance.get_collection("contributions")
 
     def get_pending(self) -> list:
-        return list(self.col.find({"status": "en_attente"}))
+        return list(self.col.find({"status": "en_attente"}).sort("created_at", -1))
 
     def get_validated(self) -> list:
-        return list(self.col.find({"status": "valide"}))
+        return list(self.col.find({"status": "valide"}).sort("updated_at", -1))
 
     def update_contribution(self, c_id: str, response: str, validator_email: str):
+        """Certifie + notifie l'étudiant."""
         ticket = self.col.find_one({"_id": ObjectId(c_id)})
-        
-        # --- AJOUT : Récupérer le vrai nom du validateur ---
-        validator_user = db_instance.get_collection("users").find_one({"email": validator_email})
-        validator_name = validator_user.get("full_name", validator_email) if validator_user else validator_email
-
         self.col.update_one(
             {"_id": ObjectId(c_id)},
             {"$set": {
@@ -37,7 +34,6 @@ class KBController:
                 "updated_at":   datetime.now(),
             }}
         )
-
         if ticket:
             student_email = ticket.get("user_email", "")
             if student_email and student_email not in ("anonyme", "public", ""):
@@ -45,37 +41,40 @@ class KBController:
                     student_email=student_email,
                     question=ticket.get("question", ""),
                     answer=response,
-                    validator_name=validator_name, # Nom plus propre
+                    validator_name=validator_email,
                 )
-        """
-        Certifie une contribution et notifie l'étudiant si son email est disponible.
-        """
-        ticket = self.col.find_one({"_id": ObjectId(c_id)})
 
+    def recategorize(self, c_id: str, new_category: str, author_email: str):
+        """
+        Point 6 : le contributeur peut recatégoriser une question existante.
+        La catégorie est normalisée avant sauvegarde (point 8).
+        """
+        canonical = normalize_category(new_category)
         self.col.update_one(
             {"_id": ObjectId(c_id)},
             {"$set": {
-                "response":     response,
-                "status":       "valide",
-                "validated_by": validator_email,
-                "updated_at":   datetime.now(),
+                "category":       canonical,
+                "recategorized_by": author_email,
+                "recategorized_at": datetime.now(),
             }}
         )
 
-        # Notification à l'étudiant si son email est connu (pas anonyme)
-        if ticket:
-            student_email = ticket.get("user_email", "")
-            if student_email and student_email not in ("anonyme", "public", ""):
-                validator_name = validator_email  # Peut être enrichi avec full_name
-                send_answer_to_student(
-                    student_email=student_email,
-                    question=ticket.get("question", ""),
-                    answer=response,
-                    validator_name=validator_name,
-                )
+    def submit_proposal(self, c_id: str, response: str, author_email: str,
+                        new_category: Optional[str] = None):
+        """
+        Soumet une proposition de réponse + recatégorisation optionnelle.
+        Déclenche st.rerun() via le flag retourné (point 9).
+        """
+        update = {
+            "response":     response,
+            "author_email": author_email,
+            "updated_at":   datetime.now(),
+        }
+        if new_category:
+            update["category"] = normalize_category(new_category)
+        self.col.update_one({"_id": ObjectId(c_id)}, {"$set": update})
 
     def invalidate(self, c_id: str):
-        """Remet en attente une contribution validée (ex: correction nécessaire)."""
         self.col.update_one(
             {"_id": ObjectId(c_id)},
             {"$set": {"status": "en_attente", "updated_at": datetime.now()}}
@@ -97,5 +96,13 @@ class KBController:
             "archive":    self.col.count_documents({"status": "archive"}),
         }
 
+    def get_categories_in_db(self) -> list[str]:
+        """Catégories canoniques effectivement présentes en base."""
+        raw = self.col.distinct("category")
+        return sorted({normalize_category(c) for c in raw if c})
+
+
+# Import optionnel pour éviter circular import
+from typing import Optional
 
 kb_controller = KBController()
