@@ -9,7 +9,14 @@ Trois niveaux par domaine :
 Rétrocompatibilité avec l'ancien champ expert_topics (liste simple).
 """
 
-from config.roles import ADMIN, DOMAIN_HIERARCHY
+from config.roles import ADMIN
+
+# Hiérarchie des niveaux de permission — définie ici, source de vérité unique
+DOMAIN_HIERARCHY: dict[str, int] = {
+    "learner":     0,   # peut poser des questions
+    "contributor": 1,   # peut proposer des réponses
+    "expert":      2,   # peut proposer ET certifier
+}
 
 
 def get_domain_level(user: dict, category: str) -> str:

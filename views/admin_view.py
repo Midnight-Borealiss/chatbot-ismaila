@@ -8,7 +8,7 @@ from controllers.kb_controller import kb_controller
 from controllers.mkt_controller import mkt_controller
 from controllers.auth_controller import AuthController
 from services.db_connector import db_instance
-from config.roles import ADMIN, DOMAIN_LEVELS
+from config.roles import ADMIN
 from config.categories import get_categories_for_select, normalize_category
 
 
@@ -181,7 +181,7 @@ def render_admin_view():
     with tabs[3]:
         from config.categories import get_all_canonical
         from config.permissions import build_domain_permissions_from_form, migrate_legacy_user
-        from config.roles import DOMAIN_LEVELS
+        from config.permissions import DOMAIN_HIERARCHY as DOMAIN_LEVELS
 
         user_subtabs = st.tabs(["📋 Liste", "➕ Créer", "🔑 Modifier permissions", "🔄 Migration"])
 
