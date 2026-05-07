@@ -30,7 +30,12 @@ class AuthController:
 
     def check_login(self, email: str, password: str) -> dict | None:
         user = self.users.find_one({"email": email.lower().strip()})
-        if user and self.verify_password(password, user["password_hash"]):
+        if not user:
+            return None
+        password_hash = user.get("password_hash", "")
+        if not password_hash:
+            return None   # Compte sans mot de passe — refus sécurisé
+        if self.verify_password(password, password_hash):
             # Migration automatique expert_topics → domain_permissions
             self._migrate_if_needed(user)
             self.users.update_one(
@@ -40,17 +45,44 @@ class AuthController:
             return user
         return None
 
+    @staticmethod
+    def _get_display_name(user: dict, fallback: str = "") -> str:
+        """
+        Résout le nom d'affichage en tenant compte des deux schémas :
+          - Nouveau schéma : full_name  (depuis la v2 MVC)
+          - Ancien schéma  : name       (versions antérieures)
+        Fallback sur l'email si aucun champ nom n'est trouvé.
+        """
+        return (
+            user.get("full_name")   # Schéma actuel
+            or user.get("name")     # Ancien schéma — rétrocompatibilité
+            or fallback
+        )
+
     def login(self, email: str, password: str) -> bool:
         user = self.check_login(email, password)
         if user:
+            raw_email  = user.get("email", email)
+            full_name  = self._get_display_name(user, fallback=raw_email)
             st.session_state.user = {
                 "id":                 str(user["_id"]),
-                "email":              user["email"],
-                "full_name":          user["full_name"],
-                "role":               user["role"],
+                "email":              raw_email,
+                "full_name":          full_name,
+                "role":               user.get("role", "ETUDIANT"),
                 "domain_permissions": user.get("domain_permissions", {}),
                 "expert_topics":      user.get("expert_topics", []),
             }
+            # Migration silencieuse : si le doc a "name" mais pas "full_name",
+            # on normalise en base pour les prochaines connexions
+            if user.get("name") and not user.get("full_name"):
+                try:
+                    self.users.update_one(
+                        {"_id": user["_id"]},
+                        {"$set":   {"full_name": full_name},
+                         "$unset": {"name": ""}}
+                    )
+                except Exception:
+                    pass   # Non bloquant
             return True
         return False
 
