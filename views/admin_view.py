@@ -54,26 +54,31 @@ def render_admin_view():
 
         # Point 2 — Taux de précision NLP
         st.subheader("🎯 Taux de précision NLP")
-        col_prec, col_dist = st.columns([1, 2])
-        with col_prec:
-            days    = st.selectbox("Période", [7, 30, 90], index=1, key="prec_days")
-            prec    = admin_controller.get_nlp_precision(days=days)
-            st.metric("Précision NLP", f"{prec['precision']}%",
-                      help=f"Sur {prec['total']} requêtes — {prec['success']} succès, {prec['attente']} transmises")
-            st.metric("Questions transmises aux experts", prec["attente"])
-        with col_dist:
-            dist = prec.get("distribution", [])
-            if dist and isinstance(dist, list) and len(dist) > 0:
-                try:
+        try:
+            days = st.selectbox("Période", [7, 30, 90], index=1, key="prec_days")
+            prec = admin_controller.get_nlp_precision(days=days)
+
+            col_prec, col_dist = st.columns([1, 2])
+            with col_prec:
+                total   = prec.get("total", 0)
+                success = prec.get("success", 0)
+                attente = prec.get("attente", 0)
+                precision = prec.get("precision", 0.0)
+                st.metric("Précision NLP", f"{precision}%",
+                          help=f"Sur {total} requêtes — {success} succès, {attente} transmises")
+                st.metric("Questions transmises aux experts", attente)
+            with col_dist:
+                dist = prec.get("distribution", [])
+                if dist and isinstance(dist, list):
                     df_d = pd.DataFrame(dist)
-                    if "Tranche" in df_d.columns and "Requêtes" in df_d.columns:
+                    if {"Tranche", "Requêtes"}.issubset(df_d.columns):
                         st.bar_chart(df_d.set_index("Tranche"), use_container_width=True)
                     else:
-                        st.info("Distribution non disponible.")
-                except Exception:
-                    st.info("Pas encore assez de données.")
-            else:
-                st.info("Aucune requête sur cette période.")
+                        st.info("Format de distribution inattendu.")
+                else:
+                    st.info("Aucune requête enregistrée sur cette période.")
+        except Exception as e:
+            st.warning(f"Statistiques NLP indisponibles : {e}")
 
         st.divider()
 
@@ -220,7 +225,6 @@ def render_admin_view():
                         "Domaines contributeur": ", ".join(contribs) or "—",
                         "Dernière connexion":    str(u.get("last_login", ""))[:10] or "Jamais",
                     })
-                import pandas as pd
                 st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
             else:
                 st.info("Aucun utilisateur en base.")
@@ -565,7 +569,6 @@ def render_admin_view():
                                 "Sparse":  "✅" if idx.get("sparse") else "—",
                                 "TTL":     f"{ttl // 86400}j" if ttl else "—",
                             })
-                        import pandas as pd
                         st.dataframe(
                             pd.DataFrame(rows),
                             use_container_width=True,

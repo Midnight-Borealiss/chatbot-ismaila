@@ -48,7 +48,7 @@ def main():
 
     if st.session_state.user:
         user = st.session_state.user
-        st.sidebar.success(f"👤 {user['full_name']}")
+        st.sidebar.success(f"👤 {user.get('full_name') or user.get('email', 'Utilisateur')}")
         st.sidebar.caption(f"Rôle : **{user['role']}**")
         st.sidebar.divider()
 
