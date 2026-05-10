@@ -62,9 +62,18 @@ def render_admin_view():
                       help=f"Sur {prec['total']} requêtes — {prec['success']} succès, {prec['attente']} transmises")
             st.metric("Questions transmises aux experts", prec["attente"])
         with col_dist:
-            if prec["distribution"]:
-                df_d = pd.DataFrame(prec["distribution"])
-                st.bar_chart(df_d.set_index("Tranche"), use_container_width=True)
+            dist = prec.get("distribution", [])
+            if dist and isinstance(dist, list) and len(dist) > 0:
+                try:
+                    df_d = pd.DataFrame(dist)
+                    if "Tranche" in df_d.columns and "Requêtes" in df_d.columns:
+                        st.bar_chart(df_d.set_index("Tranche"), use_container_width=True)
+                    else:
+                        st.info("Distribution non disponible.")
+                except Exception:
+                    st.info("Pas encore assez de données.")
+            else:
+                st.info("Aucune requête sur cette période.")
 
         st.divider()
 
@@ -92,9 +101,15 @@ def render_admin_view():
         with col_int:
             st.subheader("Intentions des prospects")
             intents = stats.get("intent_counts", [])
-            if intents:
-                df_i = pd.DataFrame(intents).rename(columns={"_id": "Intention", "count": "Occurrences"})
-                st.bar_chart(df_i.set_index("Intention"), use_container_width=True)
+            if intents and isinstance(intents, list):
+                try:
+                    df_i = pd.DataFrame(intents).rename(columns={"_id": "Intention", "count": "Occurrences"})
+                    if "Intention" in df_i.columns:
+                        st.bar_chart(df_i.set_index("Intention"), use_container_width=True)
+                except Exception:
+                    st.info("Données d'intention non disponibles.")
+            else:
+                st.info("Aucune intention enregistrée.")
 
     # ================================================================== #
     #  TAB 2 — À TRAITER (filtres identiques à v2)                       #
