@@ -100,7 +100,7 @@ def run(
 
     # ── Connexion ────────────────────────────────────────────────────────────
     try:
-        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=30000)
         client.admin.command("ping")
         db     = client[DB_NAME]
         kb     = db["contributions"]
@@ -121,9 +121,12 @@ def run(
         else:
             logger.info(f"Ollama prêt — modèle : {ollama_service.model}")
     else:
-        # En dry-run, on teste la connexion Ollama sans l'utiliser
-        ollama_service.dry_run = True
+        # En dry-run : Ollama analyse mais n'écrit pas en base
+        # dry_run de ollama_service reste False pour permettre les appels réels
         logger.info("Mode DRY-RUN — aucune modification en base")
+        ollama_ok = ollama_service.is_available()
+        if not ollama_ok:
+            logger.warning("Ollama indisponible — fallback NLP utilisé")
 
     # ── Récupération des tickets ──────────────────────────────────────────────
     query   = build_query(missing_only)
@@ -158,9 +161,19 @@ def run(
         # Appel Ollama avec tous les garde-fous (dans ollama_service)
         result = ollama_service.categorize(q)
 
-        new_cat   = result["category"]
-        confidence = result["confidence"]
-        low_conf   = result.get("low_confidence", False)
+        # Garde-fou : result peut être None si tous les fallbacks échouent
+        if not result or not isinstance(result, dict):
+            result = {
+                "category":      old_cat,
+                "confidence":    0.0,
+                "reasoning":     "Erreur interne — catégorie inchangée",
+                "source":        "error",
+                "low_confidence": True,
+            }
+
+        new_cat    = result.get("category", old_cat)
+        confidence = result.get("confidence", 0.0)
+        low_conf   = result.get("low_confidence", True)
         changed    = old_cat != new_cat
 
         display_preview(ticket, result)

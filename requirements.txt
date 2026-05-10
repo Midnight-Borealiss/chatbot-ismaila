@@ -1,10 +1,29 @@
-streamlit
-pymongo
-sentence-transformers
-torch
-torchvision
-pydantic[email]
-python-dotenv
-bcrypt
-requests
-pandas
+# ── Interface ──────────────────────────────────────────────────────────
+streamlit>=1.35.0
+
+# ── Base de données ────────────────────────────────────────────────────
+pymongo>=4.7.0
+
+# ── NLP souverain (Phase 1) ────────────────────────────────────────────
+sentence-transformers>=3.0.0
+# Streamlit Cloud free tier : version CPU uniquement (plus légère)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.3.0
+
+# ── IA générative (Phase 2 — Ollama/Mistral) ──────────────────────────
+ ollama>=0.2.0   ← décommenter quand Ollama est configuré sur le serveur
+
+# ── Données & validation ───────────────────────────────────────────────
+pydantic[email]>=2.7.0
+pandas>=2.2.0
+
+# ── Sécurité ───────────────────────────────────────────────────────────
+bcrypt>=4.1.0
+python-dotenv>=1.0.0
+
+# ── Réseau ─────────────────────────────────────────────────────────────
+requests>=2.32.0
+
+# ── Tests ──────────────────────────────────────────────────────────────
+# pytest>=8.0.0         ← installer en dev uniquement
+# pytest-cov>=5.0.0    ← installer en dev uniquement

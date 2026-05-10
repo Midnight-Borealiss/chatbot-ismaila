@@ -33,6 +33,12 @@ OLLAMA_TIMEOUT  = 30       # secondes — GF-01
 MAX_RETRIES     = 2        # tentatives avant fallback — GF-03
 CONFIDENCE_MIN  = 0.6      # score de confiance minimum accepté — GF-04
 
+# GF-07 : URL explicite en IPv4 pour éviter les problèmes de résolution
+# DNS sous Windows (localhost peut pointer vers ::1/IPv6 au lieu de 127.0.0.1)
+# Modifiable via la variable d'environnement OLLAMA_HOST
+import os
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")
+
 
 # ── Prompt système institutionnel ─────────────────────────────────────────────
 
@@ -40,7 +46,9 @@ SYSTEM_PROMPT = """Tu es un assistant interne de l'Institut Supérieur de Manage
 Tu analyses des questions posées par des étudiants ou des prospects.
 Tes réponses sont toujours en français, précises et concises.
 Tu ne dois JAMAIS inventer d'information.
-Si tu n'es pas certain, tu l'indiques explicitement."""
+Si tu n'es pas certain, tu l'indiques explicitement.
+Si l'étudiant veut contacter quelqu'un pour une inscription ou un conseil d'orientation, utilise la catégorie Admission.o
+"""
 
 
 # ── Catégories autorisées (source de vérité) ─────────────────────────────────
@@ -56,11 +64,19 @@ Catégories disponibles :
 - Admission     : inscriptions, dossiers, concours, entretiens, conditions d'entrée
 - Bourses       : aides financières, bourses d'études, financement, scholarships
 - Cybersécurité : formation cyber, sécurité informatique, réseaux, hacking éthique
-- Général       : questions diverses, non classifiables ailleurs
 - Licence_Pro   : licences professionnelles, BTS, formations bac+3
 - MBA           : Master en Management, programme MBA, frais MBA
 - Scolarité     : examens, notes, calendrier, emploi du temps, relevés
 - Vie_Campus    : logement, restauration, associations, sport, campus
+- Général       : TOUT le reste — salutations, questions vagues, hors sujet,
+                  problèmes techniques (mot de passe, connexion), demandes de contact
+
+RÈGLES IMPORTANTES :
+1. Si la question est une salutation ("Bonjour", "Au revoir", "Merci") → Général
+2. Si la question est vague ou incompréhensible → Général
+3. Si la question concerne un problème technique (mot de passe, compte) → Général
+4. Si la question demande à parler à quelqu'un sans sujet précis → Général
+5. N'utilise PAS Vie_Campus pour les demandes de contact ou les salutations
 
 Question à analyser : "{question}"
 
@@ -78,30 +94,45 @@ class OllamaService:
     Instanciation lazy — ne charge pas Ollama si non disponible.
     """
 
-    def __init__(self, model: str = OLLAMA_MODEL, dry_run: bool = False):
+    def __init__(self, model: str = OLLAMA_MODEL, host: str = OLLAMA_HOST, dry_run: bool = False):
         self.model   = model
+        self.host    = host
         self.dry_run = dry_run
         self._client = None
         self._available: Optional[bool] = None
 
     def is_available(self) -> bool:
-        """Vérifie si Ollama est accessible — avec cache pour éviter les appels répétés."""
+        """
+        Vérifie si Ollama est accessible — avec cache pour éviter les appels répétés.
+        GF-07 : utilise IPv4 explicite via OLLAMA_HOST pour éviter les problèmes
+        de résolution DNS sous Windows (localhost → ::1/IPv6 au lieu de 127.0.0.1).
+        """
         if self._available is not None:
             return self._available
         try:
             import ollama
-            ollama.list()   # Teste la connexion
+            client = ollama.Client(host=OLLAMA_HOST)
+            client.list()   # Teste la connexion
             self._available = True
-            logger.info(f"Ollama disponible — modèle : {self.model}")
+            logger.info(f"Ollama disponible sur {OLLAMA_HOST} — modèle : {self.model}")
         except Exception as e:
             self._available = False
-            logger.warning(f"Ollama indisponible : {e}")
+            msg = (
+                f"Ollama indisponible sur {self.host} : {e} | "
+                "Verifiez que 'ollama serve' est lance | "
+                "Lancez scripts/diagnostic_ollama.py pour diagnostiquer"
+            )
+            logger.warning(msg)
         return self._available
 
     def _get_client(self):
+        """
+        Retourne un client Ollama configuré avec l'URL IPv4 explicite.
+        GF-07 : ollama.Client(host=...) garantit l'utilisation de 127.0.0.1.
+        """
         if self._client is None:
             import ollama
-            self._client = ollama
+            self._client = ollama.Client(host=self.host)
         return self._client
 
     def _call(self, prompt: str, system: str = SYSTEM_PROMPT) -> Optional[str]:
@@ -266,28 +297,39 @@ class OllamaService:
     @staticmethod
     def _fallback_nlp(question: str) -> dict:
         """
-        GF-03 : Utilise le moteur NLP existant (classify_category) comme fallback.
-        Retourne le même format que categorize().
+        GF-03 : Utilise classify_category sans @st.cache_resource
+        pour fonctionner hors contexte Streamlit (scripts CLI).
         """
         try:
-            from services.nlp_engine import get_nlp_engine
-            nlp      = get_nlp_engine()
-            category = nlp.classify_category(question)
+            from sentence_transformers import SentenceTransformer
+            from config.categories import normalize_category, CATEGORY_SYNONYMS
+            # Fallback par mots-clés uniquement (pas besoin de Streamlit)
+            q_lower = question.lower()
+            for cat, synonyms in CATEGORY_SYNONYMS.items():
+                if any(s in q_lower for s in synonyms):
+                    return {
+                        "category":      normalize_category(cat),
+                        "confidence":    0.6,
+                        "reasoning":     "Classifié par mots-clés (fallback)",
+                        "source":        "fallback_keywords",
+                        "raw":           "",
+                        "low_confidence": False,
+                    }
             return {
-                "category":      category,
-                "confidence":    0.5,
-                "reasoning":     "Classifié par le moteur NLP local (Ollama indisponible)",
-                "source":        "fallback_nlp",
+                "category":      "Général",
+                "confidence":    0.3,
+                "reasoning":     "Aucun mot-clé correspondant",
+                "source":        "fallback_default",
                 "raw":           "",
                 "low_confidence": True,
             }
         except Exception as e:
-            logger.error(f"Fallback NLP également échoué : {e}")
+            logger.error(f"Fallback NLP échoué : {e}")
             return {
                 "category":      "Général",
                 "confidence":    0.0,
-                "reasoning":     "Fallback total — catégorie par défaut",
-                "source":        "fallback_default",
+                "reasoning":     f"Erreur fallback : {e}",
+                "source":        "fallback_error",
                 "raw":           "",
                 "low_confidence": True,
             }
