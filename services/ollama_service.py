@@ -23,6 +23,15 @@ import time
 from datetime import datetime
 from typing import Optional
 
+# Forcer l'import de la librairie installée via pip
+try:
+    import ollama
+except ImportError:
+    # Si on est sur Streamlit Cloud, on définit un client vide pour éviter le crash
+    # car Ollama n'y tournera pas de toute façon.
+    ollama = None
+    logging.warning("Librairie ollama introuvable ou environnement Cloud sans serveur local.")
+
 logger = logging.getLogger(__name__)
 
 
