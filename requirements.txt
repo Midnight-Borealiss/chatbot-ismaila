@@ -11,7 +11,7 @@ sentence-transformers>=3.0.0
 torch>=2.3.0
 
 # ── IA générative (Phase 2 — Ollama/Mistral) ──────────────────────────
-ollama>=0.2.0   ← décommenter quand Ollama est configuré sur le serveur
+ollama>=0.2.0    # décommenter quand Ollama est configuré sur le serveur
 
 # ── Données & validation ───────────────────────────────────────────────
 pydantic[email]>=2.7.0
