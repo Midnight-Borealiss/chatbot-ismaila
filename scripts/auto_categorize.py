@@ -32,6 +32,14 @@ import sys
 import os
 from datetime import datetime
 from pathlib import Path
+from sentence_transformers import SentenceTransformer
+
+# 1. Définir le modèle ici (au niveau global du script)
+print("Chargement du modèle de similarité sémantique (MiniLM)...")
+embed_model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+
+def process_tickets(tickets, db, args): # <--- AJOUTE 'args' ICI
+    results = []
 
 # Ajout du répertoire racine au path Python
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -152,16 +160,25 @@ def run(
     print(f"  Modèle   : {ollama_service.model}")
     print(f"{'─'*60}")
 
+    # ... (après la connexion à la base et la récupération des tickets)
+
     for i, ticket in enumerate(tickets, 1):
         q       = ticket.get("question", "")
         old_cat = ticket.get("category", "Général")
 
         logger.info(f"[{i}/{len(tickets)}] Traitement : '{q[:50]}…'")
 
-        # Appel Ollama avec tous les garde-fous (dans ollama_service)
+        # 1. GÉNÉRATION DU VECTEUR (Calcul local rapide)
+        try:
+            question_vector = embed_model.encode(q).tolist()
+        except Exception as e:
+            logger.error(f"Erreur vectorisation : {e}")
+            question_vector = []
+
+        # 2. APPEL OLLAMA / MISTRAL
         result = ollama_service.categorize(q)
 
-        # Garde-fou : result peut être None si tous les fallbacks échouent
+        # Garde-fou si l'IA échoue
         if not result or not isinstance(result, dict):
             result = {
                 "category":      old_cat,
@@ -176,22 +193,33 @@ def run(
         low_conf   = result.get("low_confidence", True)
         changed    = old_cat != new_cat
 
-        display_preview(ticket, result)
-
+        # 3. PRÉPARATION DE L'ENTRÉE
         entry = {
-            "ticket_id":   str(ticket["_id"]),
-            "question":    q,
+            "ticket_id":    str(ticket["_id"]),
+            "question":     q,
             "old_category": old_cat,
             "new_category": new_cat,
-            "confidence":  confidence,
-            "reasoning":   result.get("reasoning", ""),
-            "source":      result["source"],
+            "confidence":   confidence,
+            "reasoning":    result.get("reasoning", ""),
+            "source":       result["source"],
             "low_confidence": low_conf,
-            "changed":     changed,
-            "timestamp":   datetime.now().isoformat(),
+            "changed":      changed,
+            "timestamp":    datetime.now().isoformat(),
+            "question_embedding": question_vector # Signature sémantique
         }
         results.append(entry)
 
+        # 4. MISE À JOUR ATLAS (Utilise args.dry_run défini plus haut)
+        if not dry_run and not result.get("low_confidence"):
+            db.contributions.update_one(
+                {"_id": ticket["_id"]},
+                {"$set": {
+                    "category": result["category"],
+                    "question_embedding": question_vector # Enregistrement
+                }}
+            )
+
+        # Statistiques
         if not changed:
             unchanged.append(entry)
         elif low_conf:
@@ -318,9 +346,11 @@ def main():
 
     args = parser.parse_args()
 
+    # Transformation des arguments en variables simples
     dry_run      = not args.apply
     missing_only = not args.all
 
+    # Passage des variables à run()
     run(
         missing_only = missing_only,
         dry_run      = dry_run,

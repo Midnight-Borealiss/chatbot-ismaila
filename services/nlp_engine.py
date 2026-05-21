@@ -103,7 +103,18 @@ class NLPEngine:
             return 0.0
         success = sum(1 for l in logs if l.get("status") == "SUCCÈS")
         return round(success / len(logs) * 100, 1)
+from sentence_transformers import SentenceTransformer
 
+class NLPEngine:
+    def __init__(self):
+        # Modèle multilingue léger (parfait pour le français et ton EliteBook)
+        self.model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+
+    def get_embedding(self, text: str):
+        """Transforme une question en vecteur numérique."""
+        return self.model.encode(text).tolist()
+
+nlp_engine = NLPEngine()
 
 @st.cache_resource(show_spinner="Chargement du moteur NLP…")
 def get_nlp_engine() -> NLPEngine:

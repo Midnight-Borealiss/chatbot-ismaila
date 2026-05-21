@@ -81,3 +81,7 @@ def get_all_canonical() -> list[str]:
 def get_categories_for_select() -> list[str]:
     """Liste pour les selectbox Streamlit — canoniques uniquement."""
     return get_all_canonical()
+
+def normalize_category(cat_name):
+    # Une version simple pour débloquer
+    return str(cat_name).strip().capitalize()
