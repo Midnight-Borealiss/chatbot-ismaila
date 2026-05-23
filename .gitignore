@@ -11,4 +11,4 @@ __pycache__/
 .env
 
 # Fichiers de données ou logs générés localement
-*.log
+*.logclé de service.toml
