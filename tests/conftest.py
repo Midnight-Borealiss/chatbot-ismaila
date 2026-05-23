@@ -31,11 +31,12 @@ def mock_db(monkeypatch):
     Patch db_instance.get_collection pour retourner des collections vides.
     Utilisé dans tous les tests qui instancient des controllers.
     """
-    mock = MagicMock()
-    mock.get_collection.return_value = make_mock_collection()
-    mock.is_alive.return_value = True
-    monkeypatch.setattr("services.db_connector.db_instance", mock)
-    return mock
+    from services.db_connector import db_instance
+    mock_col = make_mock_collection()
+    monkeypatch.setattr(db_instance, "get_collection", lambda name: mock_col)
+    monkeypatch.setattr(db_instance, "is_alive", lambda: True)
+    monkeypatch.setattr(db_instance, "db", MagicMock())
+    return db_instance
 
 
 @pytest.fixture

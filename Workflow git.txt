@@ -1,0 +1,105 @@
+
+### 1\. Installation de Git et création de compte
+
+Avant d'utiliser GitHub, vous devez installer **Git** sur votre ordinateur. Git est le logiciel qui fait le lien entre votre machine et GitHub.
+
+1.  **Installez Git :** Téléchargez Git sur le site officiel : [git-scm.com](https://git-scm.com/downloads). Suivez les instructions par défaut.
+
+2.  **Configurez Git :** Une fois Git installé, ouvrez votre terminal (ou l'**Anaconda Prompt** si vous l'utilisez) et configurez votre nom et votre adresse e-mail. C'est essentiel pour que Git sache qui effectue les modifications.
+
+    ```bash
+    git config --global user.name "Votre Nom"
+    git config --global user.email "votre.email@example.com"
+    ```
+
+3.  **Créez un compte GitHub :** Rendez-vous sur [github.com](https://github.com/) et inscrivez-vous. C'est la plateforme en ligne où votre code sera stocké.
+
+-----
+
+### 2\. Création de votre premier dépôt (repository)
+
+Un **dépôt** (ou **repository**) est l'équivalent de votre projet sur GitHub. Il contient tous vos fichiers et leur historique de modifications.
+
+1.  Connectez-vous à votre compte GitHub.
+2.  Cliquez sur le bouton **"+ New"** ou **"New repository"** en haut à droite.
+3.  **Nommez votre dépôt** (par exemple, `chatbot-ismaila`).
+4.  Ajoutez une brève description.
+5.  Choisissez `Public` ou `Private` (pour un projet d'équipe, `Private` est souvent un bon choix).
+6.  Cochez l'option **"Add a README file"**. C'est une bonne pratique pour démarrer.
+7.  Cliquez sur **"Create repository"**.
+
+Vous venez de créer le point de départ de votre projet sur GitHub.
+
+-----
+
+### 3\. Les commandes Git essentielles (Le workflow de base)
+
+Maintenant, nous allons lier le dépôt GitHub à votre dossier de projet sur votre ordinateur.
+
+#### Étape A : Cloner le dépôt 📥
+
+Puisque vous avez créé le dépôt en ligne, la première chose à faire est de le "cloner" sur votre machine.
+
+1.  Sur la page de votre dépôt sur GitHub, cliquez sur le bouton **"Code"** (vert).
+
+2.  Copiez l'URL (elle se termine par `.git`).
+
+3.  Ouvrez votre terminal ou Anaconda Prompt.
+
+4.  Naviguez jusqu'au dossier où vous voulez stocker votre projet (ex: `cd Documents/Projets`).
+
+5.  Exécutez la commande `git clone` suivie de l'URL que vous avez copiée.
+
+    ```bash
+    git clone https://github.com/votre-nom-utilisateur/chatbot-ismaila.git
+    ```
+
+    Cela crée un nouveau dossier `chatbot-ismaila` sur votre ordinateur, qui contient le fichier `README.md` que vous avez créé.
+
+#### Étape B : Ajouter vos fichiers ➕
+
+Maintenant, vous pouvez copier tous les fichiers de votre MVP (`agent.py`, `interface.py`, etc.) dans ce nouveau dossier `chatbot-ismaila`.
+
+Une fois vos fichiers ajoutés, retournez au terminal et utilisez `git add` pour indiquer à Git que vous voulez suivre ces nouveaux fichiers.
+
+```bash
+cd chatbot-ismaila
+git add .
+```
+
+`git add .` ajoute tous les fichiers et dossiers modifiés dans la "zone de préparation" (staging area).
+
+#### Étape C : Enregistrer vos modifications (commit) 💾
+
+Un **commit** est un enregistrement de vos modifications. C'est comme un "point de sauvegarde" de votre travail. Chaque commit doit avoir un message qui décrit ce qui a été fait.
+
+```bash
+git commit -m "Ajout des fichiers du MVP de base"
+```
+
+Le message après `-m` est très important pour l'historique du projet.
+
+#### Étape D : Envoyer vos modifications (push) ⬆️
+
+Pour que vos modifications apparaissent sur GitHub et que vos collaborateurs puissent y accéder, vous devez les "pousser" du dépôt local vers le dépôt distant.
+
+```bash
+git push origin main
+```
+
+`origin` fait référence au dépôt GitHub, et `main` est le nom de la branche par défaut.
+
+Si vous retournez sur la page de votre dépôt sur GitHub, vous verrez tous vos fichiers en ligne \!
+
+-----
+
+### 4\. Le Workflow en pratique
+
+Pour la suite du développement, votre workflow de base sera le suivant :
+
+1.  **Travail :** Modifiez vos fichiers (ex: `agent.py`).
+2.  **Préparation :** `git add .` pour préparer vos changements.
+3.  **Sauvegarde :** `git commit -m "Un message clair sur ce que j'ai fait"` pour créer un point de sauvegarde.
+4.  **Synchronisation :** `git push origin main` pour envoyer vos changements sur GitHub.
+
+Ce cycle simple vous permettra de travailler efficacement seul ou en équipe.

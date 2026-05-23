@@ -48,6 +48,12 @@ class SearchController:
             # Si le périmètre filtré est vide, on tente une recherche de secours globale
             validated_docs = list(self.kb.find({"status": "valide"}))
 
+        if not validated_docs:
+            return self._build_result(
+                "La base de connaissances est vide. Veuillez contacter un administrateur.",
+                0.0, "VIDE", "COLD", False, category
+            )
+
         # ── 2. INDEXATION CROISÉE ET CORRESPONDANCE PONDÉRÉE (Niveau 2) ──
         if validated_docs:
             texts_to_embed = []

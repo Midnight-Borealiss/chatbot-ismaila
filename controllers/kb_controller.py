@@ -13,8 +13,31 @@ class KBController:
     Nouveautés : recatégorisation (point 6), normalisation des catégories (point 8).
     """
 
+    @staticmethod
+    def is_empty_or_pending(response: Optional[str]) -> bool:
+        """Retourne True si la réponse est vide ou contient un placeholder d'attente.
+        Le placeholder actuel est « En attente de réponse admin… ». Tous les textes
+        commençant par « En attente » sont considérés comme aucune réponse valable.
+        """
+        if not response:
+            return True
+        r = response.strip()
+        return not r or r.startswith("En attente")
+
     def __init__(self):
         self.col = db_instance.get_collection("contributions")
+
+    def clear_placeholder_responses(self) -> int:
+        """Supprime le texte placeholder « En attente de réponse admin… » des documents.
+        Pour chaque contribution dont la réponse commence par ce texte, on vide la
+        réponse et on remet le statut à "en_attente". La fonction retourne le nombre
+        de documents modifiés.
+        """
+        placeholder_prefix = "En attente de réponse admin"
+        query = {"response": {"$regex": f"^{placeholder_prefix}"}}
+        update = {"$set": {"response": "", "status": "en_attente"}}
+        result = self.col.update_many(query, update)
+        return result.modified_count
 
     def get_pending(self) -> list:
         return list(self.col.find({"status": "en_attente"}).sort("created_at", -1))

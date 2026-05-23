@@ -18,6 +18,7 @@ from services.db_connector import db_instance
 from services.mailer import send_pending_digest, send_new_question_alert, _send
 from services.nlp_engine import get_nlp_engine
 from config.roles import CONTRIBUTOR, VALIDATOR, ADMIN
+from controllers.kb_controller import kb_controller
 
 
 class AdminController:
@@ -242,9 +243,9 @@ class AdminController:
             query["category"] = category
         results = list(self.kb.find(query).sort("created_at", -1))
         if has_proposal is True:
-            results = [r for r in results if r.get("response") and r["response"] not in ("En attente", "")]
+            results = [r for r in results if not kb_controller.is_empty_or_pending(r.get("response", ""))]
         elif has_proposal is False:
-            results = [r for r in results if not r.get("response") or r["response"] in ("En attente", "")]
+            results = [r for r in results if kb_controller.is_empty_or_pending(r.get("response", ""))]
         if keyword:
             kw = keyword.lower()
             results = [r for r in results if kw in r.get("question","").lower()

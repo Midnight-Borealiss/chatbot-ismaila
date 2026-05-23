@@ -30,13 +30,14 @@ def mock_nlp():
     nlp = MagicMock()
     nlp.get_similarity_score.return_value = (0, 0.90)   # score > seuil par défaut
     nlp.classify_intent.return_value = "HOT"
+    nlp.classify_category.return_value = "Général"
     return nlp
 
 
 @pytest.fixture
 def search_ctrl(monkeypatch, validated_doc, mock_nlp):
     """SearchController avec MongoDB et NLP complètement mockés."""
-    # Mock db_instance
+    from services.db_connector import db_instance
     mock_kb   = MagicMock()
     mock_logs = MagicMock()
     mock_users = MagicMock()
@@ -46,12 +47,12 @@ def search_ctrl(monkeypatch, validated_doc, mock_nlp):
     mock_logs.insert_one.return_value = MagicMock()
     mock_users.find.return_value = []
 
-    mock_db = MagicMock()
     def get_col(name):
-        return {"contributions": mock_kb, "logs_interactions": mock_logs, "users": mock_users}[name]
-    mock_db.get_collection.side_effect = get_col
+        return {"contributions": mock_kb, "logs_interactions": mock_logs, "users": mock_users}.get(name, MagicMock())
 
-    monkeypatch.setattr("services.db_connector.db_instance", mock_db)
+    monkeypatch.setattr(db_instance, "get_collection", get_col)
+    monkeypatch.setattr(db_instance, "is_alive", lambda: True)
+    monkeypatch.setattr(db_instance, "db", MagicMock())
     monkeypatch.setattr("controllers.search_controller.get_nlp_engine", lambda: mock_nlp)
 
     from controllers.search_controller import SearchController

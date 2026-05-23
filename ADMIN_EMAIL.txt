@@ -1,0 +1,107 @@
+ADMIN_EMAILS = ["minawade005@gmail.com", # Pour toi Mina Super Admin
+                "mame-aissatou.kebe@ism.edu.sn", # Pour Kebsou Assistant Admin
+#-----------------------Accès Admin pour la DSI -----------------------#               
+mohamed.sangare@groupeism.sn, # Pour Sangaré IT
+seydina-oumar.gueye@groupeism.sn, # Pour Seydina IT
+keit-maiva.mboumba@groupeism.sn, # Pour Keit Midleton IT
+edem-kokou.assila@groupeism.sn # Pour Edem IT
+cheihk-oumar.ba@groupeism.sn, # Pour Cheihk Oumar IT
+pinhas-paguel.ngaye@groupeism.sn,
+
+#-----------------------Accès Admin pour l'école d'Ingénieur -----------------------#
+"mame-diarra.mbaye@groupeism.sn"
+"marie-bernadette.ndione@groupeism.sn", # Pour Bernie ingénieur
+"mar-sarr.ndiaye@groupeism.sn", # Pour Mar ingénieur
+"kande.diaby@groupeism.sn", # Pour Diaby ingénieur
+"ameth.fall@groupeism.sn", # Pour Ameth ingénieur
+"olivier.sagna@groupeism.sn", # Pour Olivier ingénieur
+
+
+#-----------------------Accès Admin pour l'école de Management -----------------------#  
+"yves.malack@groupeism.sn"             
+"fatou-bintou.fall@groupeism.sn", # Pour Fatou Bintou 
+"cheikh.gueye@groupeism.sn", # Pour Cheikh Gueye Management
+"fatoumata.dem@groupeism.sn", # Pour 
+
+
+
+#-----------------------Accès Admin pour l'école de Droit -----------------------#  
+"ousseynou.kama@groupeism.sn"
+"mariama-djibril.diallo@groupeism.sn", # Pour Mariama IDA
+"sokhna-mai.mbacke@groupeism.sn",
+"mame-aissitou.cissé"
+
+                
+#-----------------------Accès Admin pour Com -----------------------# 
+"ndeye-khady.diop@groupeism.sn", # Pour Zolie Com
+"mouhameth.kane@groupeism.sn", # Pour Mouhameth Com
+"anta.seck@groupeism.sn", # Pour Anta Com
+
+#-----------------------Accès Admin pour carrier center -----------------------# 
+"corneille-jeff.lawson@groupeism.sn", # Pour Lawson Carrier Center
+"awa.thiom@groupeism.sn", # Pour Awa Carrier Center
+"mouhamadou-moustapha.kane@groupeism.sn"
+
+#-----------------------Accès Admin pour  SSA -----------------------# 
+"alioune.diop@groupeism.sn", # Pour Badara SSA
+"maimouna.camara@groupeism.sn", # Pour Maya SSA
+"mame-diass.diop@groupeism.sn", # Pour Diass SSA
+"kewe.mbengue@groupeism.sn", # Pour Kéwé SSA
+"codou.gaye@groupeism.sn", # Pour Carlette SSA
+"lucien-namein.yanga@groupeism.sn", # Pour Lucien
+
+#-----------------------Accès Admin pour admission -----------------------#
+"evelyne.konnigui@groupeism.sn", 
+"nafy.dieng@groupeism.sn", # Pour Nafy Admission
+"mame-anta.ndiaye@groupeism.sn",
+"francois.bassene@groupeism.sn",
+"Guéda@ismaila.sn", # Pour Guéda Admission
+"orphee-kertys.okassa@groupeism.sn", # Pour Gatuzo Admission
+"anne-isabelle.diouf@groupeism.sn", # Pour Isabelle Admission
+"abeke-arafath.agonkpahoun@groupeism.sn", # Pour Arafate Admission
+
+#-----------------------Accès Admin pour scolarité  -----------------------# 
+"jean.diatta@groupeism.sn"
+"doudou-lamassas.fall@groupeism.sn", # Pour Doudou Scolarité
+"awa-diouf.seck@groupeism.sn", # Pour Mmeseck Scolarité
+"arame.ndiaye@groupeism.sn"
+
+#-----------------------Accès Admin pour call center  -----------------------# 
+"alle-mada.ka@groupeism.sn", # Pour Allé Call Center
+
+
+#-----------------------Accès Online  -----------------------# 
+"mbaye.amar@groupeism.sn",
+"majoie.agossou@groupeism.sn",
+"toussaint-kambala@groupeism.sn",
+"mahawa.camara@groupeism.sn",
+
+
+
+#-----------------------Incubateur  -----------------------#
+"salla.seck@groupeism.sn",
+"isidor.dingamnodji@groupeism.sn",
+
+
+#-----------------------Direction Relation Internationales  -----------------------#
+"souleymane.ndao@groupeism.sn"
+"fatou-trifen.doulegou@groupeism.sn"
+
+#----------------------- Qualité -----------------------#
+"awa.mbaye@groupeism.sn",
+"marie-francoise.diouf@groupeism.sn"
+"couty-fall.ndiaye@groupeism.sn"
+"charles.badiane@groupeism.sn"
+" Assistante de direction/relai qualité"
+""
+""
+
+#-----------------------  Safety officer -----------------------#
+"amadou.mahmoud@groupeism.sn"
+
+
+#----------------------- Infirmerie -----------------------#
+"alioune.diop4@groupeism.sn"
+""
+""
+

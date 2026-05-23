@@ -31,13 +31,14 @@ def sample_lead():
 
 @pytest.fixture
 def mock_leads_col(monkeypatch):
+    from services.db_connector import db_instance
     col = MagicMock()
     col.find.return_value = iter([])
     col.update_one.return_value = MagicMock(modified_count=1)
 
-    mock_db = MagicMock()
-    mock_db.get_collection.return_value = col
-    monkeypatch.setattr("services.db_connector.db_instance", mock_db)
+    monkeypatch.setattr(db_instance, "get_collection", lambda name: col)
+    monkeypatch.setattr(db_instance, "is_alive", lambda: True)
+    monkeypatch.setattr(db_instance, "db", MagicMock())
     return col
 
 
@@ -181,9 +182,10 @@ class TestRetryFailedLeads:
 
     def test_returns_error_message_on_db_failure(self, monkeypatch):
         from services import sf_connector
-        mock_db = MagicMock()
-        mock_db.get_collection.side_effect = RuntimeError("DB down")
-        monkeypatch.setattr("services.db_connector.db_instance", mock_db)
+        from services.db_connector import db_instance
+        def raise_err(name):
+            raise RuntimeError("DB down")
+        monkeypatch.setattr(db_instance, "get_collection", raise_err)
 
         msg = sf_connector.retry_failed_leads()
         assert "Erreur" in msg or "❌" in msg

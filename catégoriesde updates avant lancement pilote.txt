@@ -1,0 +1,171 @@
+	Architecture & Sécurité
+Migration vers l'architecture MVC complète
+
+Séparation des privilèges — AdminController isolé
+Aucune méthode admin partagée avec les controllers publics. Toute action admin est loggée (non-répudiation).
+
+Authentification bcrypt + sessions Streamlit sécurisées
+Seul le minimum nécessaire est stocké en session (jamais le hash). Méthodes statiques hash_password / verify_password.
+
+Permissions granulaires par domaine
+Remplacement d'expert_topics (liste simple) par domain_permissions (learner / contributor / expert par catégorie). Migration automatique au login.
+
+Guard de rôle sur toutes les vues sensibles
+st.stop() immédiat si le rôle ne correspond pas. Contributeur, validateur et admin ont chacun leur garde en entrée.
+
+Mode survie MongoDB (survival_kit.json)
+Si MongoDB est indisponible, l'app reste accessible avec les FAQ statiques et liens d'urgence. db_instance.is_alive() vérifié au démarrage.
+
+Correction bug _log_query (TypeError float slicing)
+str(r)[:200] et float(sc) pour normaliser les types numpy de PyTorch. try/except pour ne jamais crasher le chat à cause du log.
+
+Correction bug ObjectId comme clé Streamlit
+str(item['_id']) systématique dans toutes les vues pour éviter l'erreur de type sur les widgets Streamlit.
+
+Anonymisation pré-envoi : Créer une fonction de nettoyage des données personnelles (noms, emails) avant traitement par l'IA.
+
+Migration vers FastAPI : Déporter la logique métier (Auth, CRUD) vers des API endpoints.
+
+Validation via Pydantic : Créer des modèles de données pour valider chaque entrée/sortie API.
+
+
+	Moteur NLP & recherche
+Cache NLP avec @st.cache_resource
+Le modèle all-MiniLM-L6-v2 (~90 Mo) est chargé une seule fois via get_nlp_engine(). Sans ce cache, Streamlit rechargeait le modèle à chaque rerun.
+
+Catégorisation automatique des questions NLP
+classify_category() combine mots-clés (fast path) + similarité sémantique sur des phrases d'ancrage. Chaque ticket créé a une catégorie pertinente.
+
+Scoring d'intention HOT / WARM / COLD
+classify_intent() analyse les mots-clés de la question. Alimente le compteur de déclenchement RG-05.
+
+Alerte expert ciblée par domaine (RG-03)
+Requête MongoDB sur expert_topics + domain_permissions. Fallback sur tous les validateurs si aucun expert ciblé trouvé.
+
+Traitement différencié expert_suggestion
+Quand un expert pose une question dans son propre domaine, le ticket est marqué expert_suggestion — pas d'alerte externe, visible dans le dashboard admin
+
+Normalisation des catégories (casse + synonymes)
+normalize_category() rend "inscription", "INSCRIPTIONS", "candidature" équivalents → "Admission". Élimine les doublons de catégories en base.
+
+	Base de connaissances & workflow
+Workflow de validation complet à 4 niveaux :Question → ticket → proposition contributeur → certification validateur → notification étudiant. Chaque étape est tracée en base.
+
+Recatégorisation des questions par le contributeur
+Selectbox + bouton dans chaque question. kb_controller.recategorize() normalise et enregistre avec recategorized_by / recategorized_at.
+
+Filtres et recherche dans les espaces contribuer et valider
+Trois filtres combinables : catégorie, état de proposition, mot-clé. Identiques aux filtres de la v2 d'origine.
+
+Actualisation automatique après chaque action
+st.rerun() systématique après validation, certification, archivage, recatégorisation, suppression, création d'utilisateur.
+
+Invalidation des réponses certifiées
+Bouton "Invalider" dans l'onglet Validées. Remet la contribution en statut en_attente pour correction.
+
+Notification étudiant à la certification
+Après update_contribution(), send_answer_to_student() est appelé si user_email est connu (pas anonyme). Email HTML avec la réponse certifiée.
+
+Bouton "Proposer" conditionnel selon le niveau du domaine
+Dans validator_view, le bouton affiché dépend du niveau dans le domaine : "Certifier" pour expert, "Proposer" pour contributor, lecture seule pour learner.
+
+	Dashboard admin & statistiques
+Récap contributions et validations par profil
+Agrégation MongoDB $facet en un seul appel. Tableau trié par total d'activité avec propositions et certifications par utilisateur.
+
+Taux de précision NLP avec distribution des scores
+get_nlp_precision() calcule SUCCÈS/total sur 7, 30 ou 90 jours. Distribution par tranches affichée en graphe à barres.
+
+Détection des lacunes par catégorie
+Agrégation MongoDB sur les tickets en_attente groupés par catégorie. Top 5 des domaines sans réponse certifiée.
+
+Gestion utilisateurs avec permissions granulaires
+4 sous-onglets : liste enrichie, création avec grille de permissions, modification des permissions, migration des anciens profils expert_topics.
+
+Envoi des identifiants à la création d'un compte
+Checkbox "Envoyer les identifiants par email". send_welcome_email() envoie email + lien plateforme. Mot de passe affiché une seule fois.
+
+Journal des actions admin (non-répudiation)
+Toute action admin (digest, notification, désactivation) est loggée dans logs_admin avec timestamp et détails.
+
+Filtres et Recherche V2 : Réintégrer la barre de recherche et les filtres dynamiques sur les pages "Contribuer" et "Valider"
+
+[IA] Taux de précision : Afficher l'indicateur de fiabilité basé sur les corrections des validateurs.
+
+
+
+	Notifications & emails - Rose / Fuchsia
+4 fonctions d'email distinctes et ciblées
+send_answer_to_student() · send_new_question_alert() · send_pending_digest() · send_expert_alert() (alias). Chacune avec template HTML + fallback texte
+
+Digest hebdomadaire personnalisé par rôle
+Contributeurs reçoivent les questions sans réponse. Validateurs reçoivent les propositions à certifier. Envoi depuis le dashboard admin.
+
+Alerte de relance manuelle par question
+Bouton "Notifier" sur chaque question dans l'onglet "À traiter". notify_experts_for_question() cible les experts du bon domaine.
+
+Variables SMTP centralisées dans settings
+SMTP_SERVER / SMTP_PORT / SMTP_USER / SMTP_PASS lus depuis les variables d'environnement. Plus de os.getenv() dispersés.
+
+	Expérience utilisateur & chat
+Historique des échanges persistant par utilisateur
+Collection chat_sessions dans MongoDB. Upsert à chaque échange. Restauration au chargement de student_view. Bouton "Vider" pour effacer.
+
+Affichage de la catégorie détectée dans le chat
+Après chaque réponse, le score de confiance et la catégorie NLP détectée sont affichés en caption
+
+Déclenchement automatique RG-05 (capture lead)
+Compteur de questions HOT dans la session. Au seuil de 3, formulaire de capture affiché dans la conversation pour les anonymes.
+
+Module marketing mis en veille (sans suppression)
+L'onglet Leads & CRM est masqué du dashboard. mkt_controller et sf_connector sont conservés mais inactifs. Réactivation en un ajout d'onglet.
+
+Historique persistant : Mettre en place la collection chat_history liée à l'ID utilisateur.
+
+Actualisation réactive : S'assurer que chaque validation déclenche un rafraîchissement immédiat de l'espace.
+
+	Tests & déploiement - Gris / Argent
+Suite de tests automatisés — 47 tests
+test_auth · test_mailer · test_search_controller · test_mkt_controller · test_sf_connector. MongoDB et SMTP entièrement mockés.
+
+requirements.txt avec versions épinglées
+Versions minimales définies pour Streamlit Cloud. Ajout de requests manquant dans la version initiale.
+
+Fichier .gitignore et secrets.toml.example
+.env et secrets.toml exclus du dépôt. Template documenté pour Streamlit Cloud avec toutes les variables nécessaires.
+
+README complet pour GitHub
+Architecture, déploiement Streamlit Cloud, rôles utilisateurs, règles de gestion RG-01 à RG-06 documentées.
+
+	Priorité 1 :Stabilité production - rouge
+Index MongoDB
+Pagination des listes
+Seuil NLP dynamique 
+Logging structuré avec vrai logger avec niveau DEBUG/INFOS/ERROR
+
+	Priorité 2 :Expérience et Fonctionnalités - orange 
+Badge Compter in_apps pour que le validateur sache qu'il a des questions en attente 
+
+Recatégorisation par le validateur en plus du contributeur
+
+Recherche de mot clé dans les réponses en plus des questions
+
+Export CSV depuis le Dashboard
+
+Possibilité de feedback sur les réponses par les étudiants 
+
+	Priorité 3 :Progression RAG - bleu
+Activation  Ollama + mistral
+Intégration documentation officielle
+Remplacer le calcul de similarité cosinus en mémoir par un index vectoriel MongoDB pour avoir Requêtes sémantiques plus rapides
+Réactivation module Mraketing pour mesurer CA attribuable à ISMaiLa
+Retry Exponentiel : Configurer la logique de relance pour les webhooks entrants (Salesforce).
+Résolution des formats : Corriger le bug des types de réponses (JSON vs String).
+
+	Transversale - marron 
+Lancer pytest automatiquement à chaque push
+Versioning des réponses certifiées
+Expiration automatiques des vielles sessions chat sans intervention 
+Amélioration système de tag passer des catégories larges (MBA, Admisiion) aux tags fins (rentrée janvier, cours du soir,...)
+détection de langue pour donner réponses adaptées
+Éviter la duplication des tickets similaires

@@ -1,0 +1,40 @@
+def main():
+    parser = argparse.ArgumentParser(
+        description="Auto-catégorisation des tickets ISMaiLa avec Mistral/Ollama"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", default=True,
+        help="Simuler sans modifier la base (défaut : activé)",
+    )
+    parser.add_argument(
+        "--apply", action="store_true",
+        help="Appliquer les changements (désactive le dry-run)",
+    )
+    parser.add_argument(
+        "--missing-only", action="store_true", default=True,
+        help="Traiter uniquement les tickets sans catégorie ou en 'Général'",
+    )
+    parser.add_argument(
+        "--all", action="store_true",
+        help="Traiter tous les tickets en_attente",
+    )
+    parser.add_argument(
+        "--limit", type=int, default=50,
+        help="Nombre maximum de tickets à traiter (défaut : 50)",
+    )
+    parser.add_argument(
+        "--report", type=str, default=None,
+        help="Chemin du fichier de rapport JSON (ex: rapport.json)",
+    )
+
+    args = parser.parse_args()
+
+    dry_run      = not args.apply
+    missing_only = not args.all
+
+    run(
+        missing_only = missing_only,
+        dry_run      = dry_run,
+        limit        = args.limit,
+        report_path  = args.report,
+    )

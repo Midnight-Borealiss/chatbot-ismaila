@@ -11,14 +11,15 @@ from bson import ObjectId
 
 @pytest.fixture
 def mkt_ctrl(monkeypatch):
+    from services.db_connector import db_instance
     mock_col = MagicMock()
     mock_col.insert_one.return_value = MagicMock(inserted_id=ObjectId())
     mock_col.count_documents.return_value = 5
     mock_col.find.return_value = iter([])
 
-    mock_db = MagicMock()
-    mock_db.get_collection.return_value = mock_col
-    monkeypatch.setattr("services.db_connector.db_instance", mock_db)
+    monkeypatch.setattr(db_instance, "get_collection", lambda name: mock_col)
+    monkeypatch.setattr(db_instance, "is_alive", lambda: True)
+    monkeypatch.setattr(db_instance, "db", MagicMock())
 
     from controllers.mkt_controller import MarketingController
     ctrl = MarketingController()
