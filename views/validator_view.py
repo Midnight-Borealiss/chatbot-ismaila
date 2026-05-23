@@ -4,6 +4,7 @@ from controllers.kb_controller import kb_controller
 from config.roles import VALIDATOR, ADMIN
 from config.categories import get_categories_for_select
 from config.permissions import get_domain_level, can_validate, can_answer, get_user_domains_summary
+from config.response_helpers import has_real_response, has_no_real_response
 
 
 def render_validator_view():
@@ -56,9 +57,9 @@ def render_validator_view():
     if f_cat != "Toutes":
         pending = [p for p in pending if p.get("category") == f_cat]
     if f_state == "Avec proposition":
-        pending = [p for p in pending if p.get("response") and p["response"] != "En attente"]
+        pending = [p for p in pending if has_real_response(p.get("response", ""))]
     elif f_state == "Sans réponse (À rédiger)":
-        pending = [p for p in pending if not p.get("response") or p["response"] == "En attente"]
+        pending = [p for p in pending if has_no_real_response(p.get("response", ""))]
     if f_kw:
         kw = f_kw.lower()
         pending = [p for p in pending
@@ -75,7 +76,6 @@ def render_validator_view():
     for item in pending:
         item_id  = str(item["_id"])
         category = item.get("category", "Général")
-        has_prop = item.get("response") and item["response"] != "En attente"
         source   = item.get("source", "user_question")
 
         # Calcul des droits de l'utilisateur sur cette question
@@ -85,6 +85,7 @@ def render_validator_view():
 
         # Badge visuel selon le type de question
         source_badge = "💡 Suggestion expert" if source == "expert_suggestion" else ""
+        has_prop = has_real_response(item.get("response", ""))
         label = f"{'📝' if has_prop else '❓'} [{category}] {item['question'][:65]} {source_badge}"
 
         with st.expander(label, expanded=False):
@@ -106,7 +107,7 @@ def render_validator_view():
                 else:
                     st.warning("📖 Lecture seule")
 
-            current_resp = "" if item.get("response") == "En attente" else item.get("response","")
+            current_resp = "" if has_no_real_response(item.get("response", "")) else item.get("response", "")
 
             # ── Recatégorisation (validateur) ─────────────────────────
             # Le validateur a l'expertise finale sur la bonne catégorie.

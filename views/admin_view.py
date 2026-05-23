@@ -10,6 +10,7 @@ from controllers.auth_controller import AuthController
 from services.db_connector import db_instance
 from config.roles import ADMIN
 from config.categories import get_categories_for_select, normalize_category
+from config.response_helpers import has_real_response, has_no_real_response
 
 
 def _require_admin():
@@ -142,7 +143,7 @@ def render_admin_view():
 
         for item in filtered:
             item_id  = str(item["_id"])
-            has_prop = item.get("response") and item["response"] not in ("En attente","")
+            has_prop = has_real_response(item.get("response", ""))
             resp_val = "" if not has_prop else item["response"]
 
             with st.container(border=True):
