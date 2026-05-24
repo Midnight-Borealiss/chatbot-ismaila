@@ -61,3 +61,15 @@ Le projet **MVP 7 Pilote V3** repose sur une architecture de services et de cont
 ## Prochaines Étapes
 - Intégrer template email générique avec lien + identifiants (v7.6)
 - Ajouter catégorie dans toutes les vues (v7.7)
+
+## Configuration du digest dans l'interface admin
+
+Dans l'onglet **Notifications** du tableau de bord admin, une nouvelle interface permet de :
+
+- sélectionner les éléments à inclure dans le digest via trois cases à cocher,
+- choisir la fréquence (Quotidien, Hebdomadaire, Mensuel) avec un menu déroulant,
+- sauvegarder les paramètres de façon persistante dans la collection `admin_settings` de MongoDB.
+
+Ces réglages sont chargés au chargement de la page grâce à `admin_controller.get_digest_settings` et enregistrés via `admin_controller.set_digest_settings`. Le bouton « Envoyer le digest à tous » utilise ces paramètres lors de la génération du résumé.
+
+Cette fonctionnalité a été ajoutée dans la version v7.6.

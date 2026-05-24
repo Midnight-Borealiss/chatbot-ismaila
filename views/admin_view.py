@@ -385,12 +385,32 @@ def render_admin_view():
     #  TAB 5 — NOTIFICATIONS                                              #
     # ================================================================== #
     with tabs[4]:
-        st.subheader("Centre de notifications")
-        st.info("Envoie un digest personnalisé à chaque contributeur et validateur.")
+        # Charger les paramètres actuels du digest
+        settings = admin_controller.get_digest_settings(user["email"])
+        inc_new = st.checkbox("Inclure les nouvelles contributions", value=settings.get("include_new_contributions", True), key="digest_new")
+        inc_status = st.checkbox("Inclure les changements de statut", value=settings.get("include_status_changes", True), key="digest_status")
+        inc_cleanup = st.checkbox("Inclure le rapport du script de nettoyage", value=settings.get("include_cleanup_report", False), key="digest_cleanup")
+        freq_display = ["Quotidien", "Hebdomadaire", "Mensuel"]
+        freq_map = {"Quotidien": "daily", "Hebdomadaire": "weekly", "Mensuel": "monthly"}
+        default_freq = {v: k for k, v in freq_map.items()}.get(settings.get("frequency", "daily"), "Quotidien")
+        freq_selected = st.selectbox("Fréquence du digest", options=freq_display, index=freq_display.index(default_freq), key="digest_freq")
+        if st.button("💾 Enregistrer les paramètres du digest", type="primary"):
+            new_settings = {
+                "include_new_contributions": inc_new,
+                "include_status_changes": inc_status,
+                "include_cleanup_report": inc_cleanup,
+                "frequency": freq_map[freq_selected],
+            }
+            ok = admin_controller.set_digest_settings(user["email"], new_settings)
+            if ok:
+                st.success("✅ Paramètres du digest enregistrés.")
+                st.rerun()
+            else:
+                st.error("⚠️ Erreur lors de l'enregistrement des paramètres.")
+        # Envoyer le digest à tous les utilisateurs
         if st.button("📤 Envoyer le digest à tous", type="primary"):
             result = admin_controller.send_digest_to_all(user["email"])
             st.success(result["message"]) if result["sent"] > 0 else st.info(result["message"])
-
         st.divider()
         st.subheader("📜 Journal des actions admin")
         try:

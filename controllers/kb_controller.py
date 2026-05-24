@@ -4,6 +4,7 @@ from bson import ObjectId
 
 from services.db_connector import db_instance
 from services.mailer import send_answer_to_student
+from typing import Optional
 from config.categories import normalize_category, get_all_canonical
 
 

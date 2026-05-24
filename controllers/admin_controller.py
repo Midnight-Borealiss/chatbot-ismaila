@@ -281,5 +281,27 @@ class AdminController:
         except Exception as e:
             print(f"Log admin non enregistré : {e}")
 
+    def get_digest_settings(self, admin_email: str) -> dict:
+        """Retrieve digest configuration for an admin, creating defaults if absent."""
+        col = db_instance.get_collection("admin_settings")
+        doc = col.find_one({"admin_email": admin_email})
+        if not doc:
+            default = {
+                "admin_email": admin_email,
+                "include_new_contributions": True,
+                "include_status_changes": True,
+                "include_cleanup_report": False,
+                "frequency": "daily",
+            }
+            col.insert_one(default)
+            return default
+        return doc
+
+    def set_digest_settings(self, admin_email: str, settings: dict) -> bool:
+        """Update or create digest settings for an admin."""
+        col = db_instance.get_collection("admin_settings")
+        result = col.update_one({"admin_email": admin_email}, {"$set": settings}, upsert=True)
+        # update_one returns upserted_id when a new doc is inserted
+        return result.modified_count > 0 or getattr(result, "upserted_id", None) is not None
 
 admin_controller = AdminController()
