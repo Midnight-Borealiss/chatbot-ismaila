@@ -6,6 +6,7 @@ from controllers.kb_controller import kb_controller
 from config.roles import CONTRIBUTOR, VALIDATOR, ADMIN
 from config.categories import get_categories_for_select, normalize_category
 from config.permissions import get_domain_level, can_answer, get_user_domains_summary
+from config.response_helpers import has_real_response, has_no_real_response
 
 
 def render_contributor_view():
@@ -64,9 +65,9 @@ def render_contributor_view():
             pending = [p for p in pending if p.get("category") in contrib_domains]
 
         if f_state == "Sans réponse":
-            pending = [p for p in pending if not p.get("response") or p["response"] == "En attente"]
+            pending = [p for p in pending if has_no_real_response(p.get("response", ""))]
         elif f_state == "Avec proposition":
-            pending = [p for p in pending if p.get("response") and p["response"] != "En attente"]
+            pending = [p for p in pending if has_real_response(p.get("response", ""))]
         if f_kw:
             kw = f_kw.lower()
             pending = [p for p in pending if kw in p.get("question","").lower()
@@ -80,7 +81,7 @@ def render_contributor_view():
             for item in pending:
                 item_id      = str(item["_id"])
                 category     = item.get("category", "Général")
-                has_proposal = item.get("response") and item["response"] != "En attente"
+                has_proposal = has_real_response(item.get("response", ""))
                 user_level   = get_domain_level(user, category)
                 user_can     = can_answer(user, category)
 
@@ -118,7 +119,7 @@ def render_contributor_view():
 
                     # Zone de réponse : conditionnelle selon les droits
                     if user_can:
-                        current_resp = "" if item.get("response") == "En attente" else item.get("response","")
+                        current_resp = "" if has_no_real_response(item.get("response", "")) else item.get("response","")
                         proposed = st.text_area(
                             "Votre réponse proposée",
                             value=current_resp,
@@ -140,7 +141,7 @@ def render_contributor_view():
                             "— vous pouvez consulter mais pas répondre ici. "
                             "Si vous avez une question à ce sujet, posez-la via l'Assistant."
                         )
-                        if item.get("response") and item["response"] != "En attente":
+                        if has_real_response(item.get("response", "")):
                             st.text_area("Proposition existante",
                                          value=item["response"], height=80,
                                          key=f"ro_{item_id}", disabled=True)

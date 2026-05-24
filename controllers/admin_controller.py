@@ -18,7 +18,7 @@ from services.db_connector import db_instance
 from services.mailer import send_pending_digest, send_new_question_alert, _send
 from services.nlp_engine import get_nlp_engine
 from config.roles import CONTRIBUTOR, VALIDATOR, ADMIN
-from controllers.kb_controller import kb_controller
+from config.response_helpers import has_real_response, has_no_real_response
 
 
 class AdminController:
@@ -121,8 +121,8 @@ class AdminController:
         if not pending_all:
             return {"sent": 0, "failed": 0, "skipped": 0, "message": "Aucune question en attente."}
 
-        to_contribute = [q for q in pending_all if not q.get("response") or q.get("response") == "En attente"]
-        to_validate   = [q for q in pending_all if q.get("response") and q.get("response") != "En attente"]
+        to_contribute = [q for q in pending_all if has_no_real_response(q.get("response", ""))]
+        to_validate   = [q for q in pending_all if has_real_response(q.get("response", ""))]
 
         recipients = list(self.users.find({"role": {"$in": [CONTRIBUTOR, VALIDATOR]}}))
         sent = failed = skipped = 0
@@ -243,9 +243,9 @@ class AdminController:
             query["category"] = category
         results = list(self.kb.find(query).sort("created_at", -1))
         if has_proposal is True:
-            results = [r for r in results if not kb_controller.is_empty_or_pending(r.get("response", ""))]
+            results = [r for r in results if has_real_response(r.get("response", ""))]
         elif has_proposal is False:
-            results = [r for r in results if kb_controller.is_empty_or_pending(r.get("response", ""))]
+            results = [r for r in results if has_no_real_response(r.get("response", ""))]
         if keyword:
             kw = keyword.lower()
             results = [r for r in results if kw in r.get("question","").lower()
