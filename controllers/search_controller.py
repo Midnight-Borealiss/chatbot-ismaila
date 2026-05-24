@@ -142,7 +142,7 @@ class SearchController:
     def _handle_expert_question(self, query: str, user: dict, category: str) -> tuple:
         self.kb.insert_one({
             "question":      query,
-            "response":      "En attente",
+            "response":      "",
             "status":        "en_attente",
             "category":      category,
             "institution":   user.get("institutions", ["Général"])[0] if user.get("institutions") else "Général",
@@ -208,7 +208,7 @@ class SearchController:
     def _create_ticket(self, query: str, user: dict, category: str = "Général") -> dict:
         doc = {
             "question":   query,
-            "response":   "En attente",
+            "response":   "",
             "status":     "en_attente",
             "category":   category,
             "institution": user.get("institutions", ["Général"])[0] if isinstance(user, dict) and user.get("institutions") else "Général",
