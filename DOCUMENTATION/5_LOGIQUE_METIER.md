@@ -1,31 +1,63 @@
 # Logique Métier
 
 ## Contexte
-Le projet **MVP 7 Pilote V3** repose sur une architecture de services et de contrôleurs qui interagissent avec une base de données MongoDB (via `db_connector`).
+Le projet **MVP 7 Pilote V3** repose sur une architecture de services et de contrôleurs qui interagissent avec une base de données MongoDB (via `db_connector`).
 
-## Modifications récentes
-### 1. Gestion de la connexion DB
-- **services/db_connector.py**
-  - Ajout d’un fallback `MagicMock` lorsqu’une connexion à MongoDB n’est pas disponible. Cela permet à l’application de démarrer en mode dégradé et évite les `RuntimeError` lors de l’exécution des tests.
+## Modifications Récentes (v7.4 - v7.5)
 
-### 2. Détection d’une réponse « vide » ou en attente
-- **controllers/kb_controller.py**
-  - Ajout de la méthode statique `is_empty_or_pending(content: str) -> bool` qui renvoie `True` si le texte est vide, ne contient que des espaces ou correspond exactement à la chaîne *« En attente de réponse admin… »*.
-  - Cette méthode centralise la logique utilisée par plusieurs contrôleurs (ex. `AdminController`, `SearchController`).
+### 1. Centralisation de la Détection de Réponses Réelles (v7.4)
+- **config/response_helpers.py** (NOUVEAU)
+  - Helper centralisé `has_real_response(response: str) -> bool`
+  - Identifie si une réponse contient du contenu réel (pas un placeholder)
+  - Placeholders gérés : "En attente", "En attente de réponse admin...", ""
+  - Utilisé dans 5 fichiers pour une logique cohérente
 
-### 3. Traitement de l’état de recherche
+### 2. Correction Filtrage Questions Admin (v7.4)
+- **controllers/admin_controller.py**
+  - Méthode `send_digest_to_all()` : Utilise maintenant `has_real_response()`
+  - Méthode `get_filtered_pending()` : Filtre précis avec has_proposal=True/False
+  - Résultat : Admin voit uniquement vraies propositions
+
+- **views/validator_view.py, views/contributor_view.py, views/admin_view.py**
+  - Filtre "Avec proposition" : Utilise `has_real_response()`
+  - Filtre "Sans réponse" : Utilise `has_no_real_response()`
+  - Impact : Répartition exacte des questions en attente
+
+### 3. Nettoyage Base de Données (v7.5)
+- **scripts/cleanup_placeholders.py** (NOUVEAU)
+  - Script utilitaire supprimant tous placeholders existants
+  - Exécution : 166 documents corrigés (70 "En attente" + 96 "En attente de réponse admin...")
 - **controllers/search_controller.py**
-  - Retour explicite du statut `"VIDE"` lorsqu’aucune donnée n’est trouvée dans la base.
-  - Utilisation de `KBController.is_empty_or_pending` pour déterminer si une réponse doit être considérée comme vide.
+  - Nouvelles questions créées avec `response: ""` au lieu de placeholder
+  - Méthodes affectées : `_handle_expert_question()`, `_create_ticket()`
 
-### 4. Tests
-- Les fixtures de test ont été mises à jour (`tests/conftest.py`, `tests/test_*.py`) afin d’utiliser les mocks appropriés (`MagicMock`, `monkeypatch`).
-- L’ensemble de la suite passe maintenant **68 tests** avec succès.
+### 4. Anciennes Modifications (Conservées)
+- **services/db_connector.py**
+  - Fallback `MagicMock` pour tests en environnement sans MongoDB
+  
+- **controllers/kb_controller.py** (antérieur)
+  - Méthode `is_empty_or_pending()` (predecesseur de `has_real_response()`)
 
-## Impact sur la logique métier
-- La nouvelle méthode `is_empty_or_pending` garantit une détection fiable des réponses en attente, évitant ainsi que des questions soient considérées comme résolues alors qu’elles ne le sont pas.
-- Le fallback DB assure la robustesse du service en environnement de CI/CD où MongoDB peut être indisponible.
+## Impact sur la Logique Métier
 
-## Prochaines étapes
-- Intégrer `KBController.is_empty_or_pending` dans le `AdminController` pour corriger la répartition des questions (Priorité 2).
-- Documenter les nouvelles fonctions dans le fichier **6_FONCTIONS_PRINCIPALES.md**.
+### Avant v7.4
+❌ Questions "En attente de réponse admin..." comptées comme répondues
+❌ Filtrage "Avec proposition" contenait des placeholders
+❌ Admin voyait données faussées
+❌ Logique dupliquée dans 5 endroits
+
+### Après v7.5
+✅ Détection centralisée via `has_real_response()`
+✅ Filtrage exact : "Avec proposition" = vraies réponses uniquement
+✅ Base nettoyée : 166 placeholders supprimés
+✅ Nouvelles questions sans placeholders
+✅ Code maintenable et cohérent
+
+## Respect des Règles de Gestion (RG)
+- **RG-01** (Expert alert) : Filtre correct pour déterminer questions non répondues
+- **RG-03** (Email routing) : Digest envoyé uniquement à contributeurs avec vraies questions
+- **RG-05** (Lead capture) : Basé sur questions réelles, pas placeholders
+
+## Prochaines Étapes
+- Intégrer template email générique avec lien + identifiants (v7.6)
+- Ajouter catégorie dans toutes les vues (v7.7)
