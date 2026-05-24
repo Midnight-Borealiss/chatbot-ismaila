@@ -8,7 +8,7 @@ from controllers.kb_controller import kb_controller
 from controllers.mkt_controller import mkt_controller
 from controllers.auth_controller import AuthController
 from services.db_connector import db_instance
-from config.roles import ADMIN
+from config.roles import ADMIN, SUPER_ADMIN
 from config.categories import get_categories_for_select, normalize_category
 from config.response_helpers import has_real_response, has_no_real_response
 
@@ -231,67 +231,73 @@ def render_admin_view():
                 st.info("Aucun utilisateur en base.")
 
         # ── SOUS-ONGLET 2 : CRÉER ────────────────────────────────────
-        with user_subtabs[1]:
-            st.subheader("Créer un utilisateur")
-            all_cats = get_all_canonical()
+        if user.get("role") == SUPER_ADMIN:
+            with user_subtabs[1]:
+                st.subheader("Créer un utilisateur")
+                all_cats = get_all_canonical()
 
-            with st.form("create_user_form"):
-                u_name  = st.text_input("Nom complet *")
-                u_email = st.text_input("Email *")
-                u_role  = st.selectbox("Rôle global",
-                    ["ETUDIANT", "CONTRIBUTEUR", "VALIDATEUR", "ADMINISTRATION"])
-                u_pass  = st.text_input("Mot de passe *", type="password")
+                with st.form("create_user_form"):
+                    u_name  = st.text_input("Nom complet *")
+                    u_email = st.text_input("Email *")
+                    u_role  = st.selectbox("Rôle global",
+                        ["ETUDIANT", "CONTRIBUTEUR", "VALIDATEUR", "ADMINISTRATION"])
+                    u_pass  = st.text_input("Mot de passe *", type="password")
 
-                st.markdown("**Permissions par domaine**")
-                st.caption("Définissez le niveau de chaque domaine. "
-                           "Laissez '—' pour les domaines sans permission spéciale.")
+                    st.markdown("**Permissions par domaine**")
+                    st.caption("Définissez le niveau de chaque domaine. "
+                               "Laissez '—' pour les domaines sans permission spéciale.")
 
-                # Grille de sélection — 3 colonnes
-                perm_selections = {}
-                cols_grid = st.columns(3)
-                for i, cat in enumerate(all_cats):
-                    with cols_grid[i % 3]:
-                        perm_selections[cat] = st.selectbox(
-                            cat,
-                            options=["—", "learner", "contributor", "expert"],
-                            key=f"new_perm_{cat}",
-                        )
+                    # Grille de sélection — 3 colonnes
+                    perm_selections = {}
+                    cols_grid = st.columns(3)
+                    for i, cat in enumerate(all_cats):
+                        with cols_grid[i % 3]:
+                            perm_selections[cat] = st.selectbox(
+                                cat,
+                                options=["—", "learner", "contributor", "expert"],
+                                key=f"new_perm_{cat}",
+                            )
 
-                send_mail = st.checkbox("📧 Envoyer les identifiants par email", value=True)
-                submitted = st.form_submit_button("Créer l'utilisateur")
+                    send_mail = st.checkbox("📧 Envoyer les identifiants par email", value=True)
+                    submitted = st.form_submit_button("Créer l'utilisateur")
+                
+                if submitted:
+                    if u_name and u_email and u_pass:
+                        domain_permissions = build_domain_permissions_from_form(perm_selections)
+                        # Rétrocompatibilité : remplir expert_topics avec les domaines expert
+                        expert_topics = [c for c, l in domain_permissions.items() if l == "expert"]
 
-            if submitted:
-                if u_name and u_email and u_pass:
-                    domain_permissions = build_domain_permissions_from_form(perm_selections)
-                    # Rétrocompatibilité : remplir expert_topics avec les domaines expert
-                    expert_topics = [c for c, l in domain_permissions.items() if l == "expert"]
+                        users_col = db_instance.get_collection("users")
+                        users_col.insert_one({
+                            "full_name":          u_name,
+                            "email":              u_email.lower().strip(),
+                            "role":               u_role,
+                            "domain_permissions": domain_permissions,
+                            "expert_topics":      expert_topics,   # rétrocompatibilité
+                            "password_hash":      AuthController.hash_password(u_pass),
+                            "created_at":         datetime.now(),
+                            "last_login":         None,
+                            "active":             True,
+                        })
+                        st.success(f"✅ Compte {u_email} créé ({u_role}).")
+                        st.caption(f"Permissions : {domain_permissions or 'aucune spécifique'}")
 
-                    users_col = db_instance.get_collection("users")
-                    users_col.insert_one({
-                        "full_name":          u_name,
-                        "email":              u_email.lower().strip(),
-                        "role":               u_role,
-                        "domain_permissions": domain_permissions,
-                        "expert_topics":      expert_topics,   # rétrocompatibilité
-                        "password_hash":      AuthController.hash_password(u_pass),
-                        "created_at":         datetime.now(),
-                        "last_login":         None,
-                        "active":             True,
-                    })
-                    st.success(f"✅ Compte {u_email} créé ({u_role}).")
-                    st.caption(f"Permissions : {domain_permissions or 'aucune spécifique'}")
+                        if send_mail:
+                            sent = admin_controller.send_welcome_email(
+                                user_email=u_email, full_name=u_name,
+                                role=u_role, plain_password=u_pass,
+                            )
+                            if sent:
+                                st.success("📧 Identifiants envoyés par email.")
+                            else:
+                                st.warning("⚠️ SMTP non configuré — partagez les identifiants manuellement.")
+                        st.rerun()
+                    else:
+                        st.error("Nom, email et mot de passe sont requis.")
+        else:
+            with user_subtabs[1]:
+                st.info("⚠️ Cette option est réservée aux super administrateurs.")
 
-                    if send_mail:
-                        sent = admin_controller.send_welcome_email(
-                            user_email=u_email, full_name=u_name,
-                            role=u_role, plain_password=u_pass,
-                        )
-                        if sent:
-                            st.success("📧 Identifiants envoyés par email.")
-                        else:
-                            st.warning("⚠️ SMTP non configuré — partagez les identifiants manuellement.")
-                    st.rerun()
-                else:
                     st.error("Nom, email et mot de passe sont requis.")
 
         # ── SOUS-ONGLET 3 : MODIFIER PERMISSIONS ─────────────────────
