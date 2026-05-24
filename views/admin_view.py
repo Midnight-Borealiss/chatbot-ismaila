@@ -298,7 +298,7 @@ def render_admin_view():
             with user_subtabs[1]:
                 st.info("⚠️ Cette option est réservée aux super administrateurs.")
 
-                    st.error("Nom, email et mot de passe sont requis.")
+
 
         # ── SOUS-ONGLET 3 : MODIFIER PERMISSIONS ─────────────────────
         with user_subtabs[2]:
