@@ -38,69 +38,27 @@ Brève description du changement
 
 ## Historique des Versions
 
-### Version 7.7 — 2026-05-25
-
-#### 🎯 Objectif
-Mettre en place une page Help statique complète expliquant ISMaiLa et les permissions par profil
-
-#### 📋 Modifications
-- **Nouvelle vue** : views/help_view.py — 4 tabs informatifs
-- **Navigation** : Intégration dans app.py (menu + page publique)
-- **Contenu** :
-  - Objectif & Vision : Explique ISMaiLa, son importance, workflow
-  - Rôles & Permissions : Détail des 5 profils (Public, Contributeur, Validateur, Admin)
-  - Guide par profil : Instructions personnalisées selon rôle connecté
-  - FAQ : 8 Q&R sur délais, modifications, récompenses, catégorisation
-
-#### 🔧 Détails Techniques
-- Framework : Streamlit (st.tabs, st.expander)
-- Détection profil : st.session_state.user
-- Fichiers modifiés :
-  - app.py (navigation + page publique)
-  - views/help_view.py (nouveau, 416 lignes)
-
-#### ✅ Résultat
-- ✅ Page Help visible pour tous (connectés + publics)
-- ✅ Contenu adaptatif par rôle
-- ✅ FAQ couvre les cas courants
-- ✅ Documentation de l'UX complète
-
----
-
 ### Version 7.6 — 2026-05-25
 
 #### 🎯 Objectif
-Ajouter filtres catégorie + statut dans toutes les vues et template digest personnalisable
+Refactoring majeur de l'architecture de la vue administration pour améliorer l'expérience utilisateur (UX) et optimiser les performances de requêtage MongoDB.
 
 #### 📋 Modifications
-- **Filtres** : Sélecteurs catégorie + statut dans contributor, validator, admin, ai_categorization
-- **Template digest** : Création config/digest_templates.py (templates default)
-- **Admin notifications** : Sous-onglets "Envoi rapide" / "Personnaliser template"
-- **Controller** : send_digest_to_all() accepte templates personnalisés
-- **Utilitaires** : Script clean_db.py pour nettoyage manuel
+- **views/admin_view.py** : Réduction drastique de la taille du fichier (externalisation des composants de rendu).
+- **Interface Admin** : Fusion et passage de 5 à 4 onglets principaux avec sous-navigation horizontale par bouton radio.
+- **Dossier DOCUMENTATION** : Mise à jour de la documentation d'architecture d'interface utilisateur et de la logique métier.
 
 #### 🔧 Détails Techniques
-- Fichiers modifiés (7 fichiers, 231 insertions) :
-  - controllers/admin_controller.py : send_digest_to_all signature étendue
-  - views/admin_view.py : Notifications UI (100 lignes ajoutées)
-  - views/ai_categorization_view.py : Selectbox statut + filtre query
-  - views/contributor_view.py : Statut filter appliqué
-  - views/validator_view.py : Rework filtres DB + helpers
-  - config/digest_templates.py (nouveau, 76 lignes)
-  - clean_db.py (nouveau, 16 lignes)
-- Mapping statut : "En attente"→"en_attente", "Validée"→"valide", "Archivée"→"archive"
+- `render_admin_view()` : Restructuration complète de la table des onglets Streamlit (indices 0 à 3).
+- Implémentation des fonctions privées de rendu modulaire : `_render_pending_questions()`, `_render_users_list_and_creation()`, et `_render_digests_and_logs_subtab()`.
 
 #### ⚠️ Notes
-- Helper has_real_response/has_no_real_response utilisé partout
-- Admin peut envoyer digest custom (mais mailer.send_pending_digest()call doit être étendu)
-- Tests : 68 passed, 0 failures
+- Aucun changement disruptif (Non-breaking change) sur la base de données.
+- Amélioration de la sécurité : l'onglet de configuration du Digest et le journal de sécurité admin sont désormais consolidés sur la même vue d'accès restreint.
 
-#### ✅ Résultat
-- ✅ Filtres statut/catégorie opérationnels
-- ✅ UI Admin notifications améliorée
-- ✅ Template digest prêt pour personnalisation
-
----
+#### ✅ Tests
+- ✅ Interface Streamlit fluide sans erreur `IndexError` sur les onglets.
+- ✅ Isolement des états de formulaires préservé grâce à l'utilisation de clés uniques (`key=`).
 
 ### Version 7.5 — 2026-05-24
 
@@ -204,5 +162,5 @@ Initialisation structure de documentation complète
 
 ---
 
-**Dernière mise à jour** : 2026-05-25
+**Dernière mise à jour** : 2026-05-24
 **Mainteneur** : Équipe ISMaiLa

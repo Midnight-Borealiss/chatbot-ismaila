@@ -3,7 +3,7 @@
 ## Contexte
 Le projet **MVP 7 Pilote V3** repose sur une architecture de services et de contrôleurs qui interagissent avec une base de données MongoDB (via `db_connector`).
 
-## Modifications Récentes (v7.4 - v7.7)
+## Modifications Récentes (v7.4 - v7.5)
 
 ### 1. Centralisation de la Détection de Réponses Réelles (v7.4)
 - **config/response_helpers.py** (NOUVEAU)
@@ -31,44 +31,7 @@ Le projet **MVP 7 Pilote V3** repose sur une architecture de services et de cont
   - Nouvelles questions créées avec `response: ""` au lieu de placeholder
   - Méthodes affectées : `_handle_expert_question()`, `_create_ticket()`
 
-### 4. Filtres Statut & Catégorie + Templates Digest (v7.6)
-- **Filtrage avancé** dans toutes les vues
-  - Views : contributor_view, validator_view, admin_view, ai_categorization_view
-  - Sélecteurs UI pour filtrer par Statut (En attente / Validée / Archivée) et Catégorie
-  - Mapping UI→BD : {"En attente"→"en_attente", "Validée"→"valide", "Archivée"→"archive"}
-  - Queries MongoDB appliquant les filtres
-
-- **Templates digest personnalisables**
-  - **config/digest_templates.py** (NOUVEAU)
-    - DEFAULT_CONTRIBUTOR_DIGEST et DEFAULT_VALIDATOR_DIGEST
-    - Fonctions : `format_digest_template()`, `build_questions_list()`
-    - Variables disponibles : {full_name}, {count}, {questions_list}, {platform_url}
-  - **Admin Notifications UI**
-    - Sous-onglets : "Envoi rapide" (template défaut) vs "Personnaliser template" (custom)
-    - Aperçu live de rendu digest
-  - **AdminController.send_digest_to_all()** signature étendue
-    - Paramètres : `contributor_template=None`, `validator_template=None`
-
-### 5. Page Help Statique (v7.7)
-- **views/help_view.py** (NOUVEAU)
-  - Visible pour TOUS : utilisateurs connectés + publics
-  - **Tab 1** - Objectif & Vision
-    - Explique ISMaiLa (KMS souveraine)
-    - Importance : réduction support, amélioration continue, transparence
-    - Workflow : 6 étapes (question → réponse → validation → intégration)
-  - **Tab 2** - Rôles & Permissions
-    - 5 profils : Public, Contributeur, Validateur, Admin
-    - Détail des droits (✅ peut) et restrictions (❌ ne peut pas)
-  - **Tab 3** - Guide par profil
-    - Contenu personnalisé selon `st.session_state.user["role"]`
-    - Instructions étape-par-étape + bonnes pratiques
-  - **Tab 4** - FAQ
-    - 8 Q&R : délais, modifications, récompenses, catégorisation, IA, rejet, hors-sujet, export
-- **Integration dans app.py**
-  - Menu navigation : "❓ Aide" (connectés)
-  - Page publique : Tab "❓ Aide" avant login
-
-### 6. Anciennes Modifications (Conservées)
+### 4. Anciennes Modifications (Conservées)
 - **services/db_connector.py**
   - Fallback `MagicMock` pour tests en environnement sans MongoDB
   
@@ -96,11 +59,8 @@ Le projet **MVP 7 Pilote V3** repose sur une architecture de services et de cont
 - **RG-05** (Lead capture) : Basé sur questions réelles, pas placeholders
 
 ## Prochaines Étapes
-- Intégrer template email générique avec lien + identifiants (point 1 priorité)
-- Dashboard utilisateurs (permissions + historique + notifications) — point 5 priorité
-- Bulle feedback pilote (chat → admin) — point 7 priorité
-- Déduplication Ollama (complexe) — point 8 priorité
-- Créer comptes test par profil — point 9 priorité
+- Intégrer template email générique avec lien + identifiants (v7.6)
+- Ajouter catégorie dans toutes les vues (v7.7)
 
 ## Configuration du digest dans l'interface admin
 
@@ -109,28 +69,18 @@ Dans l'onglet **Notifications** du tableau de bord admin, une nouvelle interface
 - sélectionner les éléments à inclure dans le digest via trois cases à cocher,
 - choisir la fréquence (Quotidien, Hebdomadaire, Mensuel) avec un menu déroulant,
 - sauvegarder les paramètres de façon persistante dans la collection `admin_settings` de MongoDB.
+- **NOTE :** Seuls les utilisateurs avec le rôle `SUPER_ADMIN` peuvent modifier ces paramètres de digest.
 
 Ces réglages sont chargés au chargement de la page grâce à `admin_controller.get_digest_settings` et enregistrés via `admin_controller.set_digest_settings`. Le bouton « Envoyer le digest à tous » utilise ces paramètres lors de la génération du résumé.
 
 Cette fonctionnalité a été ajoutée dans la version v7.6.
 
----
+## Refactoring de l'Espace Administration (v7.6)
+L'interface d'administration a été entièrement réorganisée pour regrouper les fonctionnalités connexes, optimiser les requêtes vers MongoDB Atlas et réduire la dette technique du fichier `admin_view.py` (passé de 700 à 250 lignes).
 
-## Résumé des Statuts de Modifications (Priorité)
+### 1. Centralisation de la Gestion des Questions
+- Fusion des anciens onglets "À traiter", "Validées" et "Base de données" dans un unique onglet principal : **📋 Gestion des Questions**.
+- Intégration d'une sous-navigation horizontale (`st.radio`) permettant un chargement conditionnel et asynchrone des données depuis Atlas.
 
-D'après la liste fournie par l'utilisateur, voici l'état d'avancement :
-
-| # | Feature | Priorité | Statut | Version |
-|----|---------|----------|--------|---------|
-| 1 | Message générique (template email) | 🔴 | ⏳ Planifiée | v7.8+ |
-| 2 | Questionnaire Google Form | 🟡 | ⏳ Planifiée | v8.0+ |
-| 3 | Page Help statique | 🟡 | ✅ DÉPLOYÉE | v7.7 |
-| 4 | Modification admin_view (fusion onglets) | 🟡 | 🟢 Partielle | v7.6 |
-| 5 | Dashboard utilisateurs | 🔴 | ⏳ Planifiée | v8.0+ |
-| 6 | Ajout catégorie dans toutes les vues | 🟡 | ✅ DÉPLOYÉE | v7.6 |
-| 7 | Bulle feedback pilote (chat → admin) | 🔴 | ⏳ Planifiée | v8.0+ |
-| 8 | Déduplication Ollama | 🔴 | ⏳ Planifiée | v8.1+ |
-| 9 | Créer comptes test par profil | 🟢 | ⏳ Planifiée | v7.8 |
-| 10 | Résoudre fausses réponses | 🔴 | ✅ RÉSOLU | v7.4-v7.5 |
-
-**Légende** : 🔴 Élevée | 🟡 Moyenne | 🟢 Basse | ✅ Fait | ⏳ En attente
+### 2. Fusion Profils et Notifications (Alignement UX)
+- Création de l'onglet unifié **👥 Profils & Notifications** pour centraliser les configurations humaines (Annuaire, Rôles, Permissions d'expertise par thématique) et leurs impacts techniques directs (Paramètres de filtrage du Digest, fréquence d'envoi et journal d'audit d'administration).
