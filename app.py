@@ -2,7 +2,7 @@ import streamlit as st
 
 from controllers.auth_controller import auth_controller
 from services.db_connector import db_instance
-from config.roles import ADMIN, VALIDATOR, CONTRIBUTOR
+from config.roles import ADMIN, SUPER_ADMIN, VALIDATOR, CONTRIBUTOR, is_admin_or_higher
 
 
 def render_login_form():
@@ -54,11 +54,11 @@ def main():
 
         role         = user["role"]
         menu_options = ["💬 Assistant", "❓ Aide"]
-        if role in (CONTRIBUTOR, VALIDATOR, ADMIN):
+        if role in (CONTRIBUTOR, VALIDATOR, ADMIN, SUPER_ADMIN):
             menu_options.append("✍️ Contribuer")
-        if role in (VALIDATOR, ADMIN):
+        if role in (VALIDATOR, ADMIN, SUPER_ADMIN):
             menu_options.append("✅ Valider")
-        if role == ADMIN:
+        if is_admin_or_higher(role):
             menu_options.append("🛡️ Administration")
 
         page = st.sidebar.radio("Navigation", menu_options)

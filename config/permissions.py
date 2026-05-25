@@ -9,7 +9,7 @@ Trois niveaux par domaine :
 Rétrocompatibilité avec l'ancien champ expert_topics (liste simple).
 """
 
-from config.roles import ADMIN
+from config.roles import ADMIN, SUPER_ADMIN, is_admin_or_higher
 
 # Hiérarchie des niveaux de permission — définie ici, source de vérité unique
 DOMAIN_HIERARCHY: dict[str, int] = {
@@ -31,8 +31,8 @@ def get_domain_level(user: dict, category: str) -> str:
     if not isinstance(user, dict):
         return "learner"
 
-    # Admins ont tous les droits partout
-    if user.get("role") == ADMIN:
+    # Admins et Super Admins ont tous les droits partout
+    if is_admin_or_higher(user.get("role")):
         return "expert"
 
     # Nouveau modèle : domain_permissions

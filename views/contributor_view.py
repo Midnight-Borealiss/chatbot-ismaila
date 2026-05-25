@@ -3,7 +3,7 @@ from datetime import datetime
 
 from services.db_connector import db_instance
 from controllers.kb_controller import kb_controller
-from config.roles import CONTRIBUTOR, VALIDATOR, ADMIN
+from config.roles import CONTRIBUTOR, VALIDATOR, ADMIN, SUPER_ADMIN, is_admin_or_higher
 from config.categories import get_categories_for_select, normalize_category
 from config.permissions import get_domain_level, can_answer, get_user_domains_summary
 from config.response_helpers import has_real_response, has_no_real_response
@@ -11,7 +11,7 @@ from config.response_helpers import has_real_response, has_no_real_response
 
 def render_contributor_view():
     user = st.session_state.get("user")
-    if not user or user.get("role") not in (CONTRIBUTOR, VALIDATOR, ADMIN):
+    if not user or user.get("role") not in (CONTRIBUTOR, VALIDATOR, ADMIN, SUPER_ADMIN):
         st.error("⛔ Accès refusé. Cette page est réservée aux contributeurs.")
         st.stop()
 
@@ -62,7 +62,7 @@ def render_contributor_view():
         pending = list(kb_col.find(query).sort("created_at", -1))
 
         # Filtre "mes domaines"
-        if f_mine and contrib_domains and user.get("role") != ADMIN:
+        if f_mine and contrib_domains and not is_admin_or_higher(user.get("role")):
             pending = [p for p in pending if p.get("category") in contrib_domains]
 
         if f_state == "Sans réponse":

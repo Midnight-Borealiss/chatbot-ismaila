@@ -2,16 +2,15 @@ import streamlit as st
 
 from controllers.kb_controller import kb_controller
 from services.db_connector import db_instance
-from config.roles import VALIDATOR, ADMIN
+from config.roles import VALIDATOR, ADMIN, SUPER_ADMIN, is_admin_or_higher
 from config.categories import get_categories_for_select
 from config.permissions import get_domain_level, can_validate, can_answer, get_user_domains_summary
-from config.response_helpers import has_real_response, has_no_real_response
 from config.response_helpers import has_real_response, has_no_real_response
 
 
 def render_validator_view():
     user = st.session_state.get("user")
-    if not user or user.get("role") not in (VALIDATOR, ADMIN):
+    if not user or user.get("role") not in (VALIDATOR, ADMIN, SUPER_ADMIN):
         st.error("⛔ Accès refusé. Réservé aux validateurs.")
         st.stop()
 
@@ -57,7 +56,7 @@ def render_validator_view():
     pending = list(kb_col.find(query).sort("created_at", -1))
 
     # Filtre "mes domaines" — ne montre que les catégories où l'utilisateur peut agir
-    if f_mine and user.get("role") != ADMIN:
+    if f_mine and not is_admin_or_higher(user.get("role")):
         expert_cats = summary.get("expert", []) + summary.get("contributor", [])
         if expert_cats:
             pending = [p for p in pending if p.get("category") in expert_cats]

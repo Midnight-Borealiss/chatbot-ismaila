@@ -6,16 +6,17 @@ from controllers.admin_controller import admin_controller
 from controllers.kb_controller import kb_controller
 from controllers.auth_controller import AuthController
 from services.db_connector import db_instance
-from config.roles import ADMIN, SUPER_ADMIN
+from config.roles import ADMIN, SUPER_ADMIN, is_admin_or_higher, is_super_admin
 from config.categories import get_categories_for_select
 from config.response_helpers import has_real_response
 from views.ai_categorization_view import render_ai_categorization_view
 
 
 def _require_admin():
+    """Vérifie que l'utilisateur a au moins le rôle ADMIN."""
     user = st.session_state.get("user")
-    if not user or user.get("role") != ADMIN:
-        st.error("⛔ Accès refusé. Réservé aux administrateurs.")
+    if not user or not is_admin_or_higher(user.get("role")):
+        st.error("⛔ Accès refusé. Réservé aux administrateurs (ADMIN ou SUPER_ADMIN).")
         st.stop()
     return user
 

@@ -4,7 +4,7 @@ Explique l'objectif, l'importance et les permissions selon le profil.
 """
 
 import streamlit as st
-from config.roles import ADMIN, VALIDATOR, CONTRIBUTOR
+from config.roles import ADMIN, SUPER_ADMIN, VALIDATOR, CONTRIBUTOR, is_admin_or_higher
 
 
 def render_help_view():
@@ -253,9 +253,10 @@ ISMaiLa est une **Knowledge Management System (KMS) souveraine** conçue pour :
 - Priorité : Les questions les plus anciennes en attente
             """)
         
-        # Guide Admin
-        elif user_role == ADMIN:
-            st.success(f"🛡️ Vous êtes **Administrateur** — Connecté en tant que {user.get('full_name', user.get('email'))}")
+        # Guide Admin et Super Admin
+        elif is_admin_or_higher(user_role):
+            role_label = "Super Administrateur" if user_role == SUPER_ADMIN else "Administrateur"
+            st.success(f"🛡️ Vous êtes **{role_label}** — Connecté en tant que {user.get('full_name', user.get('email'))}")
             st.markdown("""
 ### 🔴 Administrateur
 
