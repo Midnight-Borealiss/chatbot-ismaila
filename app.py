@@ -53,7 +53,7 @@ def main():
         st.sidebar.divider()
 
         role         = user["role"]
-        menu_options = ["💬 Assistant"]
+        menu_options = ["💬 Assistant", "❓ Aide"]
         if role in (CONTRIBUTOR, VALIDATOR, ADMIN):
             menu_options.append("✍️ Contribuer")
         if role in (VALIDATOR, ADMIN):
@@ -68,6 +68,9 @@ def main():
         if page == "💬 Assistant":
             from views.student_view import render_student_view
             render_student_view()
+        elif page == "❓ Aide":
+            from views.help_view import render_help_view
+            render_help_view()
         elif page == "✍️ Contribuer":
             from views.contributor_view import render_contributor_view
             render_contributor_view()
@@ -78,7 +81,10 @@ def main():
             from views.admin_view import render_admin_view
             render_admin_view()
     else:
-        tab_chat, tab_login = st.tabs(["💬 Poser une question", "🔐 Connexion"])
+        tab_help, tab_chat, tab_login = st.tabs(["❓ Aide", "💬 Poser une question", "🔐 Connexion"])
+        with tab_help:
+            from views.help_view import render_help_view
+            render_help_view()
         with tab_chat:
             from views.student_view import render_student_view
             render_student_view()
