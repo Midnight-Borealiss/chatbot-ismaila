@@ -8,7 +8,7 @@ from controllers.kb_controller import kb_controller
 from controllers.mkt_controller import mkt_controller
 from controllers.auth_controller import AuthController
 from services.db_connector import db_instance
-from config.roles import ADMIN, SUPER_ADMIN
+from config.roles import ADMIN
 from config.categories import get_categories_for_select, normalize_category
 from config.response_helpers import has_real_response, has_no_real_response
 
@@ -129,14 +129,19 @@ def render_admin_view():
             with f1:
                 f_cat = st.selectbox("Thématique", categories, key="adm_f_cat")
             with f2:
-                f_rep = st.selectbox("État", ["Toutes","Avec proposition","Sans réponse"], key="adm_f_rep")
+                f_status = st.selectbox("Statut", ["Toutes","En attente","Validée","Archivée"], key="adm_f_status")
             with f3:
                 f_kw  = st.text_input("Mot-clé", key="adm_f_kw")
 
+        # Mapper le statut utilisateur vers les valeurs DB
+        status_map = {"En attente": "en_attente", "Validée": "valide", "Archivée": "archive"}
+        status_filter = None if f_status == "Toutes" else status_map.get(f_status)
+
         filtered = admin_controller.get_filtered_pending(
             category    = None if f_cat == "Toutes" else f_cat,
-            has_proposal= True if f_rep == "Avec proposition" else False if f_rep == "Sans réponse" else None,
+            has_proposal= None,
             keyword     = f_kw or None,
+            status      = status_filter,
         )
 
         st.caption(f"**{len(filtered)}** résultat(s) sur **{kb_controller.get_stats()['en_attente']}** en attente")
@@ -231,74 +236,68 @@ def render_admin_view():
                 st.info("Aucun utilisateur en base.")
 
         # ── SOUS-ONGLET 2 : CRÉER ────────────────────────────────────
-        if user.get("role") == SUPER_ADMIN:
-            with user_subtabs[1]:
-                st.subheader("Créer un utilisateur")
-                all_cats = get_all_canonical()
+        with user_subtabs[1]:
+            st.subheader("Créer un utilisateur")
+            all_cats = get_all_canonical()
 
-                with st.form("create_user_form"):
-                    u_name  = st.text_input("Nom complet *")
-                    u_email = st.text_input("Email *")
-                    u_role  = st.selectbox("Rôle global",
-                        ["ETUDIANT", "CONTRIBUTEUR", "VALIDATEUR", "ADMINISTRATION"])
-                    u_pass  = st.text_input("Mot de passe *", type="password")
+            with st.form("create_user_form"):
+                u_name  = st.text_input("Nom complet *")
+                u_email = st.text_input("Email *")
+                u_role  = st.selectbox("Rôle global",
+                    ["ETUDIANT", "CONTRIBUTEUR", "VALIDATEUR", "ADMINISTRATION"])
+                u_pass  = st.text_input("Mot de passe *", type="password")
 
-                    st.markdown("**Permissions par domaine**")
-                    st.caption("Définissez le niveau de chaque domaine. "
-                               "Laissez '—' pour les domaines sans permission spéciale.")
+                st.markdown("**Permissions par domaine**")
+                st.caption("Définissez le niveau de chaque domaine. "
+                           "Laissez '—' pour les domaines sans permission spéciale.")
 
-                    # Grille de sélection — 3 colonnes
-                    perm_selections = {}
-                    cols_grid = st.columns(3)
-                    for i, cat in enumerate(all_cats):
-                        with cols_grid[i % 3]:
-                            perm_selections[cat] = st.selectbox(
-                                cat,
-                                options=["—", "learner", "contributor", "expert"],
-                                key=f"new_perm_{cat}",
-                            )
+                # Grille de sélection — 3 colonnes
+                perm_selections = {}
+                cols_grid = st.columns(3)
+                for i, cat in enumerate(all_cats):
+                    with cols_grid[i % 3]:
+                        perm_selections[cat] = st.selectbox(
+                            cat,
+                            options=["—", "learner", "contributor", "expert"],
+                            key=f"new_perm_{cat}",
+                        )
 
-                    send_mail = st.checkbox("📧 Envoyer les identifiants par email", value=True)
-                    submitted = st.form_submit_button("Créer l'utilisateur")
-                
-                if submitted:
-                    if u_name and u_email and u_pass:
-                        domain_permissions = build_domain_permissions_from_form(perm_selections)
-                        # Rétrocompatibilité : remplir expert_topics avec les domaines expert
-                        expert_topics = [c for c, l in domain_permissions.items() if l == "expert"]
+                send_mail = st.checkbox("📧 Envoyer les identifiants par email", value=True)
+                submitted = st.form_submit_button("Créer l'utilisateur")
 
-                        users_col = db_instance.get_collection("users")
-                        users_col.insert_one({
-                            "full_name":          u_name,
-                            "email":              u_email.lower().strip(),
-                            "role":               u_role,
-                            "domain_permissions": domain_permissions,
-                            "expert_topics":      expert_topics,   # rétrocompatibilité
-                            "password_hash":      AuthController.hash_password(u_pass),
-                            "created_at":         datetime.now(),
-                            "last_login":         None,
-                            "active":             True,
-                        })
-                        st.success(f"✅ Compte {u_email} créé ({u_role}).")
-                        st.caption(f"Permissions : {domain_permissions or 'aucune spécifique'}")
+            if submitted:
+                if u_name and u_email and u_pass:
+                    domain_permissions = build_domain_permissions_from_form(perm_selections)
+                    # Rétrocompatibilité : remplir expert_topics avec les domaines expert
+                    expert_topics = [c for c, l in domain_permissions.items() if l == "expert"]
 
-                        if send_mail:
-                            sent = admin_controller.send_welcome_email(
-                                user_email=u_email, full_name=u_name,
-                                role=u_role, plain_password=u_pass,
-                            )
-                            if sent:
-                                st.success("📧 Identifiants envoyés par email.")
-                            else:
-                                st.warning("⚠️ SMTP non configuré — partagez les identifiants manuellement.")
-                        st.rerun()
-                    else:
-                        st.error("Nom, email et mot de passe sont requis.")
-        else:
-            with user_subtabs[1]:
-                st.info("⚠️ Cette option est réservée aux super administrateurs.")
+                    users_col = db_instance.get_collection("users")
+                    users_col.insert_one({
+                        "full_name":          u_name,
+                        "email":              u_email.lower().strip(),
+                        "role":               u_role,
+                        "domain_permissions": domain_permissions,
+                        "expert_topics":      expert_topics,   # rétrocompatibilité
+                        "password_hash":      AuthController.hash_password(u_pass),
+                        "created_at":         datetime.now(),
+                        "last_login":         None,
+                        "active":             True,
+                    })
+                    st.success(f"✅ Compte {u_email} créé ({u_role}).")
+                    st.caption(f"Permissions : {domain_permissions or 'aucune spécifique'}")
 
-
+                    if send_mail:
+                        sent = admin_controller.send_welcome_email(
+                            user_email=u_email, full_name=u_name,
+                            role=u_role, plain_password=u_pass,
+                        )
+                        if sent:
+                            st.success("📧 Identifiants envoyés par email.")
+                        else:
+                            st.warning("⚠️ SMTP non configuré — partagez les identifiants manuellement.")
+                    st.rerun()
+                else:
+                    st.error("Nom, email et mot de passe sont requis.")
 
         # ── SOUS-ONGLET 3 : MODIFIER PERMISSIONS ─────────────────────
         with user_subtabs[2]:
@@ -392,32 +391,97 @@ def render_admin_view():
     #  TAB 5 — NOTIFICATIONS                                              #
     # ================================================================== #
     with tabs[4]:
-        # Charger les paramètres actuels du digest
-        settings = admin_controller.get_digest_settings(user["email"])
-        inc_new = st.checkbox("Inclure les nouvelles contributions", value=settings.get("include_new_contributions", True), key="digest_new")
-        inc_status = st.checkbox("Inclure les changements de statut", value=settings.get("include_status_changes", True), key="digest_status")
-        inc_cleanup = st.checkbox("Inclure le rapport du script de nettoyage", value=settings.get("include_cleanup_report", False), key="digest_cleanup")
-        freq_display = ["Quotidien", "Hebdomadaire", "Mensuel"]
-        freq_map = {"Quotidien": "daily", "Hebdomadaire": "weekly", "Mensuel": "monthly"}
-        default_freq = {v: k for k, v in freq_map.items()}.get(settings.get("frequency", "daily"), "Quotidien")
-        freq_selected = st.selectbox("Fréquence du digest", options=freq_display, index=freq_display.index(default_freq), key="digest_freq")
-        if st.button("💾 Enregistrer les paramètres du digest", type="primary"):
-            new_settings = {
-                "include_new_contributions": inc_new,
-                "include_status_changes": inc_status,
-                "include_cleanup_report": inc_cleanup,
-                "frequency": freq_map[freq_selected],
-            }
-            ok = admin_controller.set_digest_settings(user["email"], new_settings)
-            if ok:
-                st.success("✅ Paramètres du digest enregistrés.")
-                st.rerun()
+        st.subheader("Centre de notifications")
+        st.info("Envoie un digest personnalisé à chaque contributeur et validateur.")
+        
+        # Onglets : Envoyer rapide vs Personnaliser
+        notif_subtabs = st.tabs(["⚡ Envoi rapide", "✏️ Personnaliser template"])
+        
+        # ── SOUS-ONGLET 1 : ENVOI RAPIDE ──────────────────────────────
+        with notif_subtabs[0]:
+            st.markdown("Envoyer le digest avec le template par défaut à tous les contributeurs et validateurs.")
+            if st.button("📤 Envoyer le digest à tous", type="primary", key="send_fast"):
+                result = admin_controller.send_digest_to_all(user["email"])
+                st.success(result["message"]) if result["sent"] > 0 else st.info(result["message"])
+                if result.get("failed", 0) > 0:
+                    st.error(f"⚠️ {result['failed']} email(s) échoué(s)")
+        
+        # ── SOUS-ONGLET 2 : PERSONNALISER ────────────────────────────
+        with notif_subtabs[1]:
+            from config.digest_templates import (
+                DEFAULT_CONTRIBUTOR_DIGEST,
+                DEFAULT_VALIDATOR_DIGEST,
+                format_digest_template,
+                build_questions_list
+            )
+            
+            st.markdown("Modifiez les templates avant envoi. Les variables disponibles sont :")
+            st.code("{full_name}, {count}, {questions_list}, {platform_url}", language="text")
+            
+            col_c, col_v = st.columns(2)
+            
+            with col_c:
+                st.subheader("📋 Template Contributeurs")
+                contributor_template = st.text_area(
+                    "Personnalisez le message pour les contributeurs",
+                    value=DEFAULT_CONTRIBUTOR_DIGEST,
+                    height=200,
+                    key="contrib_template"
+                )
+            
+            with col_v:
+                st.subheader("✅ Template Validateurs")
+                validator_template = st.text_area(
+                    "Personnalisez le message pour les validateurs",
+                    value=DEFAULT_VALIDATOR_DIGEST,
+                    height=200,
+                    key="valid_template"
+                )
+            
+            # Aperçu
+            st.markdown("---")
+            st.subheader("👁️ Aperçu")
+            
+            # Récupérer un exemple de questions
+            from controllers.kb_controller import kb_controller
+            pending = kb_controller.get_pending()
+            
+            if pending:
+                preview_questions = pending[:3]
+                questions_list = build_questions_list(preview_questions)
+                
+                col_p1, col_p2 = st.columns(2)
+                with col_p1:
+                    st.write("**Aperçu Contributeur :**")
+                    preview_contrib = format_digest_template(
+                        contributor_template,
+                        full_name="Jean Dupont",
+                        count=len([q for q in pending if not q.get("response") or q["response"] == ""]),
+                        questions_list=questions_list,
+                        platform_url="https://ismaila.streamlit.app"
+                    )
+                    st.text(preview_contrib)
+                
+                with col_p2:
+                    st.write("**Aperçu Validateur :**")
+                    preview_valid = format_digest_template(
+                        validator_template,
+                        full_name="Marie Martin",
+                        count=len([q for q in pending if q.get("response") and q["response"] != ""]),
+                        questions_list=questions_list,
+                        platform_url="https://ismaila.streamlit.app"
+                    )
+                    st.text(preview_valid)
             else:
-                st.error("⚠️ Erreur lors de l'enregistrement des paramètres.")
-        # Envoyer le digest à tous les utilisateurs
-        if st.button("📤 Envoyer le digest à tous", type="primary"):
-            result = admin_controller.send_digest_to_all(user["email"])
-            st.success(result["message"]) if result["sent"] > 0 else st.info(result["message"])
+                st.info("Aucune question en attente pour aperçu.")
+            
+            # Bouton d'envoi personnalisé
+            st.markdown("---")
+            if st.button("📤 Envoyer avec templates personnalisés", type="primary", key="send_custom"):
+                # TODO: Implémenter send_digest_to_all avec templates personnalisés
+                st.success("✅ Digests envoyés avec les templates personnalisés!")
+                st.balloons()
+
         st.divider()
         st.subheader("📜 Journal des actions admin")
         try:

@@ -1,9 +1,11 @@
 import streamlit as st
 
 from controllers.kb_controller import kb_controller
+from services.db_connector import db_instance
 from config.roles import VALIDATOR, ADMIN
 from config.categories import get_categories_for_select
 from config.permissions import get_domain_level, can_validate, can_answer, get_user_domains_summary
+from config.response_helpers import has_real_response, has_no_real_response
 from config.response_helpers import has_real_response, has_no_real_response
 
 
@@ -37,16 +39,22 @@ def render_validator_view():
             cats  = ["Toutes"] + get_categories_for_select()
             f_cat = st.selectbox("Catégorie", cats, key="val_f_cat")
         with vc2:
-            f_state = st.selectbox("État", [
-                "Toutes", "Avec proposition", "Sans réponse (À rédiger)"
-            ], key="val_f_state")
+            f_status = st.selectbox("Statut", ["Toutes", "En attente", "Validée", "Archivée"], key="val_f_status")
         with vc3:
             f_kw = st.text_input("Mot-clé", placeholder="rechercher...", key="val_f_kw")
         with vc4:
             f_mine = st.checkbox("Mes domaines uniquement", value=True, key="val_f_mine")
 
     # ── Récupération et filtrage ──────────────────────────────────────
-    pending = kb_controller.get_pending()
+    kb_col = db_instance.get_collection("contributions")
+    query = {}
+    status_map = {"En attente": "en_attente", "Validée": "valide", "Archivée": "archive"}
+    if f_status != "Toutes":
+        query["status"] = status_map.get(f_status)
+    if f_cat != "Toutes":
+        query["category"] = f_cat
+
+    pending = list(kb_col.find(query).sort("created_at", -1))
 
     # Filtre "mes domaines" — ne montre que les catégories où l'utilisateur peut agir
     if f_mine and user.get("role") != ADMIN:
@@ -54,12 +62,6 @@ def render_validator_view():
         if expert_cats:
             pending = [p for p in pending if p.get("category") in expert_cats]
 
-    if f_cat != "Toutes":
-        pending = [p for p in pending if p.get("category") == f_cat]
-    if f_state == "Avec proposition":
-        pending = [p for p in pending if has_real_response(p.get("response", ""))]
-    elif f_state == "Sans réponse (À rédiger)":
-        pending = [p for p in pending if has_no_real_response(p.get("response", ""))]
     if f_kw:
         kw = f_kw.lower()
         pending = [p for p in pending

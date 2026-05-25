@@ -116,7 +116,16 @@ class AdminController:
     #  3. NOTIFICATIONS                                                    #
     # ------------------------------------------------------------------ #
 
-    def send_digest_to_all(self, admin_email: str) -> dict:
+    def send_digest_to_all(self, admin_email: str, contributor_template: str = None, 
+                          validator_template: str = None) -> dict:
+        """
+        Envoie digest à tous les contributeurs et validateurs.
+        
+        Args:
+            admin_email: Email de l'admin qui déclenche l'envoi
+            contributor_template: Template personnalisé pour contributeurs (optionnel)
+            validator_template: Template personnalisé pour validateurs (optionnel)
+        """
         pending_all  = list(self.kb.find({"status": "en_attente"}))
         if not pending_all:
             return {"sent": 0, "failed": 0, "skipped": 0, "message": "Aucune question en attente."}
@@ -130,9 +139,11 @@ class AdminController:
         for user in recipients:
             role, email, name = user["role"], user["email"], user.get("full_name", user["email"])
             if role == CONTRIBUTOR and to_contribute:
-                ok = send_pending_digest(email, name, len(to_contribute), to_contribute, role)
+                ok = send_pending_digest(email, name, len(to_contribute), to_contribute, role,
+                                        custom_template=contributor_template)
             elif role == VALIDATOR and to_validate:
-                ok = send_pending_digest(email, name, len(to_validate), to_validate, role)
+                ok = send_pending_digest(email, name, len(to_validate), to_validate, role,
+                                        custom_template=validator_template)
             else:
                 skipped += 1; continue
             sent += ok; failed += (not ok)
@@ -237,8 +248,10 @@ class AdminController:
             ])),
         }
 
-    def get_filtered_pending(self, category=None, has_proposal=None, keyword=None) -> list:
-        query = {"status": "en_attente"}
+    def get_filtered_pending(self, category=None, has_proposal=None, keyword=None, status=None) -> list:
+        query = {}
+        if status:
+            query["status"] = status
         if category:
             query["category"] = category
         results = list(self.kb.find(query).sort("created_at", -1))

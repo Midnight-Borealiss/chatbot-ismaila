@@ -45,16 +45,17 @@ def render_contributor_view():
                 cats = ["Toutes"] + get_categories_for_select()
                 f_cat = st.selectbox("Catégorie", cats, key="contrib_f_cat")
             with fc2:
-                f_state = st.selectbox("État", [
-                    "Toutes", "Sans réponse", "Avec proposition"
-                ], key="contrib_f_state")
+                f_status = st.selectbox("Statut", ["Toutes", "En attente", "Validée", "Archivée"], key="contrib_f_status")
             with fc3:
                 f_kw = st.text_input("Mot-clé", placeholder="rechercher...", key="contrib_f_kw")
             with fc4:
                 f_mine = st.checkbox("Mes domaines uniquement", value=True, key="contrib_f_mine")
 
         # Requête MongoDB
-        query = {"status": "en_attente"}
+        query = {}
+        if f_status != "Toutes":
+            status_map = {"En attente": "en_attente", "Validée": "valide", "Archivée": "archive"}
+            query["status"] = status_map.get(f_status, None)
         if f_cat != "Toutes":
             query["category"] = f_cat
 

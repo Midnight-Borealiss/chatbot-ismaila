@@ -82,18 +82,22 @@ def render_ai_categorization_view():
         with c1:
             scope = st.selectbox(
                 "Périmètre",
-                ["Sans catégorie ou 'Général'", "Tous les tickets en attente"],
+                ["Sans catégorie ou 'Général'", "Tous les tickets"],
                 key="ai_scope",
             )
         with c2:
-            limit = st.number_input("Nombre max de tickets", 5, 100, 20, key="ai_limit")
+            status = st.selectbox("Statut", ["En attente", "Validée", "Archivée", "Tous"], key="ai_status")
         with c3:
-            st.markdown("<br>", unsafe_allow_html=True)
-            run_preview = st.button("🔍 Analyser (dry-run)", type="primary")
+            limit = st.number_input("Nombre max de tickets", 5, 100, 20, key="ai_limit")
+        
+        run_preview = st.button("🔍 Analyser (dry-run)", type="primary")
 
         if run_preview:
             missing_only = scope == "Sans catégorie ou 'Général'"
-            query = {"status": "en_attente"}
+            query = {}
+            if status and status != "Tous":
+                status_map = {"En attente": "en_attente", "Validée": "valide", "Archivée": "archive"}
+                query["status"] = status_map.get(status)
             if missing_only:
                 query["$or"] = [
                     {"category": {"$exists": False}},
