@@ -4,6 +4,7 @@ import bcrypt
 import streamlit as st
 
 from services.db_connector import db_instance
+from services.audit_service import audit_instance
 from config.permissions import migrate_expert_topics_to_permissions
 
 
@@ -72,6 +73,17 @@ class AuthController:
                 "domain_permissions": user.get("domain_permissions", {}),
                 "expert_topics":      user.get("expert_topics", []),
             }
+            
+            # Log la connexion
+            try:
+                audit_instance.log_action(
+                    user_email=raw_email,
+                    action="LOGIN",
+                    description="Connexion utilisateur"
+                )
+            except Exception:
+                pass  # Non bloquant
+            
             # Migration silencieuse : si le doc a "name" mais pas "full_name",
             # on normalise en base pour les prochaines connexions
             if user.get("name") and not user.get("full_name"):
@@ -87,6 +99,22 @@ class AuthController:
         return False
 
     def logout(self):
+        """Déconnecte l'utilisateur et log l'action."""
+        user_email = None
+        if st.session_state.get("user"):
+            user_email = st.session_state.user.get("email")
+        
+        # Logger la déconnexion avant de supprimer la session
+        if user_email:
+            try:
+                audit_instance.log_action(
+                    user_email=user_email,
+                    action="LOGOUT",
+                    description="Déconnexion utilisateur"
+                )
+            except Exception:
+                pass  # Non bloquant — déconnexion quand même
+        
         st.session_state.user = None
         st.rerun()
 
