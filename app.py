@@ -53,7 +53,7 @@ def main():
         st.sidebar.divider()
 
         role         = user["role"]
-        menu_options = ["💬 Assistant", "❓ Aide"]
+        menu_options = ["📊 Mon Dashboard", "💬 Assistant", "❓ Aide"]
         if role in (CONTRIBUTOR, VALIDATOR, ADMIN, SUPER_ADMIN):
             menu_options.append("✍️ Contribuer")
         if role in (VALIDATOR, ADMIN, SUPER_ADMIN):
@@ -65,7 +65,10 @@ def main():
         if st.sidebar.button("🚪 Déconnexion"):
             auth_controller.logout()
 
-        if page == "💬 Assistant":
+        if page == "📊 Mon Dashboard":
+            from views.user_dashboard_view import render_user_dashboard_view
+            render_user_dashboard_view()
+        elif page == "💬 Assistant":
             from views.student_view import render_student_view
             render_student_view()
         elif page == "❓ Aide":
