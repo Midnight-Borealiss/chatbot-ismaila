@@ -143,6 +143,50 @@ Initialisation structure de documentation complète
 
 ---
 
+### Version 7.10 — 2026-05-26
+
+#### 🎯 Objectif
+Créer un dashboard personnel pour chaque utilisateur affichant ses permissions, son historique d'actions et ses notifications. Interface unifiée accessible à tous les rôles.
+
+#### 📋 Modifications
+- **views/shared_dashboard_components.py** (NEW, 620 lignes) : Composant réutilisable `render_user_profile_metrics()` avec 3 onglets
+- **views/user_dashboard_view.py** (NEW, 35 lignes) : Vue Streamlit pour afficher le dashboard
+- **app.py** : Ajout menu "📊 Mon Dashboard" en premier item + router
+- **DOCUMENTATION/8_MONGODB_DASHBOARD_SCHEMA.md** (NEW) : Schéma complet des collections
+- **DOCUMENTATION/9_GUIDE_DASHBOARD_UTILISATEUR.md** (NEW) : Guide utilisateur complet
+- **DOCUMENTATION/6_FONCTIONS_PRINCIPALES.md** : Mise à jour avec v7.10
+
+#### 🔧 Détails Techniques
+- Collections MongoDB nouvelles : `user_audit_logs`, `user_notifications`
+- Indexes : (user_email, timestamp DESC), (recipient_email, created_at DESC)
+- Helpers : `render_user_profile_metrics()`, `create_notification()`, `log_action()`
+- Timestamps relatifs intelligents : "À l'instant", "Il y a 5m", "Il y a 2h", etc.
+- Emojis par type d'action : 🔓 LOGIN, ❓ QUESTION, ✍️ CONTRIBUTION, ✅ VALIDATED, etc.
+- Intégration services/audit_service.py (déjà créé v7.9)
+
+#### 🎨 Interface
+3 onglets du dashboard :
+1. **🛡️ Mes Permissions** : Badges des droits + domaines d'expertise
+2. **📜 Historique de mes actions** : Tableau filtrable + stats
+3. **🔔 Mes Notifications** : Flux notifications (lues/non-lues)
+
+Composants Streamlit : st.columns, st.dataframe, st.expander, st.status, st.metric
+
+#### ⚠️ Notes
+- Chaque utilisateur ne voit que son propre dashboard
+- Accessible à TOUS les rôles : SUPER_ADMIN, ADMINISTRATION, VALIDATEUR, CONTRIBUTEUR, ETUDIANT
+- Permissions affichées selon `config/roles.py` et `config/permissions.py`
+- Domaines d'expertise depuis `domain_permissions` ou `expert_topics` (legacy)
+
+#### ✅ Tests
+- ✅ Syntaxe Python validée (py_compile)
+- ✅ Imports vérifiés
+- ✅ Git push réussi (commit 8dc50cf)
+- ✅ Collections MongoDB schema documenté
+- ✅ Composant réutilisable validé
+
+---
+
 ## Guide de Versioning
 
 ### Format de Version
