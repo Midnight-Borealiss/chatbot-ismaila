@@ -2,13 +2,23 @@ import json
 import logging
 import sys
 from pathlib import Path
+logger = logging.getLogger(__name__)
 
-from pymongo import MongoClient, ASCENDING, DESCENDING
-from pymongo.errors import ConnectionFailure, OperationFailure
+try:
+    from pymongo import MongoClient, ASCENDING, DESCENDING
+    from pymongo.errors import ConnectionFailure, OperationFailure
+    _PYMONGO_AVAILABLE = True
+except Exception as _e:
+    MongoClient = None
+    ASCENDING = None
+    DESCENDING = None
+    # Use generic Exception types as fallbacks to keep code paths working
+    ConnectionFailure = Exception
+    OperationFailure = Exception
+    _PYMONGO_AVAILABLE = False
+    logger.warning(f"pymongo not available: {_e}. Database access will be mocked.")
 
 from config.settings import MONGO_URI, DB_NAME
-
-logger = logging.getLogger(__name__)
 
 SURVIVAL_KIT_PATH = Path(__file__).parent.parent / "survival_kit.json"
 
@@ -69,7 +79,7 @@ INDEX_DEFINITIONS = {
         },
         {
             "keys":   [("user_email", ASCENDING)],
-            "options": {"name": "idx_user_email", "sparse": True},
+            "options": {"name": "idx_contrib_user_email", "sparse": True},
             "reason": "Filtre sur user_email dans get_filtered_pending()"
         },
     ],
@@ -139,7 +149,7 @@ INDEX_DEFINITIONS = {
     "chat_sessions": [
         {
             "keys":   [("user_email", ASCENDING)],
-            "options": {"name": "idx_user_email", "unique": True},
+            "options": {"name": "idx_session_user_email", "unique": True},
             "reason": "get_session_history() et _persist_exchange() accèdent par user_email"
         },
         {
@@ -194,6 +204,31 @@ INDEX_DEFINITIONS = {
             "reason": "Journal IA filtré par applied + trié par date"
         },
     ],
+
+    # ── user_audit_logs ──────────────────────────────────────────────────────
+    # Requêtes : find(user_email), find(user_email+action), sort(timestamp)
+    "user_audit_logs": [
+        {
+            "keys":   [("user_email", ASCENDING)],
+            "options": {"name": "idx_audit_user_email"},
+            "reason": "Récupérer tous les logs d'un utilisateur par email"
+        },
+        {
+            "keys":   [("user_email", ASCENDING), ("action", ASCENDING)],
+            "options": {"name": "idx_user_email_action"},
+            "reason": "Filtrer les actions d'un utilisateur par type"
+        },
+        {
+            "keys":   [("user_email", ASCENDING), ("timestamp", DESCENDING)],
+            "options": {"name": "idx_user_email_timestamp"},
+            "reason": "Récupérer les logs d'un utilisateur triés par date (derniers d'abord)"
+        },
+        {
+            "keys":   [("timestamp", DESCENDING)],
+            "options": {"name": "idx_timestamp"},
+            "reason": "Tri global des logs par date pour audits et rapports"
+        },
+    ],
 }
 
 
@@ -216,6 +251,14 @@ class DatabaseConnector:
     # ── Connexion ─────────────────────────────────────────────────────────────
 
     def _connect(self):
+        # If pymongo isn't installed in the environment, avoid raising
+        # ModuleNotFoundError and fall back to survival mode.
+        if not _PYMONGO_AVAILABLE:
+            logger.warning("pymongo not installed — running in survival/mock mode.")
+            self.client = None
+            self.db = None
+            return
+
         try:
             self.client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
             self.client.admin.command("ping")
