@@ -229,6 +229,31 @@ INDEX_DEFINITIONS = {
             "reason": "Tri global des logs par date pour audits et rapports"
         },
     ],
+
+    # ── feedbacks ─────────────────────────────────────────────────────────────
+    # Requêtes : find(status), find(status+type), sort(created_at)
+    "feedbacks": [
+        {
+            "keys":   [("status", ASCENDING)],
+            "options": {"name": "idx_feedback_status"},
+            "reason": "Filtrer les feedbacks par statut (Ouvert, En cours, Résolu)"
+        },
+        {
+            "keys":   [("status", ASCENDING), ("type", ASCENDING)],
+            "options": {"name": "idx_feedback_status_type"},
+            "reason": "Filtres combinés statut+type dans le dashboard admin"
+        },
+        {
+            "keys":   [("created_at", DESCENDING)],
+            "options": {"name": "idx_feedback_created_at"},
+            "reason": "Tri des feedbacks par date de création (derniers d'abord)"
+        },
+        {
+            "keys":   [("context.user_email", ASCENDING)],
+            "options": {"name": "idx_feedback_user_email", "sparse": True},
+            "reason": "Filtrer les feedbacks par utilisateur"
+        },
+    ],
 }
 
 

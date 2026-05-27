@@ -3,6 +3,7 @@ import streamlit as st
 from controllers.auth_controller import auth_controller
 from services.db_connector import db_instance
 from config.roles import ADMIN, SUPER_ADMIN, VALIDATOR, CONTRIBUTOR, is_admin_or_higher
+from views.feedback_view import render_feedback_sidebar
 
 
 def render_login_form():
@@ -65,6 +66,9 @@ def main():
         if st.sidebar.button("🚪 Déconnexion"):
             auth_controller.logout()
 
+        # Bouton de feedback — discret, en bas de la sidebar
+        render_feedback_sidebar()
+
         if page == "📊 Mon Dashboard":
             from views.user_dashboard_view import render_user_dashboard_view
             render_user_dashboard_view()
@@ -93,6 +97,9 @@ def main():
             render_student_view()
         with tab_login:
             render_login_form()
+
+        # Feedback accessible même sans connexion
+        render_feedback_sidebar()
 
 
 if __name__ == "__main__":
