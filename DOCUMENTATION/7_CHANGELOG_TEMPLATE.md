@@ -187,6 +187,47 @@ Composants Streamlit : st.columns, st.dataframe, st.expander, st.status, st.metr
 
 ---
 
+### Version 7.11 — 2026-05-27
+
+#### 🎯 Objectif
+1. Intégrer logging d'audit (LOGIN/LOGOUT) dans auth_controller pour traçabilité complète
+2. Valider toutes les features en staging avant déploiement production
+
+#### 📋 Modifications
+- **controllers/auth_controller.py** : Ajout logging LOGIN/LOGOUT via audit_instance
+- **services/audit_service.py** (NEW) : Service d'audit logging (créé en v7.9, maintenant commité)
+- **services/notification_service.py** (NEW) : Service notifications (créé en v7.9, maintenant commité)
+- **scripts/validate_staging.py** (NEW) : Suite de tests de validation complète
+- **tests/test_audit_integration.py** (NEW) : Tests intégration LOGIN/LOGOUT
+
+#### 🔧 Détails Techniques
+- `login()` : Log action LOGIN après authentification réussie
+- `logout()` : Log action LOGOUT avant déconnexion
+- Gestion d'erreurs : Non-bloquant (déconnexion réussit même si log échoue)
+- Audit trail complet : login → [actions] → logout
+- Services audit_service et notification_service finalement commités après création v7.9
+
+#### ✅ Tests de Staging (TOUS PASS)
+1. **MongoDB Connection** - PASS ✅
+2. **Audit Logging** - PASS ✅ (4 actions: LOGIN, QUESTION, CONTRIBUTION, LOGOUT)
+3. **Role Hierarchy** - PASS ✅ (7/7 tests de rôles)
+4. **Permissions by Role** - PASS ✅
+5. **Notifications System** - PASS ✅
+6. **Dashboard Components** - PASS ✅ (helpers, timestamps, emojis)
+
+Résultat : **6/6 TESTS PASSED** - Prêt pour production ✅
+
+#### 🐛 Correction
+- Résout ModuleNotFoundError sur Streamlit Cloud (audit_service.py, notification_service.py manquaient)
+
+#### ⚠️ Notes
+- Chaque action utilisateur créée une trace audit
+- Permet réconstruction complète de la session utilisateur
+- Historique visible dans Mon Dashboard → Historique
+- Tests exécutables via `python scripts/validate_staging.py`
+
+---
+
 ## Guide de Versioning
 
 ### Format de Version
