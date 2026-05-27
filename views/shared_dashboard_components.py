@@ -276,7 +276,7 @@ def render_user_profile_metrics(user: Optional[Dict] = None):
             cols = st.columns(min(3, len(granted)))
             for idx, perm in enumerate(granted):
                 with cols[idx % len(cols)]:
-                    st.success(f"✅ {perm['name'].upper()}", icon="✓")
+                    st.success(f"✅ {perm['name'].upper()}")
                     st.caption(perm["description"])
         
         if denied:
