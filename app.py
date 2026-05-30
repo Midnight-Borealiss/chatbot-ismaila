@@ -3,7 +3,6 @@ import streamlit as st
 from controllers.auth_controller import auth_controller
 from services.db_connector import db_instance
 from config.roles import ADMIN, SUPER_ADMIN, VALIDATOR, CONTRIBUTOR, is_admin_or_higher
-from views.feedback_view import render_feedback_sidebar
 
 
 def render_login_form():
@@ -53,6 +52,23 @@ def main():
         st.sidebar.caption(f"Rôle : **{user['role']}**")
         st.sidebar.divider()
 
+        # ---------------------------------------------------------------------
+        # INTERCEPTION / BARRIÈRE DE QUALIFICATION STRUCTURELLE (Sauf SUPER_ADMIN)
+        # ---------------------------------------------------------------------
+        if user.get("role") != SUPER_ADMIN and not user.get("profile_configured", False):
+            from views.qualification_view import render_structural_qualification_form
+            # On passe l'instance de la DB récupérée depuis ton connecteur
+            render_structural_qualification_form(db_instance.db)
+            
+            # Bouton de déconnexion d'urgence même sur l'écran de verrouillage/qualification
+            st.sidebar.markdown("---")
+            if st.sidebar.button("🚪 Déconnexion"):
+                auth_controller.logout()
+            st.stop()  # On bloque l'exécution du reste de l'application tant qu'il n'est pas configuré
+            
+        # ---------------------------------------------------------------------
+        # ROUTAGE DE LA NAVIGATION STANDARD (Une fois configuré ou si SUPER_ADMIN)
+        # ---------------------------------------------------------------------
         role         = user["role"]
         menu_options = ["📊 Mon Dashboard", "💬 Assistant", "❓ Aide"]
         if role in (CONTRIBUTOR, VALIDATOR, ADMIN, SUPER_ADMIN):
@@ -65,9 +81,6 @@ def main():
         page = st.sidebar.radio("Navigation", menu_options)
         if st.sidebar.button("🚪 Déconnexion"):
             auth_controller.logout()
-
-        # Bouton de feedback — discret, en bas de la sidebar
-        render_feedback_sidebar()
 
         if page == "📊 Mon Dashboard":
             from views.user_dashboard_view import render_user_dashboard_view
@@ -97,9 +110,6 @@ def main():
             render_student_view()
         with tab_login:
             render_login_form()
-
-        # Feedback accessible même sans connexion
-        render_feedback_sidebar()
 
 
 if __name__ == "__main__":
