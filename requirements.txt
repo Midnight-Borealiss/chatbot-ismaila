@@ -9,6 +9,7 @@ sentence-transformers>=3.0.0
 # Streamlit Cloud free tier : version CPU uniquement (plus légère)
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch>=2.3.0
+torchvision>=0.14.0
 
 # ── IA générative (Phase 2 — Ollama/Mistral) ──────────────────────────
 ollama>=0.2.0    # décommenter quand Ollama est configuré sur le serveur
@@ -23,6 +24,8 @@ python-dotenv>=1.0.0
 
 # ── Réseau ─────────────────────────────────────────────────────────────
 requests>=2.32.0
+
+
 
 # ── Tests ──────────────────────────────────────────────────────────────
 # pytest>=8.0.0         ← installer en dev uniquement

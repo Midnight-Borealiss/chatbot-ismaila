@@ -1,4 +1,6 @@
 import streamlit as st
+import logging
+logging.getLogger("streamlit.watcher.local_sources_watcher").setLevel(logging.ERROR)
 
 from controllers.auth_controller import auth_controller
 from views.feedback_view import render_feedback_sidebar
