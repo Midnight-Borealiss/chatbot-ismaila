@@ -6,6 +6,7 @@ from bson.objectid import ObjectId
 from controllers.admin_controller import admin_controller
 from controllers.kb_controller import kb_controller
 from controllers.auth_controller import AuthController
+from controllers.feedback_controller import feedback_controller  # Importation du nouveau contrôleur
 from services.db_connector import db_instance
 from config.roles import ADMIN, SUPER_ADMIN, is_admin_or_higher, is_super_admin
 from config.categories import get_categories_for_select
@@ -26,11 +27,12 @@ def render_admin_view():
     user = _require_admin()
     st.title("🛡️ Dashboard Administration — ISMaiLa")
 
-    # Notre arborescence définitive à 4 onglets principaux
+    # Extension définitive à 5 onglets principaux (Intégration Avis/Feedbacks)
     tabs = st.tabs([
         "📊 Statistiques",
         "📋 Gestion des Questions",
         "👥 Profils & Notifications",
+        "💬 Avis & Signalements",  # Nouvel Onglet validé au commit 7.13
         "🤖 IA & Catégorisation"
     ])
 
@@ -79,15 +81,86 @@ def render_admin_view():
             _render_digests_and_logs_subtab(user)
 
     # ================================================================== #
-    #  TAB 3 — IA & CATÉGORISATION                                       #
+    #  TAB 3 — AVIS & SIGNALEMENTS (NOUVEAU)                            #
     # ================================================================== #
     with tabs[3]:
+        _render_feedback_moderation_tab()
+
+    # ================================================================== #
+    #  TAB 4 — IA & CATÉGORISATION                                       #
+    # ================================================================== #
+    with tabs[4]:
         render_ai_categorization_view()
 
 
 # ================================================================== #
 #  FONCTIONS DE RENDU INTERNES (LOGIQUE ET SOUS-SECTIONS)            #
 # ================================================================== #
+
+def _render_feedback_moderation_tab():
+    st.header("💬 Retours Utilisateurs & Alertes Qualité")
+    st.markdown("Suivi en temps réel des rapports capturés par le module de feedback.")
+
+    # Filtres s'appuyant sur les statuts de ton fichier et l'index composé
+    f1, f2 = st.columns(2)
+    with f1:
+        statut_filtre = st.selectbox("Statut de traitement :", ["Tous", "Ouvert", "En cours", "Résolu"])
+    with f2:
+        # Nettoyage des émojis pour la requête de filtrage si nécessaire
+        type_filtre = st.selectbox("Type d'avis :", ["Tous"] + [t for t in FEEDBACK_TYPES])
+
+    feedbacks = feedback_controller.get_filtered_feedbacks(status=statut_filtre, feedback_type=type_filtre)
+    st.caption(f"📊 **{len(feedbacks)}** retour(s) trouvé(s)")
+
+    if not feedbacks:
+        st.info("Aucun feedback à afficher pour ces critères.")
+        return
+
+    for fb in feedbacks:
+        fb_id = str(fb["_id"])
+        ctx = fb.get("context", {})
+        
+        # Gestion visuelle des priorités définies par ton code
+        priority_badge = "🔴 HAUTE" if fb.get("priority") == "haute" else "🟡 MOYENNE" if fb.get("priority") == "moyenne" else "🟢 NORMALE"
+        
+        with st.container(border=True):
+            col_txt, col_actions = st.columns([4, 2])
+            
+            with col_txt:
+                st.markdown(f"### {fb.get('type', '❓ Autre')}")
+                st.markdown(f"**Description :** *\"{fb.get('description')}\"*")
+                
+                # Extraction du contexte technique auto-capturé par ton script
+                st.markdown(f"**Priorité estimée :** {priority_badge}")
+                st.caption(
+                    f"👤 Soumis par : `{ctx.get('user_email', 'anonyme')}` ({ctx.get('user_role', 'PUBLIC')}) "
+                    f"| 📍 Page : `{ctx.get('current_view', 'Inconnue')}`"
+                )
+                
+                # Expander pour le debug technique approfondi
+                with st.expander("🛠️ Voir les détails du contexte système", expanded=False):
+                    st.json({
+                        "user_name": ctx.get("user_name"),
+                        "permissions_actives": ctx.get("permissions"),
+                        "date_utc": fb.get("created_at").strftime("%Y-%m-%d %H:%M:%S") if fb.get("created_at") else "Non définie"
+                    })
+            
+            with col_actions:
+                st.markdown(f"État : **{fb.get('status', 'Ouvert')}**")
+                
+                new_status = st.selectbox(
+                    "Changer l'état :",
+                    options=["Ouvert", "En cours", "Résolu"],
+                    index=["Ouvert", "En cours", "Résolu"].index(fb.get("status", "Ouvert")),
+                    key=f"status_select_{fb_id}"
+                )
+                
+                notes = st.text_input("Notes admin / Résolution :", value=fb.get("admin_notes", ""), key=f"notes_{fb_id}")
+                
+                if st.button("🔄 Mettre à jour", key=f"btn_update_fb_{fb_id}", use_container_width=True):
+                    if feedback_controller.update_status(fb_id, new_status, notes):
+                        st.toast("✅ Statut mis à jour sur Atlas !")
+                        st.rerun()
 
 def _render_stats_tab():
     stats = admin_controller.get_full_stats()
@@ -205,6 +278,7 @@ def _render_db_health_subtab():
         if st.button("🛠️ Forcer la recréation de tous les index", type="secondary", key="recreate_idx"):
             with st.spinner("Création des index sur Atlas..."):
                 db_instance._ensure_indexes()
+                feedback_controller.ensure_indexes()  # Assure également l'index des feedbacks
                 st.success("✅ Tous les index ont été vérifiés et recréés sur Atlas.")
                 st.rerun()
     except Exception as e:
@@ -243,7 +317,6 @@ def _render_master_detail_user_management(current_user):
         if not filtered_users:
             st.info("Aucun membre trouvé pour ce filtre.")
         else:
-            # Structuration des lignes sous forme de DataFrame propre
             df_rows = []
             for u in filtered_users:
                 df_rows.append({
@@ -320,7 +393,6 @@ def _render_master_detail_user_management(current_user):
                 liste_services = ["Call Center / Orientation", "Scolarité", "Admission & Recrutement", "Marketing & Communication", "Soft Skills Academy (Vie estudiantine)"]
                 liste_instituts = ["Institut Ingénieur", "Institut Management", "Institut Droit", "Madiba Leadership Institute"]
 
-                # Sécurisation et normalisation du rôle actuel
                 raw_role = str(target_user.get("role", "USER")).upper()
                 if raw_role == "ADMIN":
                     raw_role = "ADMINISTRATION"
@@ -348,7 +420,6 @@ def _render_master_detail_user_management(current_user):
                     current_services = current_scope.get("services", [])
                     current_instituts = current_scope.get("instituts", [])
                     
-                    # OPTIMISATION 1 : Affichage strictement exclusif des listes déroulantes
                     new_service = None
                     new_institut = None
                     
@@ -368,7 +439,6 @@ def _render_master_detail_user_management(current_user):
                     st.markdown("---")
                     st.markdown("##### 🎚️ 3. Droits d'Actions Atomiques")
                     
-                    # OPTIMISATION 2 : Pré-calcul logique basé sur la hiérarchie du rôle sélectionné
                     is_validator_or_higher = new_role in ["VALIDATOR", "ADMINISTRATION", "SUPER_ADMIN"]
                     is_contributor_or_higher = new_role in ["CONTRIBUTOR", "VALIDATOR", "ADMINISTRATION", "SUPER_ADMIN"]
 
@@ -376,7 +446,6 @@ def _render_master_detail_user_management(current_user):
                     has_propose = current_perms.get("can_propose", {}).get("allowed", True)
                     has_validate = current_perms.get("can_validate", {}).get("allowed", False)
 
-                    # Les checkboxes s'activent intelligemment selon le rôle système
                     perm_read = st.checkbox("📖 Autoriser la Lecture (READ)", value=has_read or is_contributor_or_higher)
                     perm_propose = st.checkbox("✍️ Autoriser la Contribution (PROPOSE)", value=has_propose or is_contributor_or_higher)
                     perm_validate = st.checkbox("🛡️ Autoriser la Validation Légitime (VALIDATE)", value=has_validate or is_validator_or_higher)
@@ -385,7 +454,6 @@ def _render_master_detail_user_management(current_user):
                     save_btn = st.form_submit_button("💾 Sauvegarder et appliquer les accès")
 
                 if save_btn:
-                    # Détermination de l'entité retenue
                     chosen_entity = new_service if new_structural_type == "SERVICE" else new_institut
                     
                     updated_permissions = {
@@ -433,6 +501,7 @@ def _render_master_detail_user_management(current_user):
                             st.rerun()
                         except Exception as e:
                             st.error(f"Erreur lors de la suppression : {e}")
+
 
 def _render_users_list_and_creation(user):
     pass
