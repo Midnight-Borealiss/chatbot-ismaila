@@ -241,7 +241,7 @@ def _render_master_detail_user_management(current_user):
         selected_user_id = None
 
         if not filtered_users:
-            st.info("Aucun membre trouvé.")
+            st.info("Aucun membre trouvé pour ce filtre.")
         else:
             # Structuration des lignes sous forme de DataFrame propre
             df_rows = []
@@ -256,8 +256,7 @@ def _render_master_detail_user_management(current_user):
             
             df_users = pd.DataFrame(df_rows)
             
-            # Affichage sous forme de tableau interactif avec sélection de ligne
-            st.write("👉 *Cliquez sur la case à cocher en début de ligne pour inspecter un membre :*")
+            st.write("👉 *Cliquez sur la case en début de ligne pour inspecter un membre :*")
             selection_event = st.dataframe(
                 df_users,
                 use_container_width=True,
@@ -267,13 +266,12 @@ def _render_master_detail_user_management(current_user):
                 key="user_dataframe_selection"
             )
             
-            # Récupération de la ligne sélectionnée
             selected_rows = selection_event.get("selection", {}).get("rows", [])
             if selected_rows:
                 selected_index = selected_rows[0]
                 selected_user_id = df_users.iloc[selected_index]["ID"]
 
-        # Formulaire d'ajout rapide (Bouton Submit corrigé à 100%)
+        # Formulaire d'ajout rapide
         st.markdown("---")
         if current_user.get("role") == SUPER_ADMIN:
             with st.expander("➕ Créer un nouveau compte", expanded=False):
@@ -303,7 +301,7 @@ def _render_master_detail_user_management(current_user):
             st.caption("🔒 La création de nouveaux comptes est réservée au Super Administrateur.")
 
     # =========================================================================
-    # COLONNE DE DROITE : ÉDITION DES PERMISSIONS & ROLES (DETAIL)
+    # COLONNE DE DROITE : ÉDITION DYNAMIQUE DES PERMISSIONS (DETAIL)
     # =========================================================================
     with col_detail:
         if not selected_user_id:
@@ -314,7 +312,7 @@ def _render_master_detail_user_management(current_user):
             
             if target_user:
                 st.subheader(f"🛠️ Droits de : {target_user.get('full_name', 'Utilisateur')}")
-                st.caption(f"Email : `{target_user.get('email')}`  |  Rôle actuel : **{target_user.get('role', 'USER')}**")
+                st.caption(f"Email : `{target_user.get('email')}`")
                 
                 current_perms = target_user.get("permissions", {})
                 current_scope = target_user.get("scope", {})
@@ -322,7 +320,7 @@ def _render_master_detail_user_management(current_user):
                 liste_services = ["Call Center / Orientation", "Scolarité", "Admission & Recrutement", "Marketing & Communication", "Soft Skills Academy (Vie estudiantine)"]
                 liste_instituts = ["Institut Ingénieur", "Institut Management", "Institut Droit", "Madiba Leadership Institute"]
 
-                # Sécurisation du rôle récupéré (Conversion en MAJUSCULES + fallback)
+                # Sécurisation et normalisation du rôle actuel
                 raw_role = str(target_user.get("role", "USER")).upper()
                 if raw_role == "ADMIN":
                     raw_role = "ADMINISTRATION"
@@ -350,33 +348,44 @@ def _render_master_detail_user_management(current_user):
                     current_services = current_scope.get("services", [])
                     current_instituts = current_scope.get("instituts", [])
                     
-                    new_service = st.selectbox(
-                        "Service concerné :",
-                        options=liste_services,
-                        index=liste_services.index(current_services[0]) if current_services else 0
-                    )
+                    # OPTIMISATION 1 : Affichage strictement exclusif des listes déroulantes
+                    new_service = None
+                    new_institut = None
                     
-                    new_institut = st.selectbox(
-                        "Institut concerné :",
-                        options=liste_instituts,
-                        index=liste_instituts.index(current_instituts[0]) if current_instituts else 0
-                    )
+                    if new_structural_type == "SERVICE":
+                        new_service = st.selectbox(
+                            "Service concerné :",
+                            options=liste_services,
+                            index=liste_services.index(current_services[0]) if current_services else 0
+                        )
+                    else:
+                        new_institut = st.selectbox(
+                            "Institut concerné :",
+                            options=liste_instituts,
+                            index=liste_instituts.index(current_instituts[0]) if current_instituts else 0
+                        )
 
                     st.markdown("---")
                     st.markdown("##### 🎚️ 3. Droits d'Actions Atomiques")
                     
+                    # OPTIMISATION 2 : Pré-calcul logique basé sur la hiérarchie du rôle sélectionné
+                    is_validator_or_higher = new_role in ["VALIDATOR", "ADMINISTRATION", "SUPER_ADMIN"]
+                    is_contributor_or_higher = new_role in ["CONTRIBUTOR", "VALIDATOR", "ADMINISTRATION", "SUPER_ADMIN"]
+
                     has_read = current_perms.get("can_read", {}).get("global", False) or len(current_perms.get("can_read", {}).get("restricted_to", [])) > 0
                     has_propose = current_perms.get("can_propose", {}).get("allowed", True)
                     has_validate = current_perms.get("can_validate", {}).get("allowed", False)
 
-                    perm_read = st.checkbox("📖 Autoriser la Lecture (READ)", value=has_read)
-                    perm_propose = st.checkbox("✍️ Autoriser la Contribution (PROPOSE)", value=has_propose)
-                    perm_validate = st.checkbox("🛡️ Autoriser la Validation Légitime (VALIDATE)", value=has_validate)
+                    # Les checkboxes s'activent intelligemment selon le rôle système
+                    perm_read = st.checkbox("📖 Autoriser la Lecture (READ)", value=has_read or is_contributor_or_higher)
+                    perm_propose = st.checkbox("✍️ Autoriser la Contribution (PROPOSE)", value=has_propose or is_contributor_or_higher)
+                    perm_validate = st.checkbox("🛡️ Autoriser la Validation Légitime (VALIDATE)", value=has_validate or is_validator_or_higher)
 
                     st.markdown(" ")
                     save_btn = st.form_submit_button("💾 Sauvegarder et appliquer les accès")
 
                 if save_btn:
+                    # Détermination de l'entité retenue
                     chosen_entity = new_service if new_structural_type == "SERVICE" else new_institut
                     
                     updated_permissions = {
@@ -424,7 +433,6 @@ def _render_master_detail_user_management(current_user):
                             st.rerun()
                         except Exception as e:
                             st.error(f"Erreur lors de la suppression : {e}")
-
 
 def _render_users_list_and_creation(user):
     pass
