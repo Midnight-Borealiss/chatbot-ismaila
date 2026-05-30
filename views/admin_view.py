@@ -74,7 +74,6 @@ def render_admin_view():
         st.divider()
 
         if sous_onglet_profils == "👥 Gestion Globale des Membres & Droits":
-            # Appel de la nouvelle vue unifiée Master-Detail
             _render_master_detail_user_management(user)
         elif sous_onglet_profils == "📬 Paramètres des Digests":
             _render_digests_and_logs_subtab(user)
@@ -213,29 +212,22 @@ def _render_db_health_subtab():
 
 
 def _render_master_detail_user_management(current_user):
-    """
-    FUSION complète : Affiche l'annuaire à gauche (Master) et le panneau d'édition de 
-    permissions / suppression à droite (Detail) sur un seul et même écran.
-    """
     db = db_instance.db
     
-    # Récupération de tous les utilisateurs depuis MongoDB Atlas
     try:
         users_list = list(db.users.find({"email": {"$ne": current_user.get("email")}}))
     except Exception as e:
         st.error(f"Erreur lors du chargement de l'annuaire : {e}")
         return
 
-    # Découpage de l'écran en deux colonnes asymétriques
     col_master, col_detail = st.columns([2, 3], gap="medium")
 
     # =========================================================================
-    # COLONNE DE GAUCHE : ANNUAIRE RECHERCHABLE (MASTER)
+    # COLONNE DE GAUCHE : ANNUAIRE INTERACTIF (TABLEAU DATAFRAME)
     # =========================================================================
     with col_master:
         st.subheader("👥 Liste des testeurs")
         
-        # Outil de filtrage rapide par ancrage
         filtre_type = st.selectbox(
             "Filtrer l'annuaire par :",
             options=["Tous", "SERVICES", "INSTITUTS"],
@@ -246,40 +238,59 @@ def _render_master_detail_user_management(current_user):
         if filtre_type != "Tous":
             filtered_users = [u for u in users_list if u.get("structural_type") == filtre_type]
 
+        selected_user_id = None
+
         if not filtered_users:
             st.info("Aucun membre trouvé.")
-            selected_user_id = None
         else:
-            # Construction du dictionnaire pour le sélecteur vertical
-            user_options = {
-                str(u["_id"]): f"👤 {u.get('full_name', 'Inconnu')} \n({u.get('email')})"
-                for u in filtered_users
-            }
+            # Structuration des lignes sous forme de DataFrame propre
+            df_rows = []
+            for u in filtered_users:
+                df_rows.append({
+                    "ID": str(u["_id"]),
+                    "Nom Complet": u.get("full_name", "Inconnu"),
+                    "Email": u.get("email", "—"),
+                    "Structure": u.get("structural_type", "Non défini"),
+                    "Rôle": u.get("role", "USER")
+                })
             
-            selected_user_id = st.radio(
-                "Sélectionnez un membre pour éditer ses accès :",
-                options=list(user_options.keys()),
-                format_func=lambda x: user_options[x],
-                key="master_user_selector"
+            df_users = pd.DataFrame(df_rows)
+            
+            # Affichage sous forme de tableau interactif avec sélection de ligne
+            st.write("👉 *Cliquez sur la case à cocher en début de ligne pour inspecter un membre :*")
+            selection_event = st.dataframe(
+                df_users,
+                use_container_width=True,
+                hide_index=True,
+                selection_mode="single-row",
+                on_select="rerun",
+                key="user_dataframe_selection"
             )
+            
+            # Récupération de la ligne sélectionnée
+            selected_rows = selection_event.get("selection", {}).get("rows", [])
+            if selected_rows:
+                selected_index = selected_rows[0]
+                selected_user_id = df_users.iloc[selected_index]["ID"]
 
-        # Bouton d'ajout d'un nouveau membre directement intégré en bas du master
+        # Formulaire d'ajout rapide (Bouton Submit corrigé à 100%)
         st.markdown("---")
         if current_user.get("role") == SUPER_ADMIN:
             with st.expander("➕ Créer un nouveau compte", expanded=False):
-                with st.form("quick_create_user", clear_on_submit=True):
+                with st.form(key="quick_create_user_form", clear_on_submit=True):
                     u_name = st.text_input("Nom complet *")
                     u_email = st.text_input("Adresse email *")
                     u_role = st.selectbox("Rôle global initial", ["USER", "CONTRIBUTOR", "VALIDATOR", "ADMINISTRATION"])
                     u_pass = st.text_input("Mot de passe par défaut *", type="password")
                     
-                    if st.form_submit_button("Enregistrer le compte") and u_name and u_email and u_pass:
+                    submit_create = st.form_submit_button("Enregistrer le compte")
+                    
+                    if submit_create and u_name and u_email and u_pass:
                         try:
-                            # Payload par défaut pour l'utilisateur créé
                             db.users.insert_one({
                                 "full_name": u_name,
                                 "email": u_email,
-                                "password": AuthController.hash_password(u_pass) if hasattr(AuthController, 'hash_password') else u_pass, # Sécurité
+                                "password": AuthController.hash_password(u_pass) if hasattr(AuthController, 'hash_password') else u_pass,
                                 "role": u_role,
                                 "profile_configured": False,
                                 "created_at": datetime.utcnow()
@@ -292,12 +303,12 @@ def _render_master_detail_user_management(current_user):
             st.caption("🔒 La création de nouveaux comptes est réservée au Super Administrateur.")
 
     # =========================================================================
-    # COLONNE DE DROITE : ÉDITION DES PERMISSIONS ET ACTIONS FINES (DETAIL)
+    # COLONNE DE DROITE : ÉDITION DES PERMISSIONS & ROLES (DETAIL)
     # =========================================================================
     with col_detail:
         if not selected_user_id:
             st.subheader("🔑 Matrice de Droits")
-            st.info("Sélectionnez un membre dans l'annuaire de gauche pour configurer son périmètre thématique et ses accès.")
+            st.info("Sélectionnez une ligne dans le tableau de gauche pour configurer le périmètre thématique et les accès de l'expert.")
         else:
             target_user = next((u for u in users_list if str(u["_id"]) == selected_user_id), None)
             
@@ -308,18 +319,23 @@ def _render_master_detail_user_management(current_user):
                 current_perms = target_user.get("permissions", {})
                 current_scope = target_user.get("scope", {})
 
-                # Référentiels d'affectation
                 liste_services = ["Call Center / Orientation", "Scolarité", "Admission & Recrutement", "Marketing & Communication", "Soft Skills Academy (Vie estudiantine)"]
                 liste_instituts = ["Institut Ingénieur", "Institut Management", "Institut Droit", "Madiba Leadership Institute"]
 
-                # 📝 FORMULAIRE CENTRALISÉ DE SÉCURITÉ
+                # Sécurisation du rôle récupéré (Conversion en MAJUSCULES + fallback)
+                raw_role = str(target_user.get("role", "USER")).upper()
+                if raw_role == "ADMIN":
+                    raw_role = "ADMINISTRATION"
+                
+                roles_options = ["USER", "CONTRIBUTOR", "VALIDATOR", "ADMINISTRATION", "SUPER_ADMIN"]
+                default_role_index = roles_options.index(raw_role) if raw_role in roles_options else 0
+
                 with st.form(key=f"form_permissions_{selected_user_id}"):
-                    
                     st.markdown("##### 🎯 1. Attribution du Rôle Système")
                     new_role = st.selectbox(
                         "Modifier le rôle global :",
-                        options=["USER", "CONTRIBUTOR", "VALIDATOR", "ADMINISTRATION", "SUPER_ADMIN"],
-                        index=["USER", "CONTRIBUTOR", "VALIDATOR", "ADMINISTRATION", "SUPER_ADMIN"].index(target_user.get("role", "USER"))
+                        options=roles_options,
+                        index=default_role_index
                     )
 
                     st.markdown("---")
@@ -349,7 +365,6 @@ def _render_master_detail_user_management(current_user):
                     st.markdown("---")
                     st.markdown("##### 🎚️ 3. Droits d'Actions Atomiques")
                     
-                    # Extraction des états booléens actuels
                     has_read = current_perms.get("can_read", {}).get("global", False) or len(current_perms.get("can_read", {}).get("restricted_to", [])) > 0
                     has_propose = current_perms.get("can_propose", {}).get("allowed", True)
                     has_validate = current_perms.get("can_validate", {}).get("allowed", False)
@@ -361,11 +376,9 @@ def _render_master_detail_user_management(current_user):
                     st.markdown(" ")
                     save_btn = st.form_submit_button("💾 Sauvegarder et appliquer les accès")
 
-                # TRAITEMENT DE LA SAUVEGARDE
                 if save_btn:
                     chosen_entity = new_service if new_structural_type == "SERVICE" else new_institut
                     
-                    # Construction de la nouvelle matrice de permissions
                     updated_permissions = {
                         "can_read": {
                             "global": perm_validate, 
@@ -399,7 +412,6 @@ def _render_master_detail_user_management(current_user):
                     except Exception as e:
                         st.error(f"Erreur de mise à jour : {e}")
 
-                # 🚨 ZONE DE SUPPRESSION FLUIDE ET SÉCURISÉE
                 st.markdown(" ")
                 with st.expander("⚠️ Zone de Danger (Action destructive)"):
                     st.warning(f"Vous êtes sur le point de supprimer le compte de {target_user.get('full_name')}.")
@@ -415,11 +427,9 @@ def _render_master_detail_user_management(current_user):
 
 
 def _render_users_list_and_creation(user):
-    # Remplacée par la vue Master-Detail unifiée ci-dessus
     pass
 
 def _render_permissions_subtab():
-    # Remplacée par la vue Master-Detail unifiée ci-dessus
     pass
 
 
@@ -427,10 +437,8 @@ def _render_digests_and_logs_subtab(user):
     st.subheader("📬 Configuration du Résumé d'Activité (Digest)")
     db = db_instance.db
     
-    # 1. Récupération des paramètres actuels via le contrôleur admin
     settings = admin_controller.get_digest_settings(user["email"])
     
-    # 2. Interface de choix (Cases à cocher)
     inc_new = st.checkbox("Inclure les nouvelles contributions de la période", value=settings.get("include_new_contributions", True), key="digest_new")
     inc_status = st.checkbox("Inclure les changements de statuts (Validé, Rejeté)", value=settings.get("include_status_changes", True), key="digest_status")
     inc_cleanup = st.checkbox("Inclure le rapport d'exécution du script de nettoyage automatique", value=settings.get("include_cleanup_report", False), key="digest_cleanup")
@@ -471,4 +479,3 @@ def _render_digests_and_logs_subtab(user):
             st.info("Aucune action répertoriée dans le journal.")
     except Exception as e:
         st.warning(f"Impossible de charger le journal d'audit : {e}")
-        
