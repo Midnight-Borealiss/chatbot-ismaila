@@ -40,15 +40,19 @@ def render_contributor_view():
     # ================================================================== #
     with tabs[0]:
         with st.expander("🔍 Filtres", expanded=True):
-            fc1, fc2, fc3, fc4 = st.columns(4)
+            # Extension à 5 colonnes pour accueillir le filtre d'état de réponse
+            fc1, fc2, fc3, fc4, fc5 = st.columns(5)
             with fc1:
                 cats = ["Toutes"] + get_categories_for_select()
                 f_cat = st.selectbox("Catégorie", cats, key="contrib_f_cat")
             with fc2:
-                f_status = st.selectbox("Statut", ["Toutes", "En attente", "Validée", "Archivée"], key="contrib_f_status")
+                f_status = st.selectbox("Statut Base", ["Toutes", "En attente", "Validée", "Archivée"], key="contrib_f_status")
             with fc3:
-                f_kw = st.text_input("Mot-clé", placeholder="rechercher...", key="contrib_f_kw")
+                # AJOUT : Définition de la variable f_state manquante
+                f_state = st.selectbox("Filtrer Réponses", ["Toutes", "Sans réponse", "Avec proposition"], key="contrib_f_state")
             with fc4:
+                f_kw = st.text_input("Mot-clé", placeholder="rechercher...", key="contrib_f_kw")
+            with fc5:
                 f_mine = st.checkbox("Mes domaines uniquement", value=True, key="contrib_f_mine")
 
         # Requête MongoDB
@@ -65,16 +69,20 @@ def render_contributor_view():
         if f_mine and contrib_domains and not is_admin_or_higher(user.get("role")):
             pending = [p for p in pending if p.get("category") in contrib_domains]
 
+        # Ce bloc va maintenant s'exécuter à la perfection sans NameError
         if f_state == "Sans réponse":
             pending = [p for p in pending if has_no_real_response(p.get("response", ""))]
         elif f_state == "Avec proposition":
             pending = [p for p in pending if has_real_response(p.get("response", ""))]
+            
         if f_kw:
             kw = f_kw.lower()
             pending = [p for p in pending if kw in p.get("question","").lower()
                        or kw in p.get("category","").lower()]
 
         st.caption(f"**{len(pending)}** question(s) correspondante(s)")
+        
+        # ... Reste de ton code (la boucle for item in pending) inchangé ...
 
         if not pending:
             st.success("✅ Aucune question ne correspond à vos filtres.")
