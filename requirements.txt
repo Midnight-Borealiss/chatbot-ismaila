@@ -6,13 +6,11 @@ pymongo>=4.7.0
 
 # ── NLP souverain (Phase 1) ────────────────────────────────────────────
 sentence-transformers>=3.0.0
-# Streamlit Cloud free tier : version CPU uniquement (plus légère)
---extra-index-url https://download.pytorch.org/whl/cpu
-torch>=2.3.0
-torchvision>=0.14.0
+torch
+torchvision
 
 # ── IA générative (Phase 2 — Ollama/Mistral) ──────────────────────────
-ollama>=0.2.0    # décommenter quand Ollama est configuré sur le serveur
+ollama>=0.2.0
 
 # ── Données & validation ───────────────────────────────────────────────
 pydantic[email]>=2.7.0
