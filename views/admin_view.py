@@ -471,3 +471,4 @@ def _render_digests_and_logs_subtab(user):
             st.info("Aucune action répertoriée dans le journal.")
     except Exception as e:
         st.warning(f"Impossible de charger le journal d'audit : {e}")
+        

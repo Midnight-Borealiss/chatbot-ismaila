@@ -97,7 +97,7 @@ def get_user_domains_summary(user: dict) -> dict:
     if not isinstance(user, dict):
         return summary
 
-    if user.get("role") == ADMIN:
+    if is_admin_or_higher(user.get("role")):
         summary["expert"] = get_all_canonical()
         return summary
 
