@@ -1,87 +1,55 @@
-"""
-Référentiel unique des catégories ISMaiLa.
-
-Règles :
-  - Une seule forme canonique par catégorie (ex: "MBA")
-  - Les synonymes sont des variantes qui pointent vers le canonique
-  - Tout passage par normalize_category() garantit l'unicité
-  - Insensible à la casse, aux accents et aux espaces parasites
-"""
-
 import unicodedata
 import re
+import streamlit as st
+from services.db_connector import db_instance
 
-# ── Forme canonique → variantes reconnues ────────────────────────────
-CATEGORY_SYNONYMS: dict[str, list[str]] = {
-    "MBA":           ["mba", "master of business administration", "master management", "master en management", "management"],
-    "Admission":     ["admission", "admissions", "inscription", "inscriptions", "candidature", "candidatures", "dossier", "concours", "entretien"],
-    "Bourses":       ["bourse", "bourses", "financement", "aide financière", "aide", "aides", "scholarship"],
-    "Scolarité":     ["scolarité", "scolarite", "scolare", "examen", "examens", "notes", "calendrier", "emploi du temps", "planning"],
-    "Cybersécurité": ["cybersécurité", "cybersecurite", "cyber", "sécurité informatique", "réseau", "reseaux", "network", "hacking", "securite"],
-    "Licence_Pro":   ["licence pro", "licence professionnelle", "licence_pro", "bts", "licence", "bac+3"],
-    "Vie_Campus":    ["vie campus", "vie_campus", "campus", "logement", "hébergement", "restaurant", "restauration", "associations", "sport"],
-    "Général":       ["général", "general", "générale", "autre", "autres", "divers", "other"],
+DEFAULT_SYNONYMS = {
+    "MBA": ["mba", "master of business administration", "master management", "management"],
+    "Admission": ["admission", "admissions", "inscription", "inscriptions", "candidature", "dossier", "concours"],
+    "Bourses": ["bourse", "bourses", "financement", "aide financière", "aide", "scholarship"],
+    "Scolarité": ["scolarité", "scolarite", "examen", "examens", "notes", "calendrier", "planning"],
+    "Cybersécurité": ["cybersécurité", "cybersecurite", "cyber", "sécurité informatique", "réseau", "reseaux", "securite"],
+    "Licence_Pro": ["licence pro", "licence professionnelle", "bts", "licence", "bac+3"],
+    "Vie_Campus": ["vie campus", "vie_campus", "campus", "logement", "restauration", "sport"],
+    "Général": ["général", "general", "autre", "autres", "divers"]
 }
 
-# Index inversé : variante → canonique (construit automatiquement)
-_SYNONYM_INDEX: dict[str, str] = {}
-for canonical, variants in CATEGORY_SYNONYMS.items():
-    _SYNONYM_INDEX[_normalize := canonical.lower()] = canonical
-    for v in variants:
-        _SYNONYM_INDEX[v.lower()] = canonical
-
+@st.cache_data(ttl=300)
+def get_all_categories_config():
+    try:
+        db = db_instance.db
+        config = db.settings.find_one({"_id": "categories_config"})
+        if config and "data" in config:
+            return config["data"]
+    except:
+        pass
+    return DEFAULT_SYNONYMS
 
 def _strip_accents(text: str) -> str:
-    """Supprime les accents pour la comparaison."""
-    return "".join(
-        c for c in unicodedata.normalize("NFD", text)
-        if unicodedata.category(c) != "Mn"
-    )
-
+    return "".join(c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn")
 
 def normalize_category(raw: str) -> str:
-    """
-    Retourne la forme canonique d'une catégorie.
-    Insensible à la casse, aux accents, aux underscores et espaces multiples.
-
-    Exemples :
-      "mba"           → "MBA"
-      "Vie Campus"    → "Vie_Campus"
-      "cyber securite"→ "Cybersécurité"
-      "INSCRIPTION"   → "Admission"
-      ""              → "Général"
-    """
-    if not raw or not raw.strip():
-        return "Général"
-
-    cleaned = raw.strip().lower()
-    cleaned = re.sub(r"[\s_]+", " ", cleaned)   # normalise espaces/underscores
+    if not raw or not raw.strip(): return "Général"
+    synonyms_dict = get_all_categories_config()
+    cleaned = re.sub(r"[\s_]+", " ", raw.strip().lower())
     no_accent = _strip_accents(cleaned)
-
-    # Recherche directe
-    if cleaned in _SYNONYM_INDEX:
-        return _SYNONYM_INDEX[cleaned]
-    if no_accent in _SYNONYM_INDEX:
-        return _SYNONYM_INDEX[no_accent]
-
-    # Recherche partielle (le mot-clé est contenu dans la saisie)
-    for variant, canonical in _SYNONYM_INDEX.items():
-        if variant in cleaned or variant in no_accent:
+    for canonical, variants in synonyms_dict.items():
+        if cleaned == canonical.lower() or no_accent == _strip_accents(canonical.lower()):
             return canonical
-
-    # Aucune correspondance → Général
+        for v in variants:
+            if cleaned == v.lower() or no_accent == _strip_accents(v.lower()):
+                return canonical
     return "Général"
 
-
-def get_all_canonical() -> list[str]:
-    """Retourne toutes les catégories canoniques triées."""
-    return sorted(CATEGORY_SYNONYMS.keys())
-
-
 def get_categories_for_select() -> list[str]:
-    """Liste pour les selectbox Streamlit — canoniques uniquement."""
-    return get_all_canonical()
+    return sorted(list(get_all_categories_config().keys()))
 
-def normalize_category(cat_name):
-    # Une version simple pour débloquer
-    return str(cat_name).strip().capitalize()
+def add_category_safe(name: str):
+    normalized = name.strip().title().replace(" ", "_")
+    current = get_all_categories_config()
+    if normalized in current:
+        return False, f"La catégorie '{normalized}' existe déjà."
+    current[normalized] = []
+    db_instance.db.settings.update_one({"_id": "categories_config"}, {"$set": {"data": current}}, upsert=True)
+    st.cache_data.clear()
+    return True, f"Catégorie '{normalized}' ajoutée avec succès."

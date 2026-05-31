@@ -3,16 +3,19 @@ import pandas as pd
 import streamlit as st
 from bson.objectid import ObjectId
 
-# --- TOUS TES IMPORTS MÉTIERS ---
+# --- IMPORTS MÉTIERS ---
 from controllers.admin_controller import admin_controller
 from controllers.kb_controller import kb_controller
 from controllers.auth_controller import AuthController
 from controllers.feedback_controller import feedback_controller 
 from services.db_connector import db_instance
 from config.roles import ADMIN, SUPER_ADMIN, is_admin_or_higher, is_super_admin
-from config.categories import get_categories_for_select
+from config.categories import get_categories_for_select, add_category_safe
 from config.response_helpers import has_real_response
 from views.ai_categorization_view import render_ai_categorization_view
+
+# --- CONSTANTE LOCALE (Fixe le problème du fichier manquant) ---
+FEEDBACK_TYPES = ["Bug", "Erreur de contenu", "Demande d'amélioration", "Signalement", "Autre"]
 
 def _require_admin():
     """Vérifie que l'utilisateur a au moins le rôle ADMIN."""
@@ -23,14 +26,10 @@ def _require_admin():
     return user
 
 def render_admin_view():
-    """
-    Vue Administration complète.
-    Note : render_admin_view est appelé directement dans app.py
-    """
+    """Vue Administration complète."""
     user = _require_admin()
     st.title("🛡️ Dashboard Administration — ISMaiLa")
     
-    # 5 onglets maintenus
     tabs = st.tabs([
         "📊 Statistiques", 
         "📋 Gestion des Questions", 
@@ -39,260 +38,101 @@ def render_admin_view():
         "🤖 IA"
     ])
     
-    with tabs[4]: # Onglet IA
-        render_ai_categorization_view()
-        
-    # --- Reste de ton code (Stats, Profils, etc.) ---
-    # Tu peux recoller ici toute ta logique métier existante 
-    # car tous les contrôleurs (admin_controller, kb_controller, etc.) 
-    # sont désormais bien importés en haut.
-    # ================================================================== #
-    #  TAB 0 — STATISTIQUES                                              #
-    # ================================================================== #
+    # --- DÉLÉGATION DES ONGLETS ---
     with tabs[0]:
         _render_stats_tab()
-
-    # ================================================================== #
-    #  TAB 1 — GESTION DES QUESTIONS (FUSIONNÉ)                           #
-    # ================================================================== #
     with tabs[1]:
         st.header("📝 Centralisation des Contributions")
-        sous_onglet_questions = st.radio(
-            "Filtrer la vue :",
-            options=["📥 À traiter", "✨ Validées récemment", "🗄️ Santé de la Base de Données"],
-            horizontal=True,
-            key="questions_subtab"
-        )
+        sous_onglet_questions = st.radio("Filtrer :", ["📥 À traiter", "✨ Validées récemment", "🗄️ Santé de la Base de Données"], horizontal=True, key="questions_subtab")
         st.divider()
-
-        if sous_onglet_questions == "📥 À traiter":
-            _render_pending_questions(user)
-        elif sous_onglet_questions == "✨ Validées récemment":
-            _render_validated_questions()
-        elif sous_onglet_questions == "🗄️ Santé de la Base de Données":
-            _render_db_health_subtab()
-
-    # ================================================================== #
-    #  TAB 2 — PROFILS & NOTIFICATIONS (FUSIONNÉ MASTER-DETAIL)          #
-    # ================================================================== #
+        if sous_onglet_questions == "📥 À traiter": _render_pending_questions(user)
+        elif sous_onglet_questions == "✨ Validées récemment": _render_validated_questions()
+        elif sous_onglet_questions == "🗄️ Santé de la Base de Données": _render_db_health_subtab()
     with tabs[2]:
-        st.header("👥 Équipes, Thématiques & Flux de Notifications")
-        sous_onglet_profils = st.radio(
-            "Configuration :",
-            options=["👥 Gestion Globale des Membres & Droits", "📬 Paramètres des Digests"],
-            horizontal=True,
-            key="profils_notifs_subtab"
-        )
+        st.header("👥 Équipes, Thématiques & Flux")
+        sous_onglet_profils = st.radio("Config :", ["👥 Gestion Globale des Membres & Droits", "📬 Paramètres des Digests"], horizontal=True, key="profils_notifs_subtab")
         st.divider()
-
-        if sous_onglet_profils == "👥 Gestion Globale des Membres & Droits":
-            _render_master_detail_user_management(user)
-        elif sous_onglet_profils == "📬 Paramètres des Digests":
-            _render_digests_and_logs_subtab(user)
-
-    # ================================================================== #
-    #  TAB 3 — AVIS & SIGNALEMENTS (NOUVEAU)                            #
-    # ================================================================== #
+        if sous_onglet_profils == "👥 Gestion Globale des Membres & Droits": _render_master_detail_user_management(user)
+        elif sous_onglet_profils == "📬 Paramètres des Digests": _render_digests_and_logs_subtab(user)
     with tabs[3]:
         _render_feedback_moderation_tab()
-
-    # ================================================================== #
-    #  TAB 4 — IA & CATÉGORISATION                                       #
-    # ================================================================== #
     with tabs[4]:
+        st.header("🤖 Configuration IA & Catégories")
+        with st.expander("Gérer les catégories", expanded=False):
+            st.write("Catégories actives :", ", ".join(get_categories_for_select()))
+            new_cat = st.text_input("Ajouter une catégorie")
+            if st.button("Valider l'ajout"):
+                success, msg = add_category_safe(new_cat)
+                st.success(msg) if success else st.error(msg)
+                if success: st.rerun()
         render_ai_categorization_view()
 
-
-# ================================================================== #
-#  FONCTIONS DE RENDU INTERNES (LOGIQUE ET SOUS-SECTIONS)            #
-# ================================================================== #
+# --- FONCTIONS INTERNES (Logique de rendu) ---
 
 def _render_feedback_moderation_tab():
     st.header("💬 Retours Utilisateurs & Alertes Qualité")
-    st.markdown("Suivi en temps réel des rapports capturés par le module de feedback.")
-
-    # Filtres s'appuyant sur les statuts de ton fichier et l'index composé
     f1, f2 = st.columns(2)
-    with f1:
-        statut_filtre = st.selectbox("Statut de traitement :", ["Tous", "Ouvert", "En cours", "Résolu"])
-    with f2:
-        # Nettoyage des émojis pour la requête de filtrage si nécessaire
-        type_filtre = st.selectbox("Type d'avis :", ["Tous"] + [t for t in FEEDBACK_TYPES])
+    with f1: statut_filtre = st.selectbox("Statut :", ["Tous", "Ouvert", "En cours", "Résolu"])
+    with f2: type_filtre = st.selectbox("Type d'avis :", ["Tous"] + FEEDBACK_TYPES)
 
     feedbacks = feedback_controller.get_filtered_feedbacks(status=statut_filtre, feedback_type=type_filtre)
-    st.caption(f"📊 **{len(feedbacks)}** retour(s) trouvé(s)")
-
-    if not feedbacks:
-        st.info("Aucun feedback à afficher pour ces critères.")
-        return
+    st.caption(f"📊 {len(feedbacks)} retour(s) trouvé(s)")
 
     for fb in feedbacks:
         fb_id = str(fb["_id"])
         ctx = fb.get("context", {})
-        
-        # Gestion visuelle des priorités définies par ton code
-        priority_badge = "🔴 HAUTE" if fb.get("priority") == "haute" else "🟡 MOYENNE" if fb.get("priority") == "moyenne" else "🟢 NORMALE"
-        
         with st.container(border=True):
             col_txt, col_actions = st.columns([4, 2])
-            
             with col_txt:
-                st.markdown(f"### {fb.get('type', '❓ Autre')}")
+                st.markdown(f"### {fb.get('type', 'Autre')}")
                 st.markdown(f"**Description :** *\"{fb.get('description')}\"*")
-                
-                # Extraction du contexte technique auto-capturé par ton script
-                st.markdown(f"**Priorité estimée :** {priority_badge}")
-                st.caption(
-                    f"👤 Soumis par : `{ctx.get('user_email', 'anonyme')}` ({ctx.get('user_role', 'PUBLIC')}) "
-                    f"| 📍 Page : `{ctx.get('current_view', 'Inconnue')}`"
-                )
-                
-                # Expander pour le debug technique approfondi
-                with st.expander("🛠️ Voir les détails du contexte système", expanded=False):
-                    st.json({
-                        "user_name": ctx.get("user_name"),
-                        "permissions_actives": ctx.get("permissions"),
-                        "date_utc": fb.get("created_at").strftime("%Y-%m-%d %H:%M:%S") if fb.get("created_at") else "Non définie"
-                    })
-            
+                st.caption(f"👤 {ctx.get('user_email', 'anonyme')} | 📍 {ctx.get('current_view', 'Inconnue')}")
             with col_actions:
-                st.markdown(f"État : **{fb.get('status', 'Ouvert')}**")
-                
-                new_status = st.selectbox(
-                    "Changer l'état :",
-                    options=["Ouvert", "En cours", "Résolu"],
-                    index=["Ouvert", "En cours", "Résolu"].index(fb.get("status", "Ouvert")),
-                    key=f"status_select_{fb_id}"
-                )
-                
-                notes = st.text_input("Notes admin / Résolution :", value=fb.get("admin_notes", ""), key=f"notes_{fb_id}")
-                
-                if st.button("🔄 Mettre à jour", key=f"btn_update_fb_{fb_id}", use_container_width=True):
-                    if feedback_controller.update_status(fb_id, new_status, notes):
-                        st.toast("✅ Statut mis à jour sur Atlas !")
-                        st.rerun()
+                new_status = st.selectbox("État :", ["Ouvert", "En cours", "Résolu"], index=["Ouvert", "En cours", "Résolu"].index(fb.get("status", "Ouvert")), key=f"status_{fb_id}")
+                notes = st.text_input("Notes admin :", value=fb.get("admin_notes", ""), key=f"notes_{fb_id}")
+                if st.button("🔄 Mettre à jour", key=f"btn_{fb_id}"):
+                    feedback_controller.update_status(fb_id, new_status, notes)
+                    st.rerun()
 
 def _render_stats_tab():
     stats = admin_controller.get_full_stats()
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total requêtes", stats["logs"]["total"])
-    c2.metric("Taux d'automatisation", f"{stats['logs']['automation_rate']}%")
-    c3.metric("KB en attente", stats["kb"]["pending"], delta=f"+{stats['kb']['pending']}" if stats["kb"]["pending"] else None, delta_color="inverse")
+    c2.metric("Automation", f"{stats['logs']['automation_rate']}%")
+    c3.metric("KB en attente", stats["kb"]["pending"])
     c4.metric("KB certifiées", stats["kb"]["validated"])
 
-    st.divider()
-    st.subheader("🎯 Taux de précision NLP")
-    try:
-        days = st.selectbox("Période d'analyse", [7, 30, 90], index=1, key="prec_days")
-        prec = admin_controller.get_nlp_precision(days=days)
-        col_prec, col_dist = st.columns([1, 2])
-        with col_prec:
-            st.metric("Précision NLP", f"{prec.get('precision', 0.0)}%")
-            st.metric("Questions aux experts", prec.get("attente", 0))
-        with col_dist:
-            dist = prec.get("distribution", [])
-            if dist and isinstance(dist, list):
-                df_d = pd.DataFrame(dist)
-                st.bar_chart(df_d.set_index("Tranche"), use_container_width=True)
-    except Exception as e:
-        st.warning(f"Statistiques NLP temporairement indisponibles : {e}")
-
-
 def _render_pending_questions(user):
-    st.subheader("Questions en attente de traitement et certification")
-    with st.expander("🔍 Filtres d'affichage", expanded=True):
-        categories = ["Toutes"] + get_categories_for_select()
-        f1, f2, f3 = st.columns(3)
-        with f1: f_cat = st.selectbox("Thématique", categories, key="adm_f_cat")
-        with f2: f_rep = st.selectbox("État de la réponse", ["Toutes", "Avec proposition", "Sans réponse"], key="adm_f_rep")
-        with f3: f_kw = st.text_input("Recherche par mot-clé", key="adm_f_kw")
-
+    f1, f2 = st.columns(2)
+    with f1: f_cat = st.selectbox("Thématique", ["Toutes"] + get_categories_for_select())
+    with f2: f_rep = st.selectbox("Réponse", ["Toutes", "Avec proposition", "Sans réponse"])
+    
     filtered = admin_controller.get_filtered_pending(
         category=None if f_cat == "Toutes" else f_cat,
-        has_proposal=True if f_rep == "Avec proposition" else False if f_rep == "Sans réponse" else None,
-        keyword=f_kw or None,
+        has_proposal=True if f_rep == "Avec proposition" else False if f_rep == "Sans réponse" else None
     )
-    st.caption(f"**{len(filtered)}** contribution(s) trouvée(s)")
-
     for item in filtered:
         item_id = str(item["_id"])
-        has_prop = has_real_response(item.get("response", ""))
-        resp_val = "" if not has_prop else item["response"]
-
         with st.container(border=True):
-            st.markdown(f"📂 **{item.get('category','Non catégorisé')}** — {item['question']}")
-            admin_resp = st.text_area("Réponse à certifier", value=resp_val, key=f"aresp_{item_id}", height=90)
-            
-            ac1, ac2, ac3 = st.columns([2, 1, 1])
-            with ac1:
-                if st.button("✅ Valider & Publier", key=f"aval_{item_id}", type="primary"):
-                    if admin_resp.strip():
-                        kb_controller.update_contribution(item_id, admin_resp, user["email"])
-                        st.toast("✅ Validé et publié dans la base !")
-                        st.rerun()
-            with ac2:
-                if st.button("🔔 Notifier un expert", key=f"anotif_{item_id}"):
-                    r = admin_controller.notify_experts_for_question(item_id, user["email"])
-                    st.info(r["message"])
-            with ac3:
-                if st.button("🗑️ Supprimer", key=f"adel_{item_id}"):
-                    kb_controller.delete(item_id)
-                    st.toast("Contribution supprimée.")
-                    st.rerun()
-
+            st.write(f"**Q:** {item['question']}")
+            resp = st.text_area("Réponse", value=item.get("response", ""), key=f"a_{item_id}")
+            if st.button("✅ Valider", key=f"v_{item_id}"):
+                kb_controller.update_contribution(item_id, resp, user["email"])
+                st.rerun()
 
 def _render_validated_questions():
-    st.subheader("Historique des questions validées")
-    validated = admin_controller.get_recent_validated(limit=20)
-    if not validated:
-        st.info("Aucune question validée récemment.")
-    for item in validated:
-        item_id = str(item["_id"])
-        with st.container(border=True):
-            c_q, c_b = st.columns([5, 1])
-            with c_q:
-                st.write(f"**Q:** {item['question']}")
-                st.success(f"**R:** {item['response']}")
-            with c_b:
-                if st.button("↩️ Invalider", key=f"inv_{item_id}"):
-                    kb_controller.invalidate(item_id)
-                    st.toast("Remis en attente de traitement.")
-                    st.rerun()
-
+    for item in admin_controller.get_recent_validated(limit=10):
+        with st.expander(f"Q: {item['question']}"):
+            st.success(f"R: {item['response']}")
+            if st.button("↩️ Invalider", key=f"inv_{item['_id']}"):
+                kb_controller.invalidate(str(item['_id']))
+                st.rerun()
 
 def _render_db_health_subtab():
-    st.subheader("🗄️ Index Atlas & Outils de maintenance")
-    
-    if db_instance.is_alive():
-        st.success("🌐 Connexion établie avec MongoDB Atlas")
-    else:
-        st.error("🚨 Impossible de joindre la base de données")
-
-    try:
-        report = db_instance.get_index_report()
-        if report:
-            for col_name, indexes in report.items():
-                with st.expander(f"📁 Collection `{col_name}` — {len(indexes)} index actifs"):
-                    rows = []
-                    for idx in indexes:
-                        rows.append({
-                            "Nom": idx.get("name"),
-                            "Champs": str(idx.get("key")),
-                            "Unique": "✅" if idx.get("unique") else "—",
-                            "TTL": f"{idx['ttl'] // 86400}j" if idx.get("ttl") else "—"
-                        })
-                    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-        
-        st.divider()
-        st.markdown("### 🔧 Actions de maintenance")
-        if st.button("🛠️ Forcer la recréation de tous les index", type="secondary", key="recreate_idx"):
-            with st.spinner("Création des index sur Atlas..."):
-                db_instance._ensure_indexes()
-                feedback_controller.ensure_indexes()  # Assure également l'index des feedbacks
-                st.success("✅ Tous les index ont été vérifiés et recréés sur Atlas.")
-                st.rerun()
-    except Exception as e:
-        st.error(f"Erreur lors de la lecture des index : {e}")
+    if db_instance.is_alive(): st.success("✅ MongoDB Atlas connecté")
+    if st.button("🛠️ Forcer recréation index"):
+        db_instance._ensure_indexes()
+        st.rerun()
 
 
 def _render_master_detail_user_management(current_user):
