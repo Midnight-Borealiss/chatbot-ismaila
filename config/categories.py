@@ -1,55 +1,29 @@
-import unicodedata
-import re
-import streamlit as st
-from services.db_connector import db_instance
+# config/categories.py
 
-DEFAULT_SYNONYMS = {
-    "MBA": ["mba", "master of business administration", "master management", "management"],
-    "Admission": ["admission", "admissions", "inscription", "inscriptions", "candidature", "dossier", "concours"],
-    "Bourses": ["bourse", "bourses", "financement", "aide financière", "aide", "scholarship"],
-    "Scolarité": ["scolarité", "scolarite", "examen", "examens", "notes", "calendrier", "planning"],
-    "Cybersécurité": ["cybersécurité", "cybersecurite", "cyber", "sécurité informatique", "réseau", "reseaux", "securite"],
-    "Licence_Pro": ["licence pro", "licence professionnelle", "bts", "licence", "bac+3"],
-    "Vie_Campus": ["vie campus", "vie_campus", "campus", "logement", "restauration", "sport"],
-    "Général": ["général", "general", "autre", "autres", "divers"]
+# Dictionnaire de correspondance pour la catégorisation
+CATEGORY_SYNONYMS = {
+    "MBA": ["mba", "master business", "business school", "management"],
+    "Bourses": ["bourse", "aide financiere", "financement", "cout"],
+    "Scolarité": ["examens", "cours", "emploi du temps", "calendrier", "inscription"],
+    "Vie_Campus": ["logement", "campus", "cafeteria", "vie etudiante"],
+    "Général": ["bonjour", "contact", "adresse", "horaires"]
 }
 
-@st.cache_data(ttl=300)
-def get_all_categories_config():
-    try:
-        db = db_instance.db
-        config = db.settings.find_one({"_id": "categories_config"})
-        if config and "data" in config:
-            return config["data"]
-    except:
-        pass
-    return DEFAULT_SYNONYMS
+def normalize_category(cat: str) -> str:
+    """Normalise le nom de la catégorie."""
+    return str(cat).strip()
 
-def _strip_accents(text: str) -> str:
-    return "".join(c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn")
+def get_categories_for_select():
+    """Retourne la liste des catégories pour les menus déroulants."""
+    return list(CATEGORY_SYNONYMS.keys())
 
-def normalize_category(raw: str) -> str:
-    if not raw or not raw.strip(): return "Général"
-    synonyms_dict = get_all_categories_config()
-    cleaned = re.sub(r"[\s_]+", " ", raw.strip().lower())
-    no_accent = _strip_accents(cleaned)
-    for canonical, variants in synonyms_dict.items():
-        if cleaned == canonical.lower() or no_accent == _strip_accents(canonical.lower()):
-            return canonical
-        for v in variants:
-            if cleaned == v.lower() or no_accent == _strip_accents(v.lower()):
-                return canonical
-    return "Général"
-
-def get_categories_for_select() -> list[str]:
-    return sorted(list(get_all_categories_config().keys()))
-
-def add_category_safe(name: str):
-    normalized = name.strip().title().replace(" ", "_")
-    current = get_all_categories_config()
-    if normalized in current:
-        return False, f"La catégorie '{normalized}' existe déjà."
-    current[normalized] = []
-    db_instance.db.settings.update_one({"_id": "categories_config"}, {"$set": {"data": current}}, upsert=True)
-    st.cache_data.clear()
-    return True, f"Catégorie '{normalized}' ajoutée avec succès."
+def add_category_safe(new_cat: str):
+    """Ajoute une catégorie de manière sécurisée."""
+    if not new_cat:
+        return False, "Le nom de la catégorie est vide."
+    if new_cat in CATEGORY_SYNONYMS:
+        return False, "Cette catégorie existe déjà."
+    
+    # Mise à jour simple (Attention : en mémoire, se réinitialise au redémarrage)
+    CATEGORY_SYNONYMS[new_cat] = []
+    return True, f"Catégorie '{new_cat}' ajoutée avec succès."
