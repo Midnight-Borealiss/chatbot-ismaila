@@ -2,19 +2,17 @@ from datetime import datetime
 import re
 
 from services.db_connector import db_instance
-from services.nlp_engine import get_nlp_engine
+from services.nlp_engine import nlp_engine
 from services.mailer import send_new_question_alert
 from config.settings import NLP_THRESHOLD, LEAD_HOT_THRESHOLD
 from config.categories import normalize_category
 from config.permissions import get_domain_level, is_expert_asking
 
-
 class SearchController:
     """
-    Moteur de recherche sémantique matriciel enrichi (Phase 3).
+    Moteur de recherche sémantique matriciel enrichi (Phase 1.5 - MVP Allégé).
     Aiguillage intelligent : Institution × Service × Public.
-    Indexation croisée pondérée (Questions + Variantes + Réponses).
-    Fusion automatique des requêtes redondantes en attente.
+    Calcul de similarité basé sur la correspondance textuelle légère (sans PyTorch).
     """
 
     def __init__(self):
@@ -23,16 +21,38 @@ class SearchController:
         self.users    = db_instance.get_collection("users")
         self.sessions = db_instance.get_collection("chat_sessions")
 
+    def _calculate_text_similarity(self, query: str, texts: list) -> tuple:
+        """Algorithme léger remplaçant les embeddings vectoriels pour le MVP."""
+        def tokenize(text):
+            return set(re.findall(r'\w+', text.lower()))
+            
+        q_tokens = tokenize(query)
+        if not q_tokens:
+            return 0, 0.0
+            
+        best_idx, best_score = 0, 0.0
+        for idx, text in enumerate(texts):
+            t_tokens = tokenize(text)
+            if not t_tokens: continue
+            
+            # Calcul du chevauchement de mots
+            intersection = len(q_tokens.intersection(t_tokens))
+            score = intersection / len(q_tokens) 
+            
+            if score > best_score:
+                best_score = score
+                best_idx = idx
+                
+        return best_idx, best_score
+
     def seek_answer(self, user_query: str, user_info: dict,
                     session_history: list = None) -> dict:
         session_history = session_history or []
-        nlp = get_nlp_engine()
         user_info = user_info or {}
 
-        # ── 1. FILTRAGE MATRICIEL EN AMONT (Sécurité & Cloisonnement) ──
+        # ── 1. FILTRAGE MATRICIEL EN AMONT ──
         query_filter = {"status": "valide"}
         
-        # Si c'est un utilisateur connecté non-expert, on restreint à sa matrice métier
         user_role = user_info.get("role")
         if user_role and user_role != "expert" and user_info.get("service") != "Direction":
             query_filter.update({
@@ -42,10 +62,9 @@ class SearchController:
             })
 
         validated_docs = list(self.kb.find(query_filter))
-        category = normalize_category(nlp.classify_category(user_query))
+        category = normalize_category(nlp_engine.classify_category_by_keywords(user_query))
 
         if not validated_docs:
-            # Si le périmètre filtré est vide, on tente une recherche de secours globale
             validated_docs = list(self.kb.find({"status": "valide"}))
 
         if not validated_docs:
@@ -54,58 +73,55 @@ class SearchController:
                 0.0, "VIDE", "COLD", False, category
             )
 
-        # ── 2. INDEXATION CROISÉE ET CORRESPONDANCE PONDÉRÉE (Niveau 2) ──
+        # ── 2. INDEXATION CROISÉE ET CORRESPONDANCE LÉGÈRE ──
         if validated_docs:
             texts_to_embed = []
             doc_mapping = []
 
             for doc in validated_docs:
-                # Question principale (Poids Fort)
                 texts_to_embed.append(doc["question"])
                 doc_mapping.append({"doc": doc, "type": "question"})
                 
-                # Variantes sémantiques générées (Poids Fort)
                 for variant in doc.get("question_variants", []):
                     texts_to_embed.append(variant)
                     doc_mapping.append({"doc": doc, "type": "variant"})
                     
-                # Contenu de la réponse (Poids Modéré)
                 if doc.get("response"):
                     texts_to_embed.append(doc["response"])
                     doc_mapping.append({"doc": doc, "type": "response"})
 
-            # Calcul de similarité sur le super-tableau aplati
-            idx, raw_score = nlp.get_similarity_score(user_query, texts_to_embed)
+            # Appel de notre nouveau moteur de similarité léger
+            idx, raw_score = self._calculate_text_similarity(user_query, texts_to_embed)
             
-            # Ajustement du score selon la nature de la correspondance
             match_meta = doc_mapping[idx]
             matched_doc = match_meta["doc"]
             
             if match_meta["type"] == "response":
-                score = raw_score * 0.85  # Pénalisation par précaution sur la réponse brute
+                score = raw_score * 0.85
             else:
                 score = raw_score * 1.0
         else:
             score = 0.0
 
         # ── 3. DÉCISION ET TRAITEMENT DU FLUX ──
-        if score >= NLP_THRESHOLD and validated_docs:
+        # On abaisse temporairement le seuil car le calcul de mots-clés est moins "généreux" que l'IA
+        adjusted_threshold = NLP_THRESHOLD * 0.7 
+        
+        if score >= adjusted_threshold and validated_docs:
             response = matched_doc["response"]
             status = "SUCCÈS"
         else:
-            # Échec sémantique → Gestion des nouvelles demandes ou suggestions
             if is_expert_asking(user_info, category):
                 response, status = self._handle_expert_question(user_query, user_info, category)
             else:
-                # RECHERCHE DE DOUBLON EN ATTENTE (Fusion automatique > 90%)
                 pending_duplicates = list(self.kb.find({"status": "en_attente"}))
                 merged_id = None
                 
                 if pending_duplicates:
                     pending_questions = [p["question"] for p in pending_duplicates]
-                    p_idx, p_score = nlp.get_similarity_score(user_query, pending_questions)
+                    p_idx, p_score = self._calculate_text_similarity(user_query, pending_questions)
                     
-                    if p_score >= 0.90:
+                    if p_score >= 0.80: # Seuil ajusté pour la fusion
                         merged_id = pending_duplicates[p_idx]["_id"]
                         self.kb.update_one(
                             {"_id": merged_id},
@@ -121,7 +137,6 @@ class SearchController:
                                 "Votre demande a été regroupée avec cette dernière pour accélérer sa validation.")
                     status = "FUSION_DOUBLON"
                 else:
-                    # Création d'un nouveau ticket classique si aucun doublon en attente n'est détecté
                     response = ("Je n'ai pas encore de réponse certifiée à cette question. "
                                 "Elle a été transmise à nos experts qui vous répondront sous 48h.")
                     status = "ATTENTE"
@@ -129,7 +144,7 @@ class SearchController:
                     self._alert_experts_by_topic(user_query, category, user_info, ticket)
 
         # ── 4. CAPTURE DE LEAD, LOGS ET PERSISTANCE ──
-        intent = nlp.classify_intent(user_query)
+        intent = nlp_engine.classify_intent(user_query)
         hot_count = sum(1 for h in session_history if h.get("intent") == "HOT")
         trigger_capture = (
             (hot_count + (1 if intent == "HOT" else 0)) >= LEAD_HOT_THRESHOLD
@@ -140,10 +155,6 @@ class SearchController:
         self._persist_exchange(user_info, user_query, response, score, intent, category)
 
         return self._build_result(response, score, status, intent, trigger_capture, category)
-
-    # ------------------------------------------------------------------ #
-    #  Gestion spéciale : expert posant une question dans son domaine     #
-    # ------------------------------------------------------------------ #
 
     def _handle_expert_question(self, query: str, user: dict, category: str) -> tuple:
         self.kb.insert_one({
@@ -166,10 +177,6 @@ class SearchController:
             "ajoutée si elle apporte de la valeur."
         )
         return response, "SUGGESTION_EXPERT"
-
-    # ------------------------------------------------------------------ #
-    #  Historique persistant                                             #
-    # ------------------------------------------------------------------ #
 
     def get_session_history(self, user_email: str, limit: int = 50) -> list:
         if not user_email or user_email in ("anonyme", "public"):
@@ -207,10 +214,6 @@ class SearchController:
             {"$set": {"exchanges": []}}
         )
 
-    # ------------------------------------------------------------------ #
-    #  Méthodes privées                                                  #
-    # ------------------------------------------------------------------ #
-
     def _create_ticket(self, query: str, user: dict, category: str = "Général") -> dict:
         doc = {
             "question":   query,
@@ -233,19 +236,15 @@ class SearchController:
     def _alert_experts_by_topic(self, query: str, category: str, user: dict, ticket: dict):
         asked_by = user.get("email", "un utilisateur") if isinstance(user, dict) else "un utilisateur"
         try:
-            # Recherche mise à jour selon la matrice de permissions Phase 3
             experts = list(self.users.find({
                 "role": {"$in": ["VALIDATEUR", "expert"]},
                 "service": ticket.get("service")
             }))
-            
-            # Fallback thématique historique
             if not experts:
                 experts = list(self.users.find({
                     "role": {"$in": ["VALIDATEUR", "ADMINISTRATION"]},
                     "expert_topics": category,
                 }))
-            
             for expert in experts:
                 send_new_question_alert(expert["email"], query, category, asked_by)
         except Exception as e:
@@ -276,6 +275,5 @@ class SearchController:
             "trigger_capture": trigger_capture,
             "category":        category,
         }
-
 
 search_controller = SearchController()
