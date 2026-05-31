@@ -16,7 +16,7 @@ import string
 
 from services.db_connector import db_instance
 from services.mailer import send_pending_digest, send_new_question_alert, _send
-from services.nlp_engine import get_nlp_engine
+from services.nlp_engine import nlp_engine
 from config.roles import CONTRIBUTOR, VALIDATOR, ADMIN
 from config.response_helpers import has_real_response, has_no_real_response
 
