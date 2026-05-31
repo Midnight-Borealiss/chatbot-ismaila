@@ -14,7 +14,7 @@ import pandas as pd
 import streamlit as st
 
 from services.db_connector import db_instance
-from services.ollama_service import ollama_service, VALID_CATEGORIES, CONFIDENCE_MIN
+from services.llm_service import llm_service, VALID_CATEGORIES, CONFIDENCE_MIN
 from config.categories import normalize_category
 
 
@@ -35,14 +35,14 @@ def render_ai_categorization_view():
     # ── Statut Ollama ─────────────────────────────────────────────────────────
     col_status, col_model, col_info = st.columns(3)
 
-    ollama_ok = ollama_service.is_available()
+    llm_ok = llm_service.is_available()
     with col_status:
-        if ollama_ok:
-            st.success("Ollama en ligne")
+        if llm_ok:
+            st.success("LLM en ligne")
         else:
-            st.error("Ollama hors ligne")
+            st.error("LLM hors ligne")
     with col_model:
-        st.info(f"Modèle : `{ollama_service.model}`")
+        st.info(f"Modèle : `{llm_service.model}`")
     with col_info:
         pending_no_cat = kb.count_documents({
             "status": "en_attente",
@@ -54,12 +54,12 @@ def render_ai_categorization_view():
         })
         st.metric("Tickets sans catégorie précise", pending_no_cat)
 
-    if not ollama_ok:
+    if not llm_ok:
         st.warning(
-            "Ollama n'est pas accessible. Installez-le et lancez :\n\n"
+            "LLM n'est pas accessible. Installez-le et lancez :\n\n"
             "```bash\n"
-            "ollama pull mistral:7b-instruct-q4_0\n"
-            "ollama serve\n"
+            "llm pull mistral:7b-instruct-q4_0\n"
+            "llm serve\n"
             "```\n\n"
             "Le fallback NLP sera utilisé en attendant."
         )
@@ -118,7 +118,7 @@ def render_ai_categorization_view():
                     q       = ticket.get("question", "")
                     old_cat = ticket.get("category", "—")
 
-                    result  = ollama_service.categorize(q)
+                    result  = llm_service.categorize(q)
                     new_cat = result["category"]
                     conf    = result["confidence"]
                     source  = result["source"]
