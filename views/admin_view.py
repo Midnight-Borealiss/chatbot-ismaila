@@ -3,16 +3,16 @@ import pandas as pd
 import streamlit as st
 from bson.objectid import ObjectId
 
+# --- TOUS TES IMPORTS MÉTIERS ---
 from controllers.admin_controller import admin_controller
 from controllers.kb_controller import kb_controller
 from controllers.auth_controller import AuthController
-from controllers.feedback_controller import feedback_controller  # Importation du nouveau contrôleur
+from controllers.feedback_controller import feedback_controller 
 from services.db_connector import db_instance
 from config.roles import ADMIN, SUPER_ADMIN, is_admin_or_higher, is_super_admin
 from config.categories import get_categories_for_select
 from config.response_helpers import has_real_response
 from views.ai_categorization_view import render_ai_categorization_view
-
 
 def _require_admin():
     """Vérifie que l'utilisateur a au moins le rôle ADMIN."""
@@ -22,20 +22,30 @@ def _require_admin():
         st.stop()
     return user
 
-
 def render_admin_view():
+    """
+    Vue Administration complète.
+    Note : render_admin_view est appelé directement dans app.py
+    """
     user = _require_admin()
     st.title("🛡️ Dashboard Administration — ISMaiLa")
-
-    # Extension définitive à 5 onglets principaux (Intégration Avis/Feedbacks)
+    
+    # 5 onglets maintenus
     tabs = st.tabs([
-        "📊 Statistiques",
-        "📋 Gestion des Questions",
-        "👥 Profils & Notifications",
-        "💬 Avis & Signalements",  # Nouvel Onglet validé au commit 7.13
-        "🤖 IA & Catégorisation"
+        "📊 Statistiques", 
+        "📋 Gestion des Questions", 
+        "👥 Profils & Notifications", 
+        "💬 Avis & Signalements", 
+        "🤖 IA"
     ])
-
+    
+    with tabs[4]: # Onglet IA
+        render_ai_categorization_view()
+        
+    # --- Reste de ton code (Stats, Profils, etc.) ---
+    # Tu peux recoller ici toute ta logique métier existante 
+    # car tous les contrôleurs (admin_controller, kb_controller, etc.) 
+    # sont désormais bien importés en haut.
     # ================================================================== #
     #  TAB 0 — STATISTIQUES                                              #
     # ================================================================== #

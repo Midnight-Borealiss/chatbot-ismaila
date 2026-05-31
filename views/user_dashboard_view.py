@@ -15,21 +15,18 @@ from bson.objectid import ObjectId
 
 def render_user_dashboard(user):
     st.title("👤 Mon Espace Co-pilote — ISMaiLa")
-    
     db = db_instance.db
-    
-    # Sécurisation immédiate de l'identifiant pour les requêtes Atlas
     try:
         user_id = ObjectId(str(user.get("_id")))
     except Exception as e:
-        st.error(f"Erreur d'identification du profil : {e}")
+        st.error(f"Erreur d'identification : {e}")
         return
     
     # =========================================================================
     # ÉTAPE 1 : Le profil n'est pas encore configuré -> Formulaire initial
     # =========================================================================
     if not user.get("profile_configured", False):
-        st.info("👋 Bienvenue sur le pilote ! Veuillez d'abord compléter votre profil pour activer vos accès d'expert.")
+        st.info("👋 Bienvenue ! Veuillez compléter votre profil.")
         
         with st.form(key="initial_profile_form"):
             st.markdown("##### 📝 Informations Générales")
