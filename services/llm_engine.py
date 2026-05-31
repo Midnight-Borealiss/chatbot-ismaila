@@ -51,42 +51,34 @@ TODO — À IMPLÉMENTER EN PHASE 2
 [ ] Ajouter un garde-fou : si le LLM hallucine, fallback sur réponse certifiée
 """
 
-# ══════════════════════════════════════════════════════════════════════
-#  CODE EN VEILLE — NE PAS IMPORTER AVANT LA PHASE 2
-# ══════════════════════════════════════════════════════════════════════
+"""
+LLM ENGINE — ACTIVE (Phase 1.5 - MVP)
+Pipeline RAG : Retrieval (via mots-clés MongoDB) -> Generation (via API Mistral)
+"""
 
-# from controllers.search_controller import search_controller  # À décommenter Phase 2
-# from services.llm_service import llm_service                 # À créer Phase 2
+from services.llm_service import llm_service
+# Remplace search_controller par l'import de ta fonction de recherche textuelle MongoDB existante
 
-
-def get_rag_response(query: str) -> str:
+def get_rag_response(query: str, context_docs: list) -> str:
     """
-    [EN VEILLE — PHASE 2]
-
-    Pipeline RAG complet :
-    1. Retrieval  → Cherche les contextes certifiés dans MongoDB
-    2. Generation → Demande au LLM de rédiger une réponse fluide
-
-    Raises:
-        NotImplementedError: Tant que la Phase 2 n'est pas déployée
+    Construit le prompt avec le contexte ISM et interroge le LLM.
     """
-    raise NotImplementedError(
-        "LLM Engine en veille — Phase 2 non démarrée. "
-        "Utiliser search_controller.seek_answer() en Phase 1."
-    )
+    if not context_docs:
+        return "Je ne trouve pas d'information exacte dans mes archives. Je vous invite à ouvrir un ticket pour qu'un expert vous réponde."
 
-    # ── Code prévu pour la Phase 2 (décommenter le moment venu) ──────
-    #
-    # context_docs = search_controller.find_context(query, top_k=3)
-    # context_text = "\n".join([doc["response"] for doc in context_docs])
-    #
-    # prompt = (
-    #     "Tu es l'assistant virtuel de l'ISM.\n"
-    #     "Réponds UNIQUEMENT en te basant sur le contexte certifié ci-dessous.\n"
-    #     "Si le contexte ne contient pas la réponse, dis-le clairement.\n\n"
-    #     f"CONTEXTE CERTIFIÉ :\n{context_text}\n\n"
-    #     f"QUESTION : {query}\n\n"
-    #     "RÉPONSE :"
-    # )
-    #
-    # return llm_service.generate(prompt)
+    # On fusionne les réponses validées trouvées dans la base
+    context_text = "\n".join([f"- {doc.get('response', '')}" for doc in context_docs])
+
+    prompt = f"""<s>[INST] Tu es ISMaiLa, l'assistant virtuel officiel.
+Réponds de façon claire et bienveillante à la question de l'étudiant, en utilisant UNIQUEMENT les faits issus des archives ci-dessous. 
+Ne propose pas d'étapes qui ne sont pas dans les archives.
+
+ARCHIVES DE L'INSTITUT :
+{context_text}
+
+QUESTION DE L'ÉTUDIANT :
+{query} [/INST]"""
+
+    llm_result = llm_service.generate_response(prompt)
+    
+    return llm_result["text"]
