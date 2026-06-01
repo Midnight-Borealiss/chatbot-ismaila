@@ -17,14 +17,18 @@ def render_user_dashboard(user):
     st.title("👤 Mon Espace Co-pilote — ISMaiLa")
     db = db_instance.db
     
-    # Vérifier que l'utilisateur a un _id valide
-    user_id_raw = user.get("_id")
-    if not user_id_raw:
+    # Récupérer l'identifiant utilisateur (le contrôleur auth stocke "id" en string)
+    user_id_str = user.get("id") or user.get("_id")
+    if not user_id_str:
         st.error("❌ Erreur d'identification : identifiant utilisateur manquant.")
         return
     
     try:
-        user_id = ObjectId(str(user_id_raw))
+        # Convertir en ObjectId si nécessaire
+        if isinstance(user_id_str, str):
+            user_id = ObjectId(user_id_str)
+        else:
+            user_id = ObjectId(str(user_id_str))
     except Exception as e:
         st.error(f"❌ Erreur d'identification : {e}")
         return
