@@ -7,6 +7,10 @@ logger = logging.getLogger(__name__)
 HF_TOKEN = st.secrets.get("llm", {}).get("api_token", "")
 API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
 
+# Constantes pour la catégorisation
+VALID_CATEGORIES = ["MBA", "Bourses", "Scolarité", "Vie_Campus", "Général"]
+CONFIDENCE_MIN = 0.6
+
 class LLMService:
     def __init__(self):
         self.headers = {"Authorization": f"Bearer {HF_TOKEN}"}
