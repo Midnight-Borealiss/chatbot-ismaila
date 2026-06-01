@@ -34,6 +34,20 @@ def render_user_dashboard(user):
         return
     
     # =========================================================================
+    # VÉRIFIER SI LE PROFIL EST CONFIGURÉ
+    # =========================================================================
+    
+    # Pour les administrateurs non configurés, afficher le formulaire de qualification
+    user_role = user.get("role", "")
+    is_admin = user_role in ["ADMIN", "ADMINISTRATION", "SUPER_ADMIN"]
+    profile_configured = user.get("profile_configured", False)
+    
+    if is_admin and not profile_configured:
+        from views.qualification_view import render_structural_qualification_form
+        render_structural_qualification_form(db)
+        return
+    
+    # =========================================================================
     # ÉTAPE 1 : Le profil n'est pas encore configuré -> Formulaire initial
     # =========================================================================
     if not user.get("profile_configured", False):
@@ -50,8 +64,14 @@ def render_user_dashboard(user):
                 key="contrib_structural_type"
             )
             
+            # Entités sans "TG Sénégal" (ce projet externe est exclu)
             departement = st.selectbox("Votre département ou entité principale", [
-                "Scolarité", "Admission & Recrutement", "Marketing & Communication", "Direction Académique", "TG Sénégal"
+                "Scolarité", 
+                "Admission & Recrutement", 
+                "Marketing & Communication", 
+                "Direction Académique",
+                "Call Center / Orientation",
+                "Soft Skills Academy (Vie estudiantine)"
             ])
             
             st.markdown(" ")
