@@ -16,10 +16,17 @@ from bson.objectid import ObjectId
 def render_user_dashboard(user):
     st.title("👤 Mon Espace Co-pilote — ISMaiLa")
     db = db_instance.db
+    
+    # Vérifier que l'utilisateur a un _id valide
+    user_id_raw = user.get("_id")
+    if not user_id_raw:
+        st.error("❌ Erreur d'identification : identifiant utilisateur manquant.")
+        return
+    
     try:
-        user_id = ObjectId(str(user.get("_id")))
+        user_id = ObjectId(str(user_id_raw))
     except Exception as e:
-        st.error(f"Erreur d'identification : {e}")
+        st.error(f"❌ Erreur d'identification : {e}")
         return
     
     # =========================================================================
