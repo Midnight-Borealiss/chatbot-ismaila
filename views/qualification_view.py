@@ -122,49 +122,54 @@ def render_structural_qualification_form(db):
     st.markdown(" ")
     
     # ───────────────────────────────────────────────────────────────────────
-    # DÉBUT DU FORMULAIRE (Étapes 2-3 + soumission)
+    # ÉTAPE 2 : Entité spécifique
+    # ───────────────────────────────────────────────────────────────────────
+    
+    st.markdown("### 🏢 Étape 2 : Entité Spécifique")
+    
+    if structural_type == "Un Service Transversal":
+        entity_options = list(SERVICES.keys())
+        entity_label = "Sélectionnez votre service :"
+        entity_code_map = SERVICES
+    else:  # Institut Académique
+        entity_options = list(INSTITUTS.keys())
+        entity_label = "Sélectionnez votre institut :"
+        entity_code_map = INSTITUTS
+    
+    selected_entity = st.selectbox(
+        entity_label,
+        options=entity_options,
+        key="qual_entity"
+    )
+    
+    entity_code = entity_code_map.get(selected_entity, selected_entity.lower())
+    
+    st.markdown(" ")
+    
+    # ───────────────────────────────────────────────────────────────────────
+    # ÉTAPE 3 : Niveau de poste (HORS FORMULAIRE pour réactivité)
+    # ───────────────────────────────────────────────────────────────────────
+    
+    st.markdown("### 📊 Étape 3 : Niveau de Poste")
+    
+    job_level = st.radio(
+        "Définissez votre niveau de responsabilité :",
+        options=["Opérationnel", "Responsable"],
+        horizontal=True,
+        key="qual_job_level"
+    )
+    
+    # Afficher aperçu des permissions pour ce niveau (réactif)
+    _render_permissions_preview(job_level)
+    
+    st.markdown(" ")
+    
+    # ───────────────────────────────────────────────────────────────────────
+    # DÉBUT DU FORMULAIRE (Soumission uniquement)
     # ───────────────────────────────────────────────────────────────────────
     
     with st.form(key="structural_qualification_form", clear_on_submit=False):
         
-        # ───── Étape 2 : Entité spécifique ─────
-        st.markdown("### 🏢 Étape 2 : Entité Spécifique")
-        
-        if structural_type == "Un Service Transversal":
-            entity_options = list(SERVICES.keys())
-            entity_label = "Sélectionnez votre service :"
-            entity_code_map = SERVICES
-        else:  # Institut Académique
-            entity_options = list(INSTITUTS.keys())
-            entity_label = "Sélectionnez votre institut :"
-            entity_code_map = INSTITUTS
-        
-        selected_entity = st.selectbox(
-            entity_label,
-            options=entity_options,
-            key="qual_entity"
-        )
-        
-        entity_code = entity_code_map.get(selected_entity, selected_entity.lower())
-        
-        st.markdown(" ")
-        
-        # ───── Étape 3 : Niveau de poste ─────
-        st.markdown("### 📊 Étape 3 : Niveau de Poste")
-        
-        job_level = st.radio(
-            "Définissez votre niveau de responsabilité :",
-            options=["Opérationnel", "Responsable"],
-            horizontal=True,
-            key="qual_job_level"
-        )
-        
-        # Afficher aperçu des permissions pour ce niveau
-        _render_permissions_preview(job_level)
-        
-        st.markdown(" ")
-        
-        # ───── Bouton de soumission ─────
         st.divider()
         submit_button = st.form_submit_button(
             "✅ Configurer mon profil",
