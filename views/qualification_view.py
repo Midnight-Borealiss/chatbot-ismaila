@@ -107,22 +107,25 @@ def render_structural_qualification_form(db):
     st.divider()
     
     # ───────────────────────────────────────────────────────────────────────
-    # DÉBUT DU FORMULAIRE
+    # ÉTAPE 1 : Type de structure (HORS FORMULAIRE pour réactivité)
+    # ───────────────────────────────────────────────────────────────────────
+    
+    st.markdown("### 📍 Étape 1 : Type de Structure")
+    
+    structural_type = st.radio(
+        "Choisissez votre structure principale :",
+        options=["Un Service Transversal", "Un Institut Académique"],
+        horizontal=True,
+        key="qual_struct_type"
+    )
+    
+    st.markdown(" ")
+    
+    # ───────────────────────────────────────────────────────────────────────
+    # DÉBUT DU FORMULAIRE (Étapes 2-3 + soumission)
     # ───────────────────────────────────────────────────────────────────────
     
     with st.form(key="structural_qualification_form", clear_on_submit=False):
-        
-        # ───── Étape 1 : Type de structure ─────
-        st.markdown("### 📍 Étape 1 : Type de Structure")
-        
-        structural_type = st.radio(
-            "Choisissez votre structure principale :",
-            options=["Un Service Transversal", "Un Institut Académique"],
-            horizontal=True,
-            key="qual_struct_type"
-        )
-        
-        st.markdown(" ")
         
         # ───── Étape 2 : Entité spécifique ─────
         st.markdown("### 🏢 Étape 2 : Entité Spécifique")
