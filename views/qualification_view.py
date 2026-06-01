@@ -252,8 +252,26 @@ def render_structural_qualification_form(db):
                 st.markdown("**Permissions :**")
                 st.json(permissions)
             
-            # Rerun pour afficher le dashboard
-            st.rerun()
+            st.divider()
+            
+            # Bouton pour accéder au dashboard
+            col_nav1, col_nav2 = st.columns([1, 1])
+            
+            with col_nav1:
+                if st.button(
+                    "📊 Accéder à votre Dashboard",
+                    use_container_width=True,
+                    type="primary"
+                ):
+                    st.session_state.qualification_complete = True
+                    st.rerun()
+            
+            with col_nav2:
+                if st.button(
+                    "🏠 Retour à l'accueil",
+                    use_container_width=True
+                ):
+                    st.rerun()
         
         except Exception as e:
             st.error(f"❌ Erreur lors de l'enregistrement : {e}")
