@@ -122,3 +122,11 @@ def render_user_dashboard(user):
                             st.error(f"Erreur lors de la mise à jour du mot de passe : {e}")
                             
         # Les composants standards additionnels du tableau de bord peuvent être ajoutés ici sans interférer.
+
+
+def render_user_dashboard_view():
+    """Wrapper pour la vue du tableau de bord utilisateur."""
+    if "user" not in st.session_state or not st.session_state.user:
+        st.error("❌ Erreur d'authentification.")
+        return
+    render_user_dashboard(st.session_state.user)
