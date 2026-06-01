@@ -14,6 +14,17 @@ CONFIDENCE_MIN = 0.6
 class LLMService:
     def __init__(self):
         self.headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+        self.model = "Mistral-7B-Instruct-v0.3"
+    
+    def is_available(self) -> bool:
+        """Vérifie si le service LLM est disponible."""
+        if not HF_TOKEN:
+            return False
+        try:
+            response = requests.head(API_URL, headers=self.headers, timeout=5)
+            return response.status_code < 500
+        except Exception:
+            return False
 
     def get_categorization_prompt(self):
         cats = get_all_categories_config()
