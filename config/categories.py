@@ -8,6 +8,10 @@ CATEGORY_SYNONYMS = {
     "Général": ["bonjour", "contact", "adresse", "horaires"]
 }
 
+def get_all_categories_config():
+    """Retourne le dictionnaire complet des catégories avec leurs synonymes."""
+    return CATEGORY_SYNONYMS
+
 def get_all_canonical():
     """Retourne la liste des catégories canoniques."""
     return list(CATEGORY_SYNONYMS.keys())
