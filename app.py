@@ -1,3 +1,10 @@
+"""
+ISMaiLa — Système de Gestion des Connaissances (KMS) — v7.14
+Application principale Streamlit pour le pilote ISM.
+
+Module principal d'orchestration avec routing utilisateurs et pages.
+"""
+
 import streamlit as st
 
 from controllers.auth_controller import auth_controller
