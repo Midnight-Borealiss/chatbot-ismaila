@@ -4,7 +4,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- CONFIGURATION IA ---
-NLP_MODEL_NAME = "all-MiniLM-L6-v2"
+# Modèle d'embedding multilingue (le contenu est en français).
+# DOIT être identique entre l'indexation (scripts/init_embeddings.py) et la
+# recherche (search_controller) sous peine d'incohérence des vecteurs.
+EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "paraphrase-multilingual-MiniLM-L12-v2")
+EMBEDDING_DIM        = int(os.getenv("EMBEDDING_DIM", 384))   # dimensions du modèle ci-dessus
+
+# Nom de l'index Atlas Vector Search sur contributions.question_embedding.
+# Aligné sur l'index déjà présent dans le cluster ("autoembed_index").
+VECTOR_INDEX_NAME = os.getenv("VECTOR_INDEX_NAME", "autoembed_index")
+
+# Conservé pour rétrocompatibilité (ancien moteur léger)
+NLP_MODEL_NAME = EMBEDDING_MODEL_NAME
+
 # Seuil RG-01 : En dessous de ce score, on bascule vers l'alerte expert
 NLP_THRESHOLD = float(os.getenv("NLP_THRESHOLD", 0.75))
 

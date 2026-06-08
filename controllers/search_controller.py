@@ -1,18 +1,25 @@
 from datetime import datetime
+import logging
 import re
 
 from services.db_connector import db_instance
 from services.nlp_engine import nlp_engine
 from services.mailer import send_new_question_alert
-from config.settings import NLP_THRESHOLD, LEAD_HOT_THRESHOLD
-from config.categories import normalize_category
+from config.settings import NLP_THRESHOLD, LEAD_HOT_THRESHOLD, VECTOR_INDEX_NAME
+from config.categories import normalize_category, get_parent_category
 from config.permissions import get_domain_level, is_expert_asking
+
+logger = logging.getLogger(__name__)
 
 class SearchController:
     """
-    Moteur de recherche sémantique matriciel enrichi (Phase 1.5 - MVP Allégé).
+    Moteur de recherche sémantique matriciel enrichi.
     Aiguillage intelligent : Institution × Service × Public.
-    Calcul de similarité basé sur la correspondance textuelle légère (sans PyTorch).
+
+    Recherche sémantique via Atlas Vector Search ($vectorSearch sur
+    question_embedding). Repli gracieux sur une correspondance textuelle
+    légère (chevauchement de tokens) si les embeddings ou l'index ne sont
+    pas disponibles — l'application ne plante jamais.
     """
 
     def __init__(self):
@@ -45,6 +52,100 @@ class SearchController:
                 
         return best_idx, best_score
 
+    # ── Correspondance sémantique ────────────────────────────────────────────
+    def _find_best_answer(self, user_query: str, query_filter: dict):
+        """
+        Retourne (doc, score, accepted).
+        Tente d'abord Atlas Vector Search ; à défaut, repli sur le token-overlap.
+        """
+        doc, score = self._vector_search(user_query, query_filter)
+        if doc is not None:
+            # Score Atlas cosine normalisé dans [0,1] (1 = parfait)
+            return doc, score, score >= NLP_THRESHOLD
+        return self._token_match(user_query, query_filter)
+
+    def _vector_search(self, user_query: str, query_filter: dict):
+        """
+        $vectorSearch Atlas sur question_embedding. Retourne (doc, score) ou
+        (None, 0.0) si indisponible / aucun candidat.
+
+        L'index (autoembed_index) ne déclare pas de champ de filtre : on
+        récupère les meilleurs candidats puis on POST-FILTRE en Python
+        (status + filtre matriciel quand les champs existent sur le document).
+        """
+        q_vec = nlp_engine.embed(user_query)
+        if q_vec is None:
+            return None, 0.0
+
+        pipeline = [
+            {"$vectorSearch": {
+                "index":         VECTOR_INDEX_NAME,
+                "path":          "question_embedding",
+                "queryVector":   q_vec,
+                "numCandidates": 150,
+                "limit":         20,
+            }},
+            {"$addFields": {"vs_score": {"$meta": "vectorSearchScore"}}},
+        ]
+        try:
+            results = list(self.kb.aggregate(pipeline))
+        except Exception as e:
+            logger.warning(f"Vector search indisponible — repli token : {e}")
+            return None, 0.0
+
+        for doc in results:
+            if self._matches_filter(doc, query_filter):
+                return doc, float(doc.get("vs_score", 0.0))
+        return None, 0.0
+
+    @staticmethod
+    def _matches_filter(doc: dict, query_filter: dict) -> bool:
+        """
+        Applique le filtre matriciel côté Python. Un critère est ignoré si le
+        document ne porte pas le champ (rétro-compatibilité : les docs actuels
+        n'ont pas institution/service/public_target).
+        """
+        for field, cond in query_filter.items():
+            if field not in doc:
+                continue
+            value = doc[field]
+            if isinstance(cond, dict) and "$in" in cond:
+                allowed = cond["$in"]
+                if isinstance(value, list):
+                    if not any(v in allowed for v in value):
+                        return False
+                elif value not in allowed:
+                    return False
+            elif value != cond:
+                return False
+        return True
+
+    def _token_match(self, user_query: str, query_filter: dict):
+        """Repli léger (chevauchement de tokens). Retourne (doc, score, accepted)."""
+        validated_docs = list(self.kb.find(query_filter))
+        if not validated_docs:
+            validated_docs = list(self.kb.find({"status": "valide"}))
+        if not validated_docs:
+            return None, 0.0, False
+
+        texts, mapping = [], []
+        for doc in validated_docs:
+            texts.append(doc["question"])
+            mapping.append({"doc": doc, "type": "question"})
+            for variant in doc.get("question_variants", []):
+                texts.append(variant)
+                mapping.append({"doc": doc, "type": "variant"})
+            if doc.get("response"):
+                texts.append(doc["response"])
+                mapping.append({"doc": doc, "type": "response"})
+
+        idx, raw_score = self._calculate_text_similarity(user_query, texts)
+        meta = mapping[idx]
+        score = raw_score * (0.85 if meta["type"] == "response" else 1.0)
+        # Seuil abaissé : le token-overlap est moins généreux que le sémantique.
+        accepted = score >= NLP_THRESHOLD * 0.7
+        return meta["doc"], score, accepted
+
     def seek_answer(self, user_query: str, user_info: dict,
                     session_history: list = None) -> dict:
         session_history = session_history or []
@@ -61,58 +162,27 @@ class SearchController:
                 "public_target": {"$in": user_info.get("public_target", [])}
             })
 
-        validated_docs = list(self.kb.find(query_filter))
-        category = normalize_category(nlp_engine.classify_category_by_keywords(user_query))
+        category, parent_category = nlp_engine.classify_category_full(user_query)
+        category = normalize_category(category)
+        parent_category = parent_category or get_parent_category(category)
 
-        if not validated_docs:
-            validated_docs = list(self.kb.find({"status": "valide"}))
-
-        if not validated_docs:
+        # Base de connaissances vide → message dédié
+        if self.kb.count_documents({"status": "valide"}) == 0:
             return self._build_result(
                 "La base de connaissances est vide. Veuillez contacter un administrateur.",
                 0.0, "VIDE", "COLD", False, category
             )
 
-        # ── 2. INDEXATION CROISÉE ET CORRESPONDANCE LÉGÈRE ──
-        if validated_docs:
-            texts_to_embed = []
-            doc_mapping = []
-
-            for doc in validated_docs:
-                texts_to_embed.append(doc["question"])
-                doc_mapping.append({"doc": doc, "type": "question"})
-                
-                for variant in doc.get("question_variants", []):
-                    texts_to_embed.append(variant)
-                    doc_mapping.append({"doc": doc, "type": "variant"})
-                    
-                if doc.get("response"):
-                    texts_to_embed.append(doc["response"])
-                    doc_mapping.append({"doc": doc, "type": "response"})
-
-            # Appel de notre nouveau moteur de similarité léger
-            idx, raw_score = self._calculate_text_similarity(user_query, texts_to_embed)
-            
-            match_meta = doc_mapping[idx]
-            matched_doc = match_meta["doc"]
-            
-            if match_meta["type"] == "response":
-                score = raw_score * 0.85
-            else:
-                score = raw_score * 1.0
-        else:
-            score = 0.0
+        # ── 2. CORRESPONDANCE SÉMANTIQUE (vector search + repli token) ──
+        matched_doc, score, accepted = self._find_best_answer(user_query, query_filter)
 
         # ── 3. DÉCISION ET TRAITEMENT DU FLUX ──
-        # On abaisse temporairement le seuil car le calcul de mots-clés est moins "généreux" que l'IA
-        adjusted_threshold = NLP_THRESHOLD * 0.7 
-        
-        if score >= adjusted_threshold and validated_docs:
-            response = matched_doc["response"]
+        if accepted and matched_doc is not None:
+            response = matched_doc.get("response", "")
             status = "SUCCÈS"
         else:
             if is_expert_asking(user_info, category):
-                response, status = self._handle_expert_question(user_query, user_info, category)
+                response, status = self._handle_expert_question(user_query, user_info, category, parent_category)
             else:
                 pending_duplicates = list(self.kb.find({"status": "en_attente"}))
                 merged_id = None
@@ -140,7 +210,7 @@ class SearchController:
                     response = ("Je n'ai pas encore de réponse certifiée à cette question. "
                                 "Elle a été transmise à nos experts qui vous répondront sous 48h.")
                     status = "ATTENTE"
-                    ticket = self._create_ticket(user_query, user_info, category)
+                    ticket = self._create_ticket(user_query, user_info, category, parent_category)
                     self._alert_experts_by_topic(user_query, category, user_info, ticket)
 
         # ── 4. CAPTURE DE LEAD, LOGS ET PERSISTANCE ──
@@ -156,12 +226,14 @@ class SearchController:
 
         return self._build_result(response, score, status, intent, trigger_capture, category)
 
-    def _handle_expert_question(self, query: str, user: dict, category: str) -> tuple:
+    def _handle_expert_question(self, query: str, user: dict, category: str,
+                                parent_category: str = "") -> tuple:
         self.kb.insert_one({
-            "question":      query,
-            "response":      "",
-            "status":        "en_attente",
-            "category":      category,
+            "question":         query,
+            "response":         "",
+            "status":           "en_attente",
+            "category":         category,
+            "parent_category":  parent_category,
             "institution":   user.get("institutions", ["Général"])[0] if user.get("institutions") else "Général",
             "service":       user.get("service", "Scolarité"),
             "public_target": user.get("public_target", ["Étudiants"]),
@@ -214,12 +286,14 @@ class SearchController:
             {"$set": {"exchanges": []}}
         )
 
-    def _create_ticket(self, query: str, user: dict, category: str = "Général") -> dict:
+    def _create_ticket(self, query: str, user: dict, category: str = "",
+                       parent_category: str = "") -> dict:
         doc = {
             "question":   query,
             "response":   "",
             "status":     "en_attente",
             "category":   category,
+            "parent_category": parent_category,
             "institution": user.get("institutions", ["Général"])[0] if isinstance(user, dict) and user.get("institutions") else "Général",
             "service":     user.get("service", "Scolarité") if isinstance(user, dict) else "Scolarité",
             "public_target": user.get("public_target", ["Étudiants"]) if isinstance(user, dict) else ["Étudiants"],

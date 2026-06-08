@@ -1,14 +1,14 @@
 import requests
 import logging
 import streamlit as st
-from config.categories import get_all_categories_config
+from config.categories import get_all_categories_config, get_all_canonical, DEFAULT_CATEGORY
 
 logger = logging.getLogger(__name__)
 HF_TOKEN = st.secrets.get("llm", {}).get("api_token", "")
 API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
 
-# Constantes pour la catégorisation
-VALID_CATEGORIES = ["MBA", "Bourses", "Scolarité", "Vie_Campus", "Général"]
+# Catégories valides = sous-catégories canoniques (hiérarchie ISMaiLa).
+VALID_CATEGORIES = get_all_canonical()
 CONFIDENCE_MIN = 0.6
 
 class LLMService:
@@ -33,10 +33,9 @@ class LLMService:
 
 Catégories disponibles :
 {cat_list}
-- Général : Salutations, problèmes techniques, hors sujet.
 
 RÈGLES :
-1. Si la question est une salutation ou vague -> Général.
+1. Si la question est une salutation ou vague -> {DEFAULT_CATEGORY}.
 2. N'utilise pas de catégorie en dehors de la liste ci-dessus."""
 
     def generate_response(self, prompt: str) -> dict:

@@ -46,8 +46,27 @@ class KBController:
     def get_validated(self) -> list:
         return list(self.col.find({"status": "valide"}).sort("updated_at", -1))
 
+    def _ensure_question_embedding(self, c_id: str, question: str):
+        """
+        Génère et stocke l'embedding de la question pour la recherche vectorielle.
+        Non bloquant : une erreur (modèle indisponible) n'empêche pas la validation.
+        Le repli token prend le relais tant que l'embedding manque.
+        """
+        if not question:
+            return
+        try:
+            from services.nlp_engine import nlp_engine
+            vector = nlp_engine.embed(question)
+            if vector:
+                self.col.update_one(
+                    {"_id": ObjectId(c_id)},
+                    {"$set": {"question_embedding": vector}},
+                )
+        except Exception:
+            pass  # silencieux : la validation ne doit jamais échouer pour ça
+
     def update_contribution(self, c_id: str, response: str, validator_email: str):
-        """Certifie + notifie l'étudiant."""
+        """Certifie + génère l'embedding + notifie l'étudiant."""
         ticket = self.col.find_one({"_id": ObjectId(c_id)})
         self.col.update_one(
             {"_id": ObjectId(c_id)},
@@ -58,6 +77,9 @@ class KBController:
                 "updated_at":   datetime.now(),
             }}
         )
+        # Auto-embedding : la question devient interrogeable en recherche sémantique.
+        if ticket:
+            self._ensure_question_embedding(c_id, ticket.get("question", ""))
         if ticket:
             student_email = ticket.get("user_email", "")
             if student_email and student_email not in ("anonyme", "public", ""):
