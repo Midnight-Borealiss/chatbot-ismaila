@@ -183,18 +183,46 @@ Ajouter ces champs optionnels au profil utilisateur pour enrichir le dashboard:
   "_id": ObjectId,
   "email": "user@domain.com",
   "full_name": "Nom Complet",
-  "password": "hash...",
+  "password_hash": "bcrypt$...",               // Hash bcrypt (champ: password_hash)
+  "password_changed_at": ISODate("..."),       // NOUVEAU v7.15: dernier changement
   "role": "VALIDATEUR",
   "created_at": ISODate("2026-01-01T..."),
-  "last_login": ISODate("2026-05-25T..."),    // NOUVEAU: Dernière connexion
-  "last_action_at": ISODate("2026-05-25T..."), // NOUVEAU: Dernière action (login, contrib, etc)
-  "expert_topics": ["MBA", "Admission"],      // Existant
-  "domain_permissions": {                     // Existant
+  "last_login": ISODate("2026-05-25T..."),    // Dernière connexion
+  "profile_configured": true,                  // Profil figé pré-assigné par l'admin (v7.15)
+  "structural_type": "INSTITUT",               // SERVICE | INSTITUT
+  "entity": "Institut Management",             // Entité / département
+  "job_level": "Responsable",                  // Opérationnel | Responsable
+  "permissions": {                             // Permissions figées (lecture seule côté user)
+    "can_read": true, "can_propose": true, "can_validate": true
+  },
+  "expert_topics": ["MBA", "Admission"],      // Legacy
+  "domain_permissions": {                      // Legacy / granulaire
     "MBA": "expert",
     "Bourses": "contributor"
   }
 }
 ```
+
+> ⚠️ Le champ d'authentification est **`password_hash`** (et non `password`).
+
+---
+
+## 4️⃣ Collection: `contributions` — champs sémantiques (v7.15)
+
+```javascript
+{
+  "_id": ObjectId,
+  "question": "Comment trouver ma classe ?",
+  "response": "...",
+  "status": "valide",                          // en_attente | valide | archive
+  "category": "Déroulement et Planning de cours", // SOUS-catégorie (tag fin)
+  "parent_category": "Pédagogie",              // Catégorie parente (v7.15)
+  "question_embedding": [0.01, -0.04, ...]      // Vecteur 384 dim (Atlas Vector Search, v7.15)
+}
+```
+
+**Index Atlas Vector Search** : `autoembed_index` (type `vectorSearch`, `question_embedding`, 384 dim, cosine).
+Créé/listé via `python scripts/create_vector_index.py`. Vecteurs générés via `scripts/init_embeddings.py`.
 
 ---
 

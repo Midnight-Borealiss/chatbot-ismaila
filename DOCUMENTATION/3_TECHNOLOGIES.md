@@ -23,10 +23,16 @@ ISMaiLa est construite avec un stack **Python moderne** centré sur la productiv
 ### IA & ML
 | Technologie | Version | Usage | Raison |
 |-------------|---------|-------|--------|
-| **Sentence-Transformers** | 2.2+ | Embeddings NLP | Souveraineté (local) |
-| **all-MiniLM-L6-v2** | - | Modèle embedding | ~22MB, rapide, bon score |
-| **Ollama** | Latest | LLM local | Génération texte, catégorisation |
+| **Sentence-Transformers** | 3.0+ | Embeddings NLP (encodage requête/contributions) | Souveraineté (local) |
+| **paraphrase-multilingual-MiniLM-L12-v2** | - | Modèle embedding (384 dim) | Multilingue FR, ~470MB |
+| **MongoDB Atlas Vector Search** | - | Recherche sémantique (`$vectorSearch`) | Index vectoriel scalable |
+| **HF Inference — Mistral-7B-Instruct** | v0.3 | Catégorisation LLM (optionnelle) | via `services/llm_service.py` |
 | **PyTorch** | Latest | Backend ML | Inference embeddings |
+
+> **Note** : la recherche n'utilise plus de calcul de similarité en mémoire. La
+> requête est encodée par Sentence-Transformers puis comparée via l'index Atlas
+> Vector Search (`autoembed_index`, 384 dim, cosine). Repli automatique sur un
+> matching textuel léger si le modèle ou l'index est indisponible.
 
 ### Sécurité
 | Technologie | Version | Usage |
@@ -69,15 +75,16 @@ SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
 SMTP_PASS=your-app-password
 
-# Ollama
-OLLAMA_API_URL=http://localhost:11434
-OLLAMA_MODEL=mistral
-
 # Salesforce
 SF_WEBHOOK_URL=https://hook.make.com/webhooks/...
 
-# NLP
+# NLP / Recherche sémantique
 NLP_THRESHOLD=0.75
+EMBEDDING_MODEL_NAME=paraphrase-multilingual-MiniLM-L12-v2
+EMBEDDING_DIM=384
+VECTOR_INDEX_NAME=autoembed_index
+
+# LLM (catégorisation HF — optionnel, via st.secrets["llm"]["api_token"])
 
 # App
 ADMIN_EMAIL=admin@ism.edu.sn
@@ -86,5 +93,5 @@ APP_ENV=production|development
 
 ---
 
-**Dernière mise à jour** : 2026-05-23
+**Dernière mise à jour** : 2026-06-08 (v7.15 — recherche sémantique Atlas Vector Search)
 **Status** : ✅ Stack validée pour MVP

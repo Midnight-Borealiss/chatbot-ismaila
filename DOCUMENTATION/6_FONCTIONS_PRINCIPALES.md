@@ -15,6 +15,18 @@
   - Retour explicite du statut `"VIDE"` lorsqu'aucune donnée n'est trouvée.
   - Utilise `has_real_response()` pour déterminer si une réponse doit être considérée comme vide.
 
+## 3 bis. Recherche sémantique (Atlas Vector Search) — v7.15
+- **controllers/search_controller.py** + **services/nlp_engine.py**
+  - `seek_answer()` encode la requête puis interroge l'index Atlas `autoembed_index` (`$vectorSearch` sur `question_embedding`).
+  - Repli automatique sur un matching textuel léger (`_token_match`) si le modèle ou l'index est indisponible.
+  - Seuil `NLP_THRESHOLD` (0.75) sur le score cosine normalisé.
+
+## 3 ter. Catégorisation hiérarchique — v7.15
+- **config/categories.py** + **services/nlp_engine.py**
+  - `classify_category_full(q)` → (sous-catégorie, catégorie parente).
+  - Hybride : mots-clés (frontières de mots + accents + pluriels) puis sémantique zero-shot (ancres = descriptions des sous-catégories).
+  - Référentiel : 4 parents × ~16 sous-catégories (`CATEGORY_HIERARCHY`).
+
 ## 4. Gestion des rôles et permissions
 - **config/roles.py**
   - Hiérarchie des rôles : `ADMIN_ROLES = [ADMIN, SUPER_ADMIN]`, `MODERATOR_ROLES = [VALIDATOR, ADMIN, SUPER_ADMIN]`
@@ -28,8 +40,9 @@
   - Migration auto au login via `migrate_expert_topics_to_permissions()`
 
 ## 6. Sécurité des mots de passe
-- **services/auth.py** (ou module similaire)
-  - Utilise `bcrypt` pour le hachage et la vérification des mots de passe.
+- **controllers/auth_controller.py**
+  - `hash_password()` / `verify_password()` via `bcrypt`.
+  - Champ de stockage : `password_hash` (le dashboard utilisateur écrit dans ce champ depuis v7.15).
 
 ## 7. Templates et digests personnalisables
 - **config/digest_templates.py**
@@ -71,5 +84,5 @@
 - `AuditService.get_recent_actions_all_users()` pour timeline globale
 
 ---
-**Mise à jour** : v7.10 — Dashboard utilisateur avec permissions, historique, notifications
-**Dernière modification** : 2026-05-26
+**Mise à jour** : v7.15 — Recherche sémantique Atlas, taxonomie hiérarchique, profils figés
+**Dernière modification** : 2026-06-08

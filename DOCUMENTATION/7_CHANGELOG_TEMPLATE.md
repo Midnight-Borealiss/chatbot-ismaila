@@ -38,6 +38,42 @@ Brève description du changement
 
 ## Historique des Versions
 
+### Version 7.15 — 2026-06-08
+
+#### 🎯 Objectif
+1. Figer les profils admin pendant le pilote (désactiver l'auto-qualification).
+2. Rétablir une vraie compréhension sémantique via MongoDB Atlas Vector Search.
+3. Catégorisation fine via une taxonomie hiérarchique (4 parents × ~16 sous-catégories).
+
+#### 📋 Modifications
+- **views/qualification_view.py** : auto-qualification désactivée (`QUALIFICATION_FORM_ENABLED = False`).
+- **views/user_dashboard_view.py** : profil en lecture seule + restauration de `render_user_dashboard_view()` + écriture du mot de passe dans `password_hash`.
+- **config/categories.py** : référentiel hiérarchique `CATEGORY_HIERARCHY` (remplace le plat).
+- **services/nlp_engine.py** : embeddings (sentence-transformers) + `classify_category_full()`, matching mots-clés robuste.
+- **controllers/search_controller.py** : `$vectorSearch` Atlas + post-filtre + repli token ; stockage `parent_category`.
+- **controllers/kb_controller.py** : auto-embedding à la certification.
+- **services/llm_service.py** : `VALID_CATEGORIES` dérivé de la hiérarchie.
+- **config/settings.py** : `EMBEDDING_MODEL_NAME`, `EMBEDDING_DIM`, `VECTOR_INDEX_NAME`.
+- **scripts/** : `init_embeddings.py` (refonte), `create_vector_index.py` (NEW), `recategorize_hierarchy.py` (NEW).
+- **services/audit_service.py** + **tests/test_search_controller.py** : réparation suite de tests.
+
+#### 🔧 Détails Techniques
+- Modèle d'embedding : `paraphrase-multilingual-MiniLM-L12-v2` (384 dim, cosine), index Atlas `autoembed_index`.
+- `seek_answer()` : `classify_category_full()` → (sous-catégorie, parent) ; matching via `_find_best_answer` (`_vector_search` → `_token_match`).
+- Migration BD : 288 contributions ré-embeddées (`question_embedding`) et re-taguées (`category` + `parent_category`).
+
+#### ⚠️ Notes
+- BREAKING : l'ancien référentiel plat (MBA, Bourses, Scolarité, Vie_Campus, Général) est remplacé.
+- Action manuelle : relancer `scripts/init_embeddings.py` / `scripts/recategorize_hierarchy.py` après un import massif de contributions (sinon repli token en attendant).
+- Le module `ollama_service.py` n'existe pas ; la catégorisation LLM passe par `llm_service.py` (HF).
+
+#### ✅ Tests
+- ✅ Suite complète : **87 tests passent** (0 erreur).
+- ✅ Recherche sémantique validée sur paraphrases (ex. « blazer » ↔ « veste », score 0.86).
+- ✅ RG-01 / RG-03 / RG-05 préservées.
+
+---
+
 ### Version 7.6 — 2026-05-25
 
 #### 🎯 Objectif
@@ -247,5 +283,5 @@ Résultat : **6/6 TESTS PASSED** - Prêt pour production ✅
 
 ---
 
-**Dernière mise à jour** : 2026-05-24
+**Dernière mise à jour** : 2026-06-08 (v7.15)
 **Mainteneur** : Équipe ISMaiLa

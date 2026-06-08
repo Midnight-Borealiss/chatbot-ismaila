@@ -84,3 +84,26 @@ L'interface d'administration a été entièrement réorganisée pour regrouper l
 
 ### 2. Fusion Profils et Notifications (Alignement UX)
 - Création de l'onglet unifié **👥 Profils & Notifications** pour centraliser les configurations humaines (Annuaire, Rôles, Permissions d'expertise par thématique) et leurs impacts techniques directs (Paramètres de filtrage du Digest, fréquence d'envoi et journal d'audit d'administration).
+
+## Modifications Récentes (v7.15 — 2026-06-08)
+
+### 1. Profils admin figés pendant le pilote
+- **views/qualification_view.py** : auto-qualification désactivée (`QUALIFICATION_FORM_ENABLED = False`).
+- **views/user_dashboard_view.py** : profil + permissions en **lecture seule** (pré-assignés par l'admin). Seul le mot de passe reste modifiable.
+- **Corrections** : restauration de `render_user_dashboard_view()` (import attendu par `app.py`) ; le changement de mot de passe écrit désormais dans `password_hash` (et non `password`).
+
+### 2. Recherche sémantique — MongoDB Atlas Vector Search
+- **services/nlp_engine.py** : ré-activation des embeddings (Sentence-Transformers, modèle multilingue 384 dim, chargement paresseux + cache, dégradation gracieuse).
+- **controllers/search_controller.py** : `$vectorSearch` sur `question_embedding` + post-filtre matriciel (Institution × Service × Public) ; repli token si modèle/index indisponible.
+- **scripts/init_embeddings.py** + **scripts/create_vector_index.py** : génération des vecteurs et de l'index `autoembed_index` (288 contributions indexées).
+
+### 3. Taxonomie hiérarchique des catégories (tags fins)
+- **config/categories.py** : passage de catégories larges plates à une hiérarchie 4 parents × ~16 sous-catégories (`CATEGORY_HIERARCHY`).
+- Classification hybride : mots-clés (frontières de mots + accents + pluriels) puis sémantique zero-shot (ancres = descriptions). `classify_category_full()` → (sous-catégorie, parent).
+- Les contributions stockent `category` (sous-catégorie) + `parent_category`. Re-tagage des 288 contributions via `scripts/recategorize_hierarchy.py`.
+
+### 4. Auto-embedding à la validation
+- **controllers/kb_controller.py** : `update_contribution()` génère l'embedding de la question à la certification → la nouvelle Q/R devient immédiatement interrogeable en recherche sémantique.
+
+#### ✅ Tests
+- Suite complète : **87 tests passent** (réparation de `test_search_controller.py` et alias `audit_service`).
