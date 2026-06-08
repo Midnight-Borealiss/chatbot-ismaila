@@ -289,3 +289,6 @@ class AuditService:
 # ══════════════════════════════════════════════════════════════════════
 
 audit_instance = AuditService()
+
+# Alias rétro-compatible (certains modules/tests importent `audit_service`).
+audit_service = audit_instance

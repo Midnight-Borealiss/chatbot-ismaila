@@ -30,7 +30,9 @@ def mock_nlp():
     nlp = MagicMock()
     nlp.get_similarity_score.return_value = (0, 0.90)   # score > seuil par défaut
     nlp.classify_intent.return_value = "HOT"
-    nlp.classify_category.return_value = "Général"
+    nlp.classify_category.return_value = "Scolarité"
+    nlp.classify_category_full.return_value = ("Scolarité", "Service Administratif")
+    nlp.embed.return_value = None
     return nlp
 
 
@@ -43,6 +45,7 @@ def search_ctrl(monkeypatch, validated_doc, mock_nlp):
     mock_users = MagicMock()
 
     mock_kb.find.return_value   = [validated_doc]
+    mock_kb.count_documents.return_value = 1   # base non vide par défaut
     mock_kb.insert_one.return_value = MagicMock(inserted_id=ObjectId())
     mock_logs.insert_one.return_value = MagicMock()
     mock_users.find.return_value = []
@@ -53,10 +56,20 @@ def search_ctrl(monkeypatch, validated_doc, mock_nlp):
     monkeypatch.setattr(db_instance, "get_collection", get_col)
     monkeypatch.setattr(db_instance, "is_alive", lambda: True)
     monkeypatch.setattr(db_instance, "db", MagicMock())
-    monkeypatch.setattr("controllers.search_controller.get_nlp_engine", lambda: mock_nlp)
+    # Nouveau moteur : singleton nlp_engine importé dans le module.
+    monkeypatch.setattr("controllers.search_controller.nlp_engine", mock_nlp)
 
     from controllers.search_controller import SearchController
+    from config.settings import NLP_THRESHOLD
     ctrl = SearchController()
+
+    # Stub du moteur de correspondance : le score est piloté par le mock NLP
+    # (get_similarity_score), ce qui préserve les scénarios de seuil par test.
+    def fake_find(query, query_filter):
+        _, score = ctrl._mock_nlp.get_similarity_score.return_value
+        return validated_doc, score, score >= NLP_THRESHOLD
+    ctrl._find_best_answer = fake_find
+
     ctrl._mock_kb    = mock_kb
     ctrl._mock_logs  = mock_logs
     ctrl._mock_users = mock_users
@@ -83,7 +96,7 @@ class TestRG01:
         assert "expert" in result["response"].lower()
 
     def test_empty_kb_returns_empty_status(self, search_ctrl):
-        search_ctrl._mock_kb.find.return_value = []
+        search_ctrl._mock_kb.count_documents.return_value = 0
         result = search_ctrl.seek_answer("Une question", {"email": "user@t.sn"})
         assert result["status"] == "VIDE"
 
@@ -123,7 +136,7 @@ class TestRG03:
         with patch("controllers.search_controller.send_new_question_alert") as mock_mail:
             search_ctrl.seek_answer("Question sans réponse", {"email": "u@t.sn"})
         mock_mail.assert_called_once_with(
-            "expert@ism.sn", "Question sans réponse", "Général", "u@t.sn"
+            "expert@ism.sn", "Question sans réponse", "Scolarité", "u@t.sn"
         )
 
     def test_expert_not_alerted_when_answer_found(self, search_ctrl):
