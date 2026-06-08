@@ -13,6 +13,14 @@ from datetime import datetime
 from bson.objectid import ObjectId
 
 # ═══════════════════════════════════════════════════════════════════════════
+# DRAPEAU PILOTE — Auto-qualification désactivée
+# ═══════════════════════════════════════════════════════════════════════════
+# Pendant le pilote, les profils et permissions sont PRÉ-ASSIGNÉS par
+# l'administration. L'utilisateur ne peut plus se qualifier lui-même.
+# Pour réactiver l'auto-qualification après le pilote : passer ce drapeau à True.
+QUALIFICATION_FORM_ENABLED = False
+
+# ═══════════════════════════════════════════════════════════════════════════
 # DONNÉES DE CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -85,11 +93,22 @@ def render_structural_qualification_form(db):
     - Rerun pour afficher le dashboard complet
     """
     
+    # ───────────────────────────────────────────────────────────────────────
+    # GARDE-FOU PILOTE : auto-qualification désactivée
+    # ───────────────────────────────────────────────────────────────────────
+    if not QUALIFICATION_FORM_ENABLED:
+        st.info(
+            "🔒 La configuration de profil en libre-service est désactivée pendant "
+            "le pilote. Votre profil et vos permissions sont définis par "
+            "l'administration. Contactez un administrateur pour toute modification."
+        )
+        return
+
     # Vérifier l'utilisateur
     if "user" not in st.session_state or not st.session_state.user:
         st.error("❌ Erreur d'authentification.")
         return
-    
+
     user = st.session_state.user
     user_email = user.get("email")
     user_role = user.get("role", "CONTRIBUTEUR")
@@ -263,7 +282,7 @@ def render_structural_qualification_form(db):
                     use_container_width=True,
                     type="primary"
                 ):
-                    st.session_state.qualification_complete = True
+                    st.session_state.user = {**st.session_state.user, "profile_configured": True}
                     st.rerun()
             
             with col_nav2:
