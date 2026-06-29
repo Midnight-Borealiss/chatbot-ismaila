@@ -22,8 +22,8 @@ CATEGORY_HIERARCHY = {
         "description": "Tout ce qui concerne l'enseignement, le suivi académique, les plannings et les règles d'assiduité.",
         "subcategories": {
             "Généralité Pédagogie": {
-                "description": "Questions globales sur le Groupe ISM, la direction pédagogique ou le fonctionnement général des études.",
-                "synonyms": ["ism", "groupe ism", "pedagogie", "administration de l'ecole"]
+                "description": "Questions globales sur la direction pédagogique ou le fonctionnement général des études.",
+                "synonyms": ["pedagogie", "direction pedagogique", "administration de l'ecole", "fonctionnement des etudes"]
             },
             "Infos de connexion": {
                 "description": "Problèmes d'accès, perte de mot de passe, identifiants manquants pour l'intranet ou Microsoft 365.",
@@ -69,6 +69,10 @@ CATEGORY_HIERARCHY = {
             "International et Doubles diplômes": {
                 "description": "Diplômes délocalisés, double diplômes et programmes d'échange avec les universités partenaires.",
                 "synonyms": ["international", "double diplome", "echange", "etranger", "partenariat"]
+            },
+            "Accueil & Admission": {
+                "description": "Premier contact pour candidater ou s'inscrire : conditions d'admission, constitution du dossier, démarches de première inscription.",
+                "synonyms": ["admission", "candidater", "postuler", "dossier d'inscription", "premiere inscription", "comment s'inscrire", "integrer l'ecole"]
             }
         }
     },
@@ -76,16 +80,12 @@ CATEGORY_HIERARCHY = {
         "description": "Activités extra-scolaires, événements, associations et animation du campus.",
         "subcategories": {
             "Activités et Événements": {
-                "description": "Bootcamp, Hackathon, Semaine de l'entrepreneuriat, Welcoming Day, semaines thématiques, African Genius festival.",
-                "synonyms": ["bootcamp", "hackathon", "entrepreneuriat", "welcoming day", "festival", "african genius"]
+                "description": "Bootcamp, Hackathon, Semaine de l'entrepreneuriat, Welcoming Day, semaines thématiques, African Genius Festival, Journées Portes Ouvertes (JPO), orientation et accueil des futurs étudiants et des familles.",
+                "synonyms": ["bootcamp", "hackathon", "entrepreneuriat", "welcoming day", "festival", "african genius", "jpo", "portes ouvertes", "semaine juridique", "semaine du madiba", "journee de l'innovation"]
             },
             "SSA": {
                 "description": "Soft Skills Academy : activités associatives autour de 4 axes (humanitaire, environnement, sport, créativité), Passeport Emploi, Palabrons, projection de films, bénévolat — ancrées dans les valeurs d'humilité, d'engagement, d'humanisme et de persévérance.",
                 "synonyms": ["ssa", "soft skills", "passeport emploi", "palabrons", "mois humanitaire", "mois environnement", "mois sport", "benevole"]
-            },
-            "JPO": {
-                "description": "Journées Portes Ouvertes, orientation, accueil des futurs étudiants et des familles.",
-                "synonyms": ["jpo", "portes ouvertes", "visite", "orientation", "futur etudiant"]
             }
         }
     },
@@ -99,6 +99,27 @@ CATEGORY_HIERARCHY = {
             "Incubateurs": {
                 "description": "Accompagnement à la création d'entreprise, entrepreneuriat étudiant, start-ups de l'école.",
                 "synonyms": ["incubateur", "start-up", "creer mon entreprise", "projet", "creation"]
+            }
+        }
+    },
+    "Accueil & Bot": {
+        "description": "Premier contact, courtoisie, présentation générale de l'ISM et de l'assistant ISMaiLa, orientation du visiteur.",
+        "subcategories": {
+            "Civilité": {
+                "description": "Salutations, politesse, remerciements et formules de courtoisie sans demande précise.",
+                "synonyms": ["bonjour", "bonsoir", "salut", "coucou", "merci", "au revoir", "ca va", "comment vas-tu"]
+            },
+            "Infos bot": {
+                "description": "Questions sur l'assistant ISMaiLa lui-même : son identité, ce qu'il sait faire, comment l'utiliser.",
+                "synonyms": ["qui es-tu", "que sais-tu faire", "comment ca marche", "assistant", "chatbot", "robot", "ismaila"]
+            },
+            "Généralité ISM": {
+                "description": "Présentation générale du Groupe ISM : mission, valeurs, histoire, campus, à propos de l'établissement.",
+                "synonyms": ["groupe ism", "presentation", "a propos", "c'est quoi ism", "mission", "valeurs", "histoire de l'ecole"]
+            },
+            "Accueil & Orientation": {
+                "description": "Premier accueil et orientation du visiteur vers le bon service ou interlocuteur.",
+                "synonyms": ["accueil", "m'orienter", "ou m'adresser", "qui contacter", "par ou commencer", "standard", "renseignement"]
             }
         }
     }
