@@ -10,6 +10,7 @@ import streamlit as st
 from controllers.auth_controller import auth_controller
 from services.db_connector import db_instance
 from config.roles import ADMIN, SUPER_ADMIN, VALIDATOR, CONTRIBUTOR, is_admin_or_higher
+from views.feedback_view import render_feedback_sidebar
 
 
 def render_login_form():
@@ -100,6 +101,9 @@ def main():
             render_student_view()
         with tab_login:
             render_login_form()
+
+    # Bouton « Signaler / Avis » accessible à tous (connectés ou non)
+    render_feedback_sidebar()
 
 
 if __name__ == "__main__":
