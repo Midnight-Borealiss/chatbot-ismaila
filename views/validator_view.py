@@ -6,6 +6,7 @@ from config.roles import VALIDATOR, ADMIN, SUPER_ADMIN, is_admin_or_higher
 from config.categories import get_categories_for_select
 from config.permissions import get_domain_level, can_validate, can_answer, get_user_domains_summary
 from config.response_helpers import has_real_response, has_no_real_response
+from views.shared_components import render_comments_and_delete
 
 
 def render_validator_view():
@@ -192,3 +193,10 @@ def render_validator_view():
                     f"Vous êtes *{user_level}* dans le domaine {category}. "
                     "Contactez un administrateur pour obtenir les droits de contribution."
                 )
+
+            # Commentaire interne + suppression
+            st.divider()
+            render_comments_and_delete(
+                kb_col, item, user,
+                key_prefix="val", on_delete=kb_controller.delete,
+            )

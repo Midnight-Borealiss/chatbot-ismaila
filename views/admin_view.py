@@ -10,9 +10,13 @@ from controllers.auth_controller import AuthController
 from controllers.feedback_controller import feedback_controller 
 from services.db_connector import db_instance
 from config.roles import ADMIN, SUPER_ADMIN, is_admin_or_higher, is_super_admin
-from config.categories import get_categories_for_select, add_category_safe
+from config.categories import (
+    get_categories_for_select, add_category_safe,
+    get_top_categories, get_parent_category,
+)
 from config.response_helpers import has_real_response
 from views.ai_categorization_view import render_ai_categorization_view
+from views.shared_components import render_comments_and_delete
 
 # --- CONSTANTE LOCALE (Fixe le problème du fichier manquant) ---
 FEEDBACK_TYPES = ["Bug", "Erreur de contenu", "Demande d'amélioration", "Signalement", "Autre"]
@@ -102,15 +106,38 @@ def _render_stats_tab():
     c3.metric("KB en attente", stats["kb"]["pending"])
     c4.metric("KB certifiées", stats["kb"]["validated"])
 
+    # Répartition des contributions par pôle (parent)
+    from collections import Counter
+    kb_col = db_instance.get_collection("contributions")
+    pole_counts = Counter()
+    try:
+        for d in kb_col.find({}, {"category": 1, "parent_category": 1}):
+            pole = d.get("parent_category") or get_parent_category(d.get("category", "")) or "—"
+            pole_counts[pole] += 1
+    except Exception:
+        pole_counts = Counter()
+    if pole_counts:
+        st.markdown("##### 📊 Répartition des contributions par pôle")
+        st.bar_chart(pd.Series(dict(pole_counts)).sort_values(ascending=False))
+
 def _render_pending_questions(user):
-    f1, f2 = st.columns(2)
-    with f1: f_cat = st.selectbox("Thématique", ["Toutes"] + get_categories_for_select())
-    with f2: f_rep = st.selectbox("Réponse", ["Toutes", "Avec proposition", "Sans réponse"])
-    
+    f1, f2, f3 = st.columns(3)
+    with f1: f_pole = st.selectbox("Pôle", ["Tous"] + get_top_categories())
+    with f2: f_cat = st.selectbox("Thématique", ["Toutes"] + get_categories_for_select())
+    with f3: f_rep = st.selectbox("Réponse", ["Toutes", "Avec proposition", "Sans réponse"])
+
     filtered = admin_controller.get_filtered_pending(
         category=None if f_cat == "Toutes" else f_cat,
         has_proposal=True if f_rep == "Avec proposition" else False if f_rep == "Sans réponse" else None
     )
+
+    # Filtre par pôle (parent dérivé de la sous-catégorie si non stocké)
+    if f_pole != "Tous":
+        filtered = [
+            it for it in filtered
+            if (it.get("parent_category") or get_parent_category(it.get("category", ""))) == f_pole
+        ]
+    kb_col = db_instance.get_collection("contributions")
     for item in filtered:
         item_id = str(item["_id"])
         with st.container(border=True):
@@ -119,14 +146,24 @@ def _render_pending_questions(user):
             if st.button("✅ Valider", key=f"v_{item_id}"):
                 kb_controller.update_contribution(item_id, resp, user["email"])
                 st.rerun()
+            render_comments_and_delete(
+                kb_col, item, user,
+                key_prefix="admin_pending", on_delete=kb_controller.delete,
+            )
 
 def _render_validated_questions():
+    user = st.session_state.get("user", {})
+    kb_col = db_instance.get_collection("contributions")
     for item in admin_controller.get_recent_validated(limit=10):
         with st.expander(f"Q: {item['question']}"):
             st.success(f"R: {item['response']}")
             if st.button("↩️ Invalider", key=f"inv_{item['_id']}"):
                 kb_controller.invalidate(str(item['_id']))
                 st.rerun()
+            render_comments_and_delete(
+                kb_col, item, user,
+                key_prefix="admin_valid", on_delete=kb_controller.delete,
+            )
 
 def _render_db_health_subtab():
     if db_instance.is_alive(): st.success("✅ MongoDB Atlas connecté")

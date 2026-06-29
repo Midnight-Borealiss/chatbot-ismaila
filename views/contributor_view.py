@@ -7,6 +7,30 @@ from config.roles import CONTRIBUTOR, VALIDATOR, ADMIN, SUPER_ADMIN, is_admin_or
 from config.categories import get_categories_for_select, normalize_category
 from config.permissions import get_domain_level, can_answer, get_user_domains_summary
 from config.response_helpers import has_real_response, has_no_real_response
+from views.shared_components import render_comments_and_delete
+
+
+def _insert_contribution(kb_col, question: str, response: str, canonical_cat: str, user: dict):
+    """Insère une nouvelle contribution et affiche le message adéquat."""
+    user_can_here = can_answer(user, canonical_cat)
+    kb_col.insert_one({
+        "question":      question,
+        "response":      response,
+        "status":        "en_attente",
+        "category":      canonical_cat,
+        "author_email":  user["email"],
+        "created_at":    datetime.now(),
+        "validated_by":  None,
+        "out_of_domain": not user_can_here,
+    })
+    if user_can_here:
+        st.success("✅ Contribution soumise pour certification !")
+    else:
+        st.success(
+            "✅ Contribution soumise ! "
+            f"Note : {canonical_cat} est hors de vos domaines habituels "
+            "— un expert va vérifier votre proposition."
+        )
 
 
 def render_contributor_view():
@@ -155,6 +179,13 @@ def render_contributor_view():
                                          value=item["response"], height=80,
                                          key=f"ro_{item_id}", disabled=True)
 
+                    # Commentaire interne + suppression
+                    st.divider()
+                    render_comments_and_delete(
+                        kb_col, item, user,
+                        key_prefix="contrib", on_delete=kb_controller.delete,
+                    )
+
     # ================================================================== #
     #  TAB 2 — Nouvelle Q/R                                               #
     # ================================================================== #
@@ -182,28 +213,48 @@ def render_contributor_view():
 
         if submitted:
             if question.strip() and response.strip():
-                canonical_cat  = normalize_category(category)
-                user_can_here  = can_answer(user, canonical_cat)
-
-                kb_col.insert_one({
-                    "question":     question.strip(),
-                    "response":     response.strip(),
-                    "status":       "en_attente",
-                    "category":     canonical_cat,
-                    "author_email": user["email"],
-                    "created_at":   datetime.now(),
-                    "validated_by": None,
-                    # Marquer si c'est hors domaine pour info admin
-                    "out_of_domain": not user_can_here,
-                })
-                if user_can_here:
-                    st.success("✅ Contribution soumise pour certification !")
+                canonical_cat = normalize_category(category)
+                # Anti-doublon : on cherche les questions similaires AVANT d'enregistrer.
+                dups = kb_controller.find_similar_questions(question.strip())
+                if dups:
+                    st.session_state["pending_contrib"] = {
+                        "question":     question.strip(),
+                        "response":     response.strip(),
+                        "category":     canonical_cat,
+                    }
+                    st.session_state["contrib_dups"] = dups
+                    st.rerun()
                 else:
-                    st.success(
-                        "✅ Contribution soumise ! "
-                        f"Note : {canonical_cat} est hors de vos domaines habituels "
-                        "— un expert va vérifier votre proposition."
-                    )
-                st.rerun()
+                    _insert_contribution(kb_col, question.strip(), response.strip(),
+                                         canonical_cat, user)
+                    st.rerun()
             else:
                 st.error("La question et la réponse sont obligatoires.")
+
+        # ── Avertissement doublon : laisser l'utilisateur choisir ──────────
+        if st.session_state.get("contrib_dups"):
+            dups = st.session_state["contrib_dups"]
+            st.warning(
+                f"⚠️ {len(dups)} question(s) similaire(s) existent déjà dans la base. "
+                "Vérifiez avant de soumettre un doublon :"
+            )
+            for d in dups:
+                st.markdown(
+                    f"- _{d.get('status','?')}_ · **{d.get('question','')}** "
+                    f"· catégorie : {d.get('category','—')} "
+                    f"· similarité : `{d.get('score','?')}`"
+                )
+            cc1, cc2 = st.columns(2)
+            with cc1:
+                if st.button("📤 Soumettre quand même", type="primary"):
+                    pc = st.session_state.pop("pending_contrib", {})
+                    st.session_state.pop("contrib_dups", None)
+                    if pc:
+                        _insert_contribution(kb_col, pc["question"], pc["response"],
+                                             pc["category"], user)
+                    st.rerun()
+            with cc2:
+                if st.button("Annuler"):
+                    st.session_state.pop("pending_contrib", None)
+                    st.session_state.pop("contrib_dups", None)
+                    st.rerun()

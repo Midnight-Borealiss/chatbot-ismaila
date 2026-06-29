@@ -345,3 +345,25 @@ def render_ai_categorization_view():
                 if c in df_log.columns
             ]
             st.dataframe(df_log[cols], use_container_width=True, hide_index=True)
+
+            # ── Gestion des entrées : commentaire interne + suppression ──────
+            st.divider()
+            st.markdown("##### 🛠️ Gérer les entrées du journal")
+            from views.shared_components import render_comments_and_delete
+            current_user = st.session_state.get("user", {})
+            for entry in logs[:25]:
+                q_label = (entry.get("question", "") or "")[:70]
+                title = (
+                    f"[{entry.get('old_category', '—')} → {entry.get('new_category', '—')}] "
+                    f"{q_label}"
+                )
+                with st.expander(title):
+                    st.caption(
+                        f"Source : {entry.get('source', '—')} | "
+                        f"Confiance : {entry.get('confidence', '—')} | "
+                        f"Appliquée : {entry.get('applied', False)}"
+                    )
+                    render_comments_and_delete(
+                        ai_log, entry, current_user,
+                        key_prefix="ailog",
+                    )

@@ -135,6 +135,84 @@ class KBController:
     def delete(self, c_id: str):
         self.col.delete_one({"_id": ObjectId(c_id)})
 
+    def add_comment(self, c_id: str, author_email: str, text: str):
+        """Ajoute un commentaire interne (annotation staff) à une contribution."""
+        if not text or not text.strip():
+            return False
+        self.col.update_one(
+            {"_id": ObjectId(c_id)},
+            {"$push": {"comments": {
+                "author": author_email,
+                "text":   text.strip(),
+                "at":     datetime.now(),
+            }}},
+        )
+        return True
+
+    def find_similar_questions(self, question: str, limit: int = 3,
+                               min_score: float = 0.80) -> list:
+        """
+        Détecte les doublons potentiels avant enregistrement.
+        Recherche sémantique (Atlas Vector Search) si disponible, sinon repli
+        sur une comparaison textuelle (exact + chevauchement de mots).
+        Retourne une liste de dicts {question, category, status, score}.
+        """
+        question = (question or "").strip()
+        if not question:
+            return []
+
+        # 1) Recherche vectorielle (toutes contributions confondues)
+        try:
+            from services.nlp_engine import nlp_engine
+            from config.settings import VECTOR_INDEX_NAME
+            vec = nlp_engine.embed(question)
+            if vec:
+                pipeline = [
+                    {"$vectorSearch": {
+                        "index":         VECTOR_INDEX_NAME,
+                        "path":          "question_embedding",
+                        "queryVector":   vec,
+                        "numCandidates": 50,
+                        "limit":         limit,
+                    }},
+                    {"$addFields": {"score": {"$meta": "vectorSearchScore"}}},
+                ]
+                results = list(self.col.aggregate(pipeline))
+                return [
+                    {
+                        "question": r.get("question", ""),
+                        "category": r.get("category", ""),
+                        "status":   r.get("status", ""),
+                        "score":    round(float(r.get("score", 0.0)), 3),
+                    }
+                    for r in results if float(r.get("score", 0.0)) >= min_score
+                ]
+        except Exception:
+            pass
+
+        # 2) Repli textuel léger
+        import re
+        def toks(t):
+            return set(re.findall(r"\w+", (t or "").lower()))
+        q_tokens = toks(question)
+        if not q_tokens:
+            return []
+        out = []
+        for doc in self.col.find({}, {"question": 1, "category": 1, "status": 1}):
+            d_tokens = toks(doc.get("question", ""))
+            if not d_tokens:
+                continue
+            overlap = len(q_tokens & d_tokens) / len(q_tokens | d_tokens)
+            if overlap >= 0.6:
+                out.append({
+                    "question": doc.get("question", ""),
+                    "category": doc.get("category", ""),
+                    "status":   doc.get("status", ""),
+                    "score":    round(overlap, 3),
+                })
+        out.sort(key=lambda x: x["score"], reverse=True)
+        return out[:limit]
+
     def get_stats(self) -> dict:
         return {
             "en_attente": self.col.count_documents({"status": "en_attente"}),
