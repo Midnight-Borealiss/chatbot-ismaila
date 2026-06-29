@@ -4,7 +4,13 @@ import streamlit as st
 from config.categories import get_all_categories_config, get_all_canonical, DEFAULT_CATEGORY
 
 logger = logging.getLogger(__name__)
-HF_TOKEN = st.secrets.get("llm", {}).get("api_token", "")
+
+# Lecture défensive du token : st.secrets lève une exception si aucun
+# secrets.toml n'existe (ex. exécution hors Streamlit / tests / local sans secrets).
+try:
+    HF_TOKEN = st.secrets.get("llm", {}).get("api_token", "")
+except Exception:
+    HF_TOKEN = ""
 API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
 
 # Catégories valides = sous-catégories canoniques (hiérarchie ISMaiLa).
