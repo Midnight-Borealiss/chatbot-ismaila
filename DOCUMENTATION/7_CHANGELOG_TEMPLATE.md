@@ -38,6 +38,35 @@ Brève description du changement
 
 ## Historique des Versions
 
+### Version 7.16 — 2026-06-22
+
+#### 🎯 Objectif
+Activer la collecte de feedback en temps réel pour tous les utilisateurs (pilote) et rétro-documenter le module Feedback complet (vue + contrôleur + modération admin).
+
+#### 📋 Modifications
+- **app.py** : `render_feedback_sidebar()` appelé en fin de `main()` → bouton « 💬 Signaler / Avis » accessible à **tous** (connectés ou non).
+- **views/feedback_view.py** : composant sidebar + dialogue modal (`@st.dialog`), capture auto du contexte technique, persistance MongoDB.
+- **controllers/feedback_controller.py** : CRUD sur la collection `feedbacks`, index composé `(status, type, created_at)`, modération.
+- **views/admin_view.py** : `_render_feedback_moderation_tab()` — filtres par statut/type + changement de statut + notes admin.
+
+#### 🔧 Détails Techniques
+- Collection MongoDB : `feedbacks` (statut par défaut `"Ouvert"`, priorité auto-déduite via `_infer_priority`).
+- Capture silencieuse à la soumission (`_capture_user_context`) : email, nom, rôle, permissions actives, vue courante, timestamp UTC. Utilisateur non connecté → `"anonyme"` / rôle `"PUBLIC"`.
+- Validation : description ≥ 10 caractères, max 2000.
+- 7 types de feedback (bug, suggestion, UX, contenu, performance, sécurité, autre).
+- Index : `feedback_controller.ensure_indexes()` crée `(status, type, created_at DESC)`.
+- Dégradation gracieuse : exceptions PyMongo attrapées et loguées, l'UX n'est jamais bloquée.
+
+#### ⚠️ Notes
+- Non-breaking : aucune migration de données, nouvelle collection isolée.
+- Le bouton est rendu hors du bloc d'authentification → un visiteur anonyme peut signaler un problème.
+
+#### ✅ Tests
+- ✅ Module pré-existant (modèle v7.13) ; activation UI validée via la sidebar.
+- ✅ RG inchangées.
+
+---
+
 ### Version 7.15 — 2026-06-08
 
 #### 🎯 Objectif
@@ -283,5 +312,5 @@ Résultat : **6/6 TESTS PASSED** - Prêt pour production ✅
 
 ---
 
-**Dernière mise à jour** : 2026-06-08 (v7.15)
+**Dernière mise à jour** : 2026-06-22 (v7.16 — module Feedback)
 **Mainteneur** : Équipe ISMaiLa

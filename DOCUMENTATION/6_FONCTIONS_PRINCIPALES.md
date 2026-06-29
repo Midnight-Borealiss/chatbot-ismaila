@@ -83,6 +83,15 @@
 - `AuditService.get_action_count_by_type()` pour stats par action
 - `AuditService.get_recent_actions_all_users()` pour timeline globale
 
+## 13. Feedback en temps réel — v7.16
+- **views/feedback_view.py**
+  - `render_feedback_sidebar()` → bouton « 💬 Signaler / Avis » (sidebar, tous utilisateurs), appelé par `app.py`
+  - `save_feedback(data)` → insère dans la collection `feedbacks` (statut `"Ouvert"`, priorité auto)
+  - `_capture_user_context()` → contexte technique auto (email, rôle, permissions, vue, timestamp UTC ; `anonyme` si non connecté)
+- **controllers/feedback_controller.py**
+  - `get_filtered_feedbacks(status, feedback_type)`, `update_status(id, new_status, admin_notes)`, `ensure_indexes()`
+  - Modération via `admin_view._render_feedback_moderation_tab()`
+
 ---
-**Mise à jour** : v7.15 — Recherche sémantique Atlas, taxonomie hiérarchique, profils figés
-**Dernière modification** : 2026-06-08
+**Mise à jour** : v7.16 — Module Feedback (collecte + modération)
+**Dernière modification** : 2026-06-22

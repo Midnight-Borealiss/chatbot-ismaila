@@ -226,6 +226,57 @@ Créé/listé via `python scripts/create_vector_index.py`. Vecteurs générés v
 
 ---
 
+## 5️⃣ Collection: `feedbacks` (v7.16)
+
+**Objectif:** Collecter les retours utilisateurs (bugs, suggestions, UX) avec capture automatique du contexte technique.
+
+### Schéma du document
+
+```javascript
+{
+  "_id": ObjectId,
+  "type": "🐛 Bug technique",          // 1 des 7 types (bug, suggestion, UX, contenu, perf, sécurité, autre)
+  "description": "...",                 // Texte libre (≥ 10 car., max 2000)
+  "status": "Ouvert",                   // Ouvert | (statuts de modération admin)
+  "priority": "haute",                  // auto: haute (bug/sécurité) | moyenne (perf) | normale
+  "context": {                          // Snapshot auto-capturé à la soumission
+    "timestamp": ISODate("..."),
+    "is_authenticated": true,
+    "user_email": "user@domain.com",   // "anonyme" si non connecté
+    "user_name": "Nom Complet",
+    "user_role": "ETUDIANT",           // "PUBLIC" si non connecté
+    "permissions": ["can_read", ...],
+    "current_view": "chat"
+  },
+  "created_at": ISODate("..."),         // = context.timestamp
+  "updated_at": null,                   // renseigné à la modération
+  "resolved_at": null,
+  "admin_notes": ""                     // notes ajoutées par l'admin
+}
+```
+
+### Index recommandé
+
+```python
+db.feedbacks.create_index([("status", 1), ("type", 1), ("created_at", -1)])
+# Créé via feedback_controller.ensure_indexes()
+```
+
+### Utilisation dans le code
+
+```python
+# Soumission (vue publique — sidebar)
+from views.feedback_view import save_feedback
+save_feedback({"type": "🐛 Bug technique", "description": "...", "context": {...}})
+
+# Modération (admin)
+from controllers.feedback_controller import feedback_controller
+feedbacks = feedback_controller.get_filtered_feedbacks(status="Ouvert", feedback_type="Tous")
+feedback_controller.update_status(fb_id, "Résolu", admin_notes="Corrigé en v7.x")
+```
+
+---
+
 ## 🔧 Scripts d'initialisation
 
 ### Créer les indexes (exécuter une fois)

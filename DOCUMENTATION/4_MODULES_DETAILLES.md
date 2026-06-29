@@ -79,6 +79,15 @@ chatbot-ismaila/
 - `get_lead_stats()` → Statistiques
 - `resync_failed()` → Reconnexion Salesforce
 
+### `feedback_controller.py`
+**Responsabilité** : Modération des retours utilisateurs (collection `feedbacks`)
+
+**Fonctions principales** :
+- `ensure_indexes()` → Crée l'index composé `(status, type, created_at DESC)`
+- `get_filtered_feedbacks(status, feedback_type)` → Liste triée (récents d'abord)
+- `update_status(feedback_id, new_status, admin_notes)` → Changement de statut + notes admin
+- Instance singleton : `feedback_controller`
+
 ---
 
 ## 🗂️ MODELS/ - Structures Pydantic
@@ -142,6 +151,15 @@ passe reste actif (`render_user_dashboard_view()` est le point d'entrée appelé
 Formulaire d'auto-qualification **désactivé pendant le pilote**
 (`QUALIFICATION_FORM_ENABLED = False`). Conservé pour réactivation post-pilote.
 
+### `feedback_view.py`
+Collecte de feedback en temps réel (depuis v7.16). Bouton sidebar « 💬 Signaler / Avis »
+**accessible à tous** (connectés ou anonymes), appelé par `app.py`.
+- `render_feedback_sidebar()` → bouton sidebar (point d'entrée public)
+- `_feedback_dialog()` → dialogue modal `@st.dialog` (type, description ≥ 10 car., aperçu du contexte capturé)
+- `_capture_user_context()` → snapshot silencieux (email, rôle, permissions, vue courante, timestamp UTC ; `anonyme`/`PUBLIC` si non connecté)
+- `save_feedback(data)` → persistance MongoDB (`feedbacks`), priorité auto via `_infer_priority`
+- Modération côté admin : `admin_view._render_feedback_moderation_tab()`
+
 ---
 
 ## 📜 SCRIPTS/ - Utilitaires administration
@@ -162,4 +180,4 @@ Dry-run par défaut, `--apply` pour écrire.
 
 ---
 
-**Dernière mise à jour** : 2026-06-08 (v7.15)
+**Dernière mise à jour** : 2026-06-22 (v7.16 — module Feedback)
