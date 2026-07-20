@@ -72,7 +72,8 @@ ISMaiLa est une **Knowledge Management System (KMS) souveraine** conçue pour :
                 "can": [
                     "Poser des questions librement",
                     "Recevoir des réponses du KMS",
-                    "Donner du feedback sur la qualité",
+                    "Voter 👍/👎 sur les réponses du chat",
+                    "Signaler un problème via « 💬 Signaler / Avis »",
                 ],
                 "cannot": [
                     "Proposer des réponses",

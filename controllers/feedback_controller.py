@@ -10,15 +10,8 @@ class FeedbackController:
     def _get_collection(self):
         return db_instance.get_collection(self.collection_name)
 
-    def ensure_indexes(self):
-        """Crée l'index composé optimisé selon le modèle v7.13."""
-        try:
-            coll = self._get_collection()
-            coll.create_index([("status", 1), ("type", 1), ("created_at", -1)])
-            return True
-        except Exception as e:
-            st.error(f"Erreur lors de la création de l'index feedback : {e}")
-            return False
+    # Note : les index de la collection `feedbacks` sont créés de façon
+    # centralisée par db_instance._ensure_indexes() (config déclarative).
 
     def get_filtered_feedbacks(self, status=None, feedback_type=None):
         """Récupère les feedbacks filtrés à l'aide de l'index composé."""

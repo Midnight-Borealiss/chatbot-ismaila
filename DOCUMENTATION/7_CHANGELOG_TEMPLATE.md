@@ -38,6 +38,20 @@ Brève description du changement
 
 ## Historique des Versions
 
+### Version 7.24 — 2026-07-20
+
+#### 🎯 Objectif
+Nettoyages P3 du module Feedback (dette technique cosmétique).
+
+#### 📋 Modifications
+- **controllers/feedback_controller.py** : suppression de `ensure_indexes()` (code mort — jamais appelé ; les index `feedbacks` sont créés par `db_instance._ensure_indexes()`).
+- **views/help_view.py** : libellé des capacités « Utilisateur Public » aligné sur les fonctionnalités réelles (vote 👍/👎 + bouton « 💬 Signaler / Avis »).
+
+#### ✅ Tests
+- ✅ Compilation + imports OK ; aucune référence résiduelle à `ensure_indexes`.
+
+---
+
 ### Version 7.23 — 2026-07-20
 
 #### 🎯 Objectif
