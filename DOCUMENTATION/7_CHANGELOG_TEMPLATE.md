@@ -38,6 +38,30 @@ Brève description du changement
 
 ## Historique des Versions
 
+### Version 7.22 — 2026-07-20
+
+#### 🎯 Objectif
+Éliminer le doublon de changement de mot de passe et supprimer le formulaire de profil self-service du dashboard : le « Mon Espace » devient un résumé de profil en lecture seule.
+
+#### 📋 Modifications
+- **views/user_dashboard_view.py** : suppression de l'ÉTAPE 1 (formulaire « Veuillez compléter votre profil ») et de l'ÉTAPE 2 (expander « Sécuriser mon compte » = 2ᵉ changement de MDP redondant). Remplacés par un résumé lecture seule : identité (nom, email, rôle), rattachement (Service/Institut) et domaines assignés (`domain_permissions`).
+- **Doublon MDP résolu** : le seul point de changement de mot de passe reste l'écran bloquant `render_forced_password_change` (app.py), déclenché par `must_change_password`.
+
+#### 🔧 Détails Techniques
+- Le profil (`structural_type`, `scope`, `departement`) n'est pas porté par la session → relu en base via `db.users.find_one`. Repli sur l'ancien champ `departement` si `scope` absent.
+- Accès total affiché pour les rôles admin (`is_admin_or_higher`), sinon liste des sous-catégories assignées (libellés Contributeur/Expert).
+- Imports retirés (devenus inutiles) : `datetime`, `AuthController`/`auth_controller`.
+
+#### ⚠️ Notes
+- Le profil est désormais **pré-assigné par l'administration** ; l'utilisateur ne peut plus l'éditer depuis son espace.
+- Parcours après l'écran bloquant : validation MDP → rerun → « Mon Dashboard » affiche directement le résumé, sans redemander profil ni mot de passe.
+
+#### ✅ Tests
+- ✅ Compilation `py_compile` OK (user_dashboard_view.py, app.py).
+- À vérifier en pilote : connexion → changement MDP forcé → affichage du résumé de profil.
+
+---
+
 ### Version 7.21 — 2026-07-20
 
 #### 🎯 Objectif
