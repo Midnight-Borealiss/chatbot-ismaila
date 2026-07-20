@@ -88,7 +88,7 @@ CATEGORY_HIERARCHY = {
         "description": "Activités extra-scolaires, événements, associations et animation du campus.",
         "subcategories": {
             "Activités et Événements": {
-                "description": "Bootcamp, Hackathon, Semaine de l'entrepreneuriat, Welcoming Day, semaines thématiques, African Genius Festival, Journées Portes Ouvertes (JPO), orientation et accueil des futurs étudiants et des familles.",
+                "description": "Bootcamp, Hackathon, Semaine de l'entrepreneuriat, Welcoming Day, semaines thématiques, African Genius Festival, Journées Portes Ouvertes (JPO), orientation et accueil des futurs étudiants et des familles., semaine juridique, semaine du Madiba, journée de l'innovation.",
                 "synonyms": ["bootcamp", "hackathon", "entrepreneuriat", "welcoming day", "festival", "african genius", "jpo", "portes ouvertes", "semaine juridique", "semaine du madiba", "journee de l'innovation"]
             },
             "SSA": {
@@ -300,3 +300,74 @@ def add_category_safe(new_cat: str, parent: str = "Pédagogie"):
 
     suffix = "" if persisted else " (non persistée — base indisponible)"
     return True, f"Sous-catégorie '{new_cat}' ajoutée au pôle '{parent}'{suffix}."
+
+
+# ── Ancres apprises (boucle d'apprentissage — Phase 3 étape 3a) ───────────────
+LEARNED_ANCHORS_COLLECTION = "learned_anchors"
+_MIN_ANCHOR_LEN = 8   # phrases trop courtes ignorées (bruit sémantique)
+
+
+def add_learned_anchor(category: str, phrase: str,
+                       source_id: str = None, added_by: str = None) -> bool:
+    """
+    Enrichit la classification SÉMANTIQUE à partir d'une CORRECTION HUMAINE :
+    ajoute `phrase` (la question corrigée) comme ancre de `category`, en mémoire
+    (CATEGORY_ANCHORS) ET en base (collection learned_anchors). Idempotent, non
+    bloquant. Le cache d'embeddings du moteur se reconstruit tout seul au prochain
+    appel (cf. NLPEngine._anchor_fingerprint).
+
+    Garde-fous : catégorie canonique connue, phrase assez longue, pas de doublon.
+    ⚠ Règle anti-pollution : NE JAMAIS appeler depuis une classification
+    automatique — uniquement depuis une action humaine (recatégorisation, revue).
+
+    Retourne True si une nouvelle ancre a été ajoutée.
+    """
+    category = (category or "").strip()
+    phrase = " ".join((phrase or "").split())   # normalise les espaces
+    if not category or category not in get_subcategories():
+        return False
+    if len(phrase) < _MIN_ANCHOR_LEN:
+        return False
+    anchors = CATEGORY_ANCHORS.setdefault(category, [])
+    if phrase in anchors:
+        return False
+    anchors.append(phrase)
+
+    try:
+        from services.db_connector import db_instance
+        db_instance.get_collection(LEARNED_ANCHORS_COLLECTION).update_one(
+            {"category": category, "phrase": phrase},
+            {"$set": {
+                "category": category, "phrase": phrase,
+                "source_id": source_id, "added_by": added_by,
+                "added_at": datetime.now(),
+            }},
+            upsert=True,
+        )
+    except Exception:
+        pass   # persistance best-effort : l'ancre reste active pour la session
+    return True
+
+
+def load_learned_anchors() -> int:
+    """
+    Charge les ancres apprises depuis MongoDB dans CATEGORY_ANCHORS au démarrage.
+    Idempotent (dédup). Non bloquant (pas de base → hiérarchie statique seule).
+    Retourne le nombre d'ancres nouvellement chargées.
+    """
+    loaded = 0
+    try:
+        from services.db_connector import db_instance
+        col = db_instance.get_collection(LEARNED_ANCHORS_COLLECTION)
+        for doc in col.find({}):
+            cat = (doc.get("category") or "").strip()
+            phrase = " ".join((doc.get("phrase") or "").split())
+            if not cat or cat not in get_subcategories() or len(phrase) < _MIN_ANCHOR_LEN:
+                continue
+            anchors = CATEGORY_ANCHORS.setdefault(cat, [])
+            if phrase not in anchors:
+                anchors.append(phrase)
+                loaded += 1
+    except Exception:
+        pass
+    return loaded

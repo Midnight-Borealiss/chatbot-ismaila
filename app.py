@@ -79,10 +79,12 @@ def main():
                     st.markdown(f"🔗 [{k}]({v})")
         st.stop()
 
-    # Charge une seule fois les sous-catégories dynamiques persistées en base
+    # Charge une seule fois les sous-catégories dynamiques + les ancres apprises
+    # (boucle d'apprentissage) persistées en base.
     if not st.session_state.get("_extra_categories_loaded"):
-        from config.categories import load_persisted_categories
+        from config.categories import load_persisted_categories, load_learned_anchors
         load_persisted_categories()
+        load_learned_anchors()
         st.session_state["_extra_categories_loaded"] = True
 
     st.sidebar.title("🎓 ISMaiLa")

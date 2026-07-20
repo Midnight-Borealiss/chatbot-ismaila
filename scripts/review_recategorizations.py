@@ -31,6 +31,7 @@ from config.settings import MONGO_URI, DB_NAME
 from config.categories import (
     get_categories_for_select,
     get_parent_category,
+    add_learned_anchor,
     DEFAULT_CATEGORY,
 )
 from services.nlp_engine import nlp_engine
@@ -174,6 +175,8 @@ def run(dry_run: bool = False, consensus_only: bool = False):
             "applied": True,
             "applied_at": datetime.now(),
         })
+        # Boucle d'apprentissage (Phase 3, 3a) : la question validée devient ancre.
+        add_learned_anchor(target, p["question"], source_id=str(p["_id"]), added_by="manual_review")
         applied += 1
 
     print(f"\n  ✅ {applied} contribution(s) reclassée(s). Journal : logs_ai_categorization (source=manual_review).")

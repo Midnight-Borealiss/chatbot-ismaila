@@ -205,6 +205,15 @@ INDEX_DEFINITIONS = {
         },
     ],
 
+    # ── learned_anchors (boucle d'apprentissage Phase 3) ──────────────────────
+    "learned_anchors": [
+        {
+            "keys":   [("category", ASCENDING), ("phrase", ASCENDING)],
+            "options": {"name": "idx_category_phrase", "unique": True},
+            "reason": "Dédup (upsert) des ancres apprises ; chargées au démarrage"
+        },
+    ],
+
     # ── user_audit_logs ──────────────────────────────────────────────────────
     # Requêtes : find(user_email), find(user_email+action), sort(timestamp)
     "user_audit_logs": [

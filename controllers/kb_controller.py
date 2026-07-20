@@ -5,7 +5,7 @@ from bson import ObjectId
 from services.db_connector import db_instance
 from services.mailer import send_answer_to_student
 from typing import Optional
-from config.categories import normalize_category, get_all_canonical
+from config.categories import normalize_category, get_all_canonical, add_learned_anchor
 
 
 class KBController:
@@ -94,8 +94,10 @@ class KBController:
         """
         Point 6 : le contributeur peut recatégoriser une question existante.
         La catégorie est normalisée avant sauvegarde (point 8).
+        La correction (humaine) enrichit les ancres sémantiques (Phase 3, 3a).
         """
         canonical = normalize_category(new_category)
+        doc = self.col.find_one({"_id": ObjectId(c_id)}, {"question": 1})
         self.col.update_one(
             {"_id": ObjectId(c_id)},
             {"$set": {
@@ -104,6 +106,9 @@ class KBController:
                 "recategorized_at": datetime.now(),
             }}
         )
+        # Boucle d'apprentissage : la question devient une ancre de la catégorie.
+        if doc and doc.get("question"):
+            add_learned_anchor(canonical, doc["question"], source_id=str(c_id), added_by=author_email)
 
     def submit_proposal(self, c_id: str, response: str, author_email: str,
                         new_category: Optional[str] = None):
@@ -116,9 +121,15 @@ class KBController:
             "author_email": author_email,
             "updated_at":   datetime.now(),
         }
+        canonical = None
         if new_category:
-            update["category"] = normalize_category(new_category)
+            canonical = normalize_category(new_category)
+            update["category"] = canonical
+        doc = self.col.find_one({"_id": ObjectId(c_id)}, {"question": 1}) if canonical else None
         self.col.update_one({"_id": ObjectId(c_id)}, {"$set": update})
+        # Boucle d'apprentissage : recatégorisation humaine → ancre sémantique.
+        if canonical and doc and doc.get("question"):
+            add_learned_anchor(canonical, doc["question"], source_id=str(c_id), added_by=author_email)
 
     def invalidate(self, c_id: str):
         self.col.update_one(
