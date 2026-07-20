@@ -38,6 +38,29 @@ Brève description du changement
 
 ## Historique des Versions
 
+### Version 7.18 — 2026-07-20
+
+#### 🎯 Objectif
+Unifier le modèle de permissions pour rendre le filtrage par membre **réellement automatique** (prérequis au partage des accès contribution/validation).
+
+#### 📋 Modifications
+- **views/admin_view.py** : le formulaire de droits (master-detail) écrit désormais des **`domain_permissions`** (par sous-catégorie, regroupées par pôle = matrice à deux niveaux) au lieu de l'objet `permissions` (can_read/propose/validate) qui n'était lu par personne. Repli automatique depuis `expert_topics`. Les rôles ADMINISTRATION/SUPER_ADMIN → accès total (aucune assignation).
+- **views/admin_view.py** : **vocabulaire des rôles corrigé** — les menus utilisent les constantes canoniques (`ETUDIANT/CONTRIBUTEUR/VALIDATEUR/ADMINISTRATION/SUPER_ADMIN`) au lieu de `USER/CONTRIBUTOR/VALIDATOR` (qui ne matchaient aucun contrôle d'accès → comptes créés inutilisables). Normalisation rétrocompatible via `LEGACY_ROLE_MAP`.
+- **views/contributor_view.py** : filtre à deux niveaux (Pôle → Sous-catégorie), cohérent avec le validateur.
+
+#### 🔧 Détails Techniques
+- Source de vérité unique du filtrage : `domain_permissions` `{sous-catégorie: "contributor"|"expert"}`, consommé par `config/permissions.py` (`can_answer`, `can_validate`, `get_user_domains_summary`) et les filtres « Mes domaines » (validateur + contributeur).
+- `build_domain_permissions_from_form()` construit le dict depuis la matrice (ignore les « — »).
+
+#### ⚠️ Notes
+- Les utilisateurs doivent se reconnecter pour que de nouveaux droits prennent effet (chargés au login).
+- L'ancien objet `permissions` n'est plus écrit ; `scope`/`structural_type` restent conservés (organisation/affichage).
+
+#### ✅ Tests
+- ✅ Suite pytest complète : 87 passed.
+
+---
+
 ### Version 7.17 — 2026-07-20
 
 #### 🎯 Objectif

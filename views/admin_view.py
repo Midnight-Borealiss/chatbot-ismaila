@@ -9,13 +9,28 @@ from controllers.kb_controller import kb_controller
 from controllers.auth_controller import AuthController
 from controllers.feedback_controller import feedback_controller 
 from services.db_connector import db_instance
-from config.roles import ADMIN, SUPER_ADMIN, is_admin_or_higher, is_super_admin
+from config.roles import (
+    ADMIN, SUPER_ADMIN, VALIDATOR, CONTRIBUTOR, STUDENT,
+    is_admin_or_higher, is_super_admin,
+)
+
+# Vocabulaire canonique des rôles (constantes = valeurs réellement stockées/testées)
+ROLE_OPTIONS = [STUDENT, CONTRIBUTOR, VALIDATOR, ADMIN, SUPER_ADMIN]
+# Anciennes étiquettes anglaises → constantes canoniques (rétrocompatibilité)
+LEGACY_ROLE_MAP = {
+    "USER": STUDENT, "ETUDIANT": STUDENT,
+    "CONTRIBUTOR": CONTRIBUTOR, "CONTRIBUTEUR": CONTRIBUTOR,
+    "VALIDATOR": VALIDATOR, "VALIDATEUR": VALIDATOR,
+    "ADMIN": ADMIN, "ADMINISTRATION": ADMIN,
+    "SUPER_ADMIN": SUPER_ADMIN,
+}
 from config.categories import (
     get_categories_for_select, add_category_safe,
     get_top_categories, get_parent_category,
     get_subcategories_by_parent,
 )
 from config.response_helpers import has_real_response
+from config.permissions import build_domain_permissions_from_form
 from views.ai_categorization_view import render_ai_categorization_view
 from views.shared_components import render_comments_and_delete
 # Source unique des types de feedback (identique à la saisie utilisateur)
@@ -326,7 +341,7 @@ def _render_master_detail_user_management(current_user):
                 with st.form(key="quick_create_user_form", clear_on_submit=True):
                     u_name = st.text_input("Nom complet *")
                     u_email = st.text_input("Adresse email *")
-                    u_role = st.selectbox("Rôle global initial", ["USER", "CONTRIBUTOR", "VALIDATOR", "ADMINISTRATION"])
+                    u_role = st.selectbox("Rôle global initial", ROLE_OPTIONS, index=ROLE_OPTIONS.index(CONTRIBUTOR))
                     u_pass = st.text_input("Mot de passe temporaire *", type="password",
                                            help="L'utilisateur devra le changer à sa première connexion.")
                     send_mail = st.checkbox("📧 Envoyer les identifiants par email", value=True)
@@ -378,24 +393,19 @@ def _render_master_detail_user_management(current_user):
                 st.subheader(f"🛠️ Droits de : {target_user.get('full_name', 'Utilisateur')}")
                 st.caption(f"Email : `{target_user.get('email')}`")
                 
-                current_perms = target_user.get("permissions", {})
                 current_scope = target_user.get("scope", {})
 
                 liste_services = ["Call Center / Orientation", "Scolarité", "Admission & Recrutement", "Marketing & Communication", "Soft Skills Academy (Vie estudiantine)"]
                 liste_instituts = ["Institut Ingénieur", "Institut Management", "Institut Droit", "Madiba Leadership Institute"]
 
-                raw_role = str(target_user.get("role", "USER")).upper()
-                if raw_role == "ADMIN":
-                    raw_role = "ADMINISTRATION"
-                
-                roles_options = ["USER", "CONTRIBUTOR", "VALIDATOR", "ADMINISTRATION", "SUPER_ADMIN"]
-                default_role_index = roles_options.index(raw_role) if raw_role in roles_options else 0
+                raw_role = LEGACY_ROLE_MAP.get(str(target_user.get("role", "")).upper(), STUDENT)
+                default_role_index = ROLE_OPTIONS.index(raw_role) if raw_role in ROLE_OPTIONS else 0
 
                 with st.form(key=f"form_permissions_{selected_user_id}"):
                     st.markdown("##### 🎯 1. Attribution du Rôle Système")
                     new_role = st.selectbox(
                         "Modifier le rôle global :",
-                        options=roles_options,
+                        options=ROLE_OPTIONS,
                         index=default_role_index
                     )
 
@@ -428,39 +438,53 @@ def _render_master_detail_user_management(current_user):
                         )
 
                     st.markdown("---")
-                    st.markdown("##### 🎚️ 3. Droits d'Actions Atomiques")
-                    
-                    is_validator_or_higher = new_role in ["VALIDATOR", "ADMINISTRATION", "SUPER_ADMIN"]
-                    is_contributor_or_higher = new_role in ["CONTRIBUTOR", "VALIDATOR", "ADMINISTRATION", "SUPER_ADMIN"]
+                    st.markdown("##### 🎚️ 3. Périmètre thématique (droits par sous-catégorie)")
+                    st.caption(
+                        "Définissez, pôle par pôle, les sous-catégories que ce membre peut traiter. "
+                        "Ces droits pilotent directement le filtre « Mes domaines » côté validateur/contributeur."
+                    )
 
-                    has_read = current_perms.get("can_read", {}).get("global", False) or len(current_perms.get("can_read", {}).get("restricted_to", [])) > 0
-                    has_propose = current_perms.get("can_propose", {}).get("allowed", True)
-                    has_validate = current_perms.get("can_validate", {}).get("allowed", False)
+                    # Droits existants : domain_permissions, avec repli sur expert_topics (ancien modèle)
+                    existing_perms = target_user.get("domain_permissions", {}) or {}
+                    if not existing_perms and target_user.get("expert_topics"):
+                        existing_perms = {c: "expert" for c in target_user.get("expert_topics", [])}
 
-                    perm_read = st.checkbox("📖 Autoriser la Lecture (READ)", value=has_read or is_contributor_or_higher)
-                    perm_propose = st.checkbox("✍️ Autoriser la Contribution (PROPOSE)", value=has_propose or is_contributor_or_higher)
-                    perm_validate = st.checkbox("🛡️ Autoriser la Validation Légitime (VALIDATE)", value=has_validate or is_validator_or_higher)
+                    LEVEL_TO_LABEL = {"contributor": "Contributeur", "expert": "Expert"}
+                    LABEL_TO_LEVEL = {"—": "—", "Contributeur": "contributor", "Expert": "expert"}
+                    LEVEL_CHOICES  = ["—", "Contributeur", "Expert"]
+
+                    domain_selections = {}
+                    is_full_access_role = new_role in (ADMIN, SUPER_ADMIN)
+
+                    if is_full_access_role:
+                        st.info("🔓 Les rôles **ADMINISTRATION** et **SUPER_ADMIN** accèdent automatiquement à **toutes** les catégories (aucune assignation nécessaire).")
+                    else:
+                        for pole in get_top_categories():
+                            subs = get_subcategories_by_parent(pole)
+                            if not subs:
+                                continue
+                            assigned = sum(1 for s in subs if existing_perms.get(s) in LEVEL_TO_LABEL)
+                            with st.expander(f"📂 {pole} — {assigned}/{len(subs)} assignée(s)", expanded=bool(assigned)):
+                                for sub in subs:
+                                    cur_label = LEVEL_TO_LABEL.get(existing_perms.get(sub), "—")
+                                    choice = st.selectbox(
+                                        sub,
+                                        options=LEVEL_CHOICES,
+                                        index=LEVEL_CHOICES.index(cur_label),
+                                        key=f"dp_{selected_user_id}_{sub}",
+                                    )
+                                    domain_selections[sub] = LABEL_TO_LEVEL[choice]
 
                     st.markdown(" ")
                     save_btn = st.form_submit_button("💾 Sauvegarder et appliquer les accès")
 
                 if save_btn:
-                    chosen_entity = new_service if new_structural_type == "SERVICE" else new_institut
-                    
-                    updated_permissions = {
-                        "can_read": {
-                            "global": perm_validate, 
-                            "restricted_to": [chosen_entity] if not perm_validate else []
-                        },
-                        "can_propose": {
-                            "allowed": perm_propose,
-                            "scope": [chosen_entity] if perm_propose else []
-                        },
-                        "can_validate": {
-                            "allowed": perm_validate,
-                            "scope": chosen_entity if perm_validate else None
-                        }
-                    }
+                    # Source de vérité du filtrage : domain_permissions (par sous-catégorie).
+                    # Pour un rôle à accès total, on n'écrit pas de restriction thématique.
+                    if new_role in (ADMIN, SUPER_ADMIN):
+                        new_domain_permissions = {}
+                    else:
+                        new_domain_permissions = build_domain_permissions_from_form(domain_selections)
 
                     updated_payload = {
                         "role": new_role,
@@ -469,13 +493,13 @@ def _render_master_detail_user_management(current_user):
                             "services": [new_service] if new_structural_type == "SERVICE" else [],
                             "instituts": [new_institut] if new_structural_type == "INSTITUT" else []
                         },
-                        "permissions": updated_permissions,
+                        "domain_permissions": new_domain_permissions,
                         "profile_configured": True
                     }
 
                     try:
                         db.users.update_one({"_id": ObjectId(selected_user_id)}, {"$set": updated_payload})
-                        st.toast("✅ Base Atlas synchronisée avec succès !")
+                        st.toast("✅ Droits thématiques synchronisés sur Atlas !")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erreur de mise à jour : {e}")

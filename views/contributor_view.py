@@ -4,7 +4,10 @@ from datetime import datetime
 from services.db_connector import db_instance
 from controllers.kb_controller import kb_controller
 from config.roles import CONTRIBUTOR, VALIDATOR, ADMIN, SUPER_ADMIN, is_admin_or_higher
-from config.categories import get_categories_for_select, normalize_category
+from config.categories import (
+    get_categories_for_select, normalize_category,
+    get_top_categories, get_subcategories_by_parent,
+)
 from config.permissions import get_domain_level, can_answer, get_user_domains_summary
 from config.response_helpers import has_real_response, has_no_real_response
 from views.shared_components import render_comments_and_delete
@@ -64,19 +67,24 @@ def render_contributor_view():
     # ================================================================== #
     with tabs[0]:
         with st.expander("🔍 Filtres", expanded=True):
-            # Extension à 5 colonnes pour accueillir le filtre d'état de réponse
-            fc1, fc2, fc3, fc4, fc5 = st.columns(5)
+            # Filtre à deux niveaux : Pôle → Sous-catégorie
+            fc1, fc2, fc3 = st.columns(3)
             with fc1:
-                cats = ["Toutes"] + get_categories_for_select()
-                f_cat = st.selectbox("Catégorie", cats, key="contrib_f_cat")
+                poles  = ["Tous"] + get_top_categories()
+                f_pole = st.selectbox("Pôle", poles, key="contrib_f_pole")
             with fc2:
-                f_status = st.selectbox("Statut Base", ["Toutes", "En attente", "Validée", "Archivée"], key="contrib_f_status")
+                subcats = get_categories_for_select() if f_pole == "Tous" \
+                          else get_subcategories_by_parent(f_pole)
+                f_cat = st.selectbox("Sous-catégorie", ["Toutes"] + subcats, key="contrib_f_cat")
             with fc3:
-                # AJOUT : Définition de la variable f_state manquante
-                f_state = st.selectbox("Filtrer Réponses", ["Toutes", "Sans réponse", "Avec proposition"], key="contrib_f_state")
+                f_status = st.selectbox("Statut Base", ["Toutes", "En attente", "Validée", "Archivée"], key="contrib_f_status")
+
+            fc4, fc5, fc6 = st.columns(3)
             with fc4:
-                f_kw = st.text_input("Mot-clé", placeholder="rechercher...", key="contrib_f_kw")
+                f_state = st.selectbox("Filtrer Réponses", ["Toutes", "Sans réponse", "Avec proposition"], key="contrib_f_state")
             with fc5:
+                f_kw = st.text_input("Mot-clé", placeholder="rechercher...", key="contrib_f_kw")
+            with fc6:
                 f_mine = st.checkbox("Mes domaines uniquement", value=True, key="contrib_f_mine")
 
         # Requête MongoDB
@@ -86,6 +94,8 @@ def render_contributor_view():
             query["status"] = status_map.get(f_status, None)
         if f_cat != "Toutes":
             query["category"] = f_cat
+        elif f_pole != "Tous":
+            query["category"] = {"$in": get_subcategories_by_parent(f_pole)}
 
         pending = list(kb_col.find(query).sort("created_at", -1))
 
