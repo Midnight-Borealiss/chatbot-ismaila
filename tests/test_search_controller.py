@@ -32,6 +32,13 @@ def mock_nlp():
     nlp.classify_intent.return_value = "HOT"
     nlp.classify_category.return_value = "Scolarité"
     nlp.classify_category_full.return_value = ("Scolarité", "Service Administratif")
+    nlp.assess_confidence.return_value = {
+        "category": "Scolarité",
+        "parent_category": "Service Administratif",
+        "confidence": 0.9,
+        "source": "consensus",
+        "needs_review": False,
+    }
     nlp.embed.return_value = None
     return nlp
 

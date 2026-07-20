@@ -162,9 +162,10 @@ class SearchController:
                 "public_target": {"$in": user_info.get("public_target", [])}
             })
 
-        category, parent_category = nlp_engine.classify_category_full(user_query)
-        category = normalize_category(category)
-        parent_category = parent_category or get_parent_category(category)
+        # Classification à la source + score de confiance (Phase 3).
+        clf = nlp_engine.assess_confidence(user_query)
+        category = normalize_category(clf["category"])
+        parent_category = clf.get("parent_category") or get_parent_category(category)
 
         # Base de connaissances vide → message dédié
         if self.kb.count_documents({"status": "valide"}) == 0:
@@ -182,7 +183,7 @@ class SearchController:
             status = "SUCCÈS"
         else:
             if is_expert_asking(user_info, category):
-                response, status = self._handle_expert_question(user_query, user_info, category, parent_category)
+                response, status = self._handle_expert_question(user_query, user_info, category, parent_category, clf)
             else:
                 pending_duplicates = list(self.kb.find({"status": "en_attente"}))
                 merged_id = None
@@ -210,7 +211,7 @@ class SearchController:
                     response = ("Je n'ai pas encore de réponse certifiée à cette question. "
                                 "Elle a été transmise à nos experts qui vous répondront sous 48h.")
                     status = "ATTENTE"
-                    ticket = self._create_ticket(user_query, user_info, category, parent_category)
+                    ticket = self._create_ticket(user_query, user_info, category, parent_category, clf)
                     self._alert_experts_by_topic(user_query, category, user_info, ticket)
 
         # ── 4. CAPTURE DE LEAD, LOGS ET PERSISTANCE ──
@@ -227,13 +228,17 @@ class SearchController:
         return self._build_result(response, score, status, intent, trigger_capture, category)
 
     def _handle_expert_question(self, query: str, user: dict, category: str,
-                                parent_category: str = "") -> tuple:
+                                parent_category: str = "", clf: dict = None) -> tuple:
+        clf = clf or {}
         self.kb.insert_one({
             "question":         query,
             "response":         "",
             "status":           "en_attente",
             "category":         category,
             "parent_category":  parent_category,
+            "ai_confidence":    clf.get("confidence", 0.0),
+            "ai_source":        clf.get("source", ""),
+            "needs_review":     clf.get("needs_review", False),
             "institution":   user.get("institutions", ["Général"])[0] if user.get("institutions") else "Général",
             "service":       user.get("service", "Scolarité"),
             "public_target": user.get("public_target", ["Étudiants"]),
@@ -287,13 +292,17 @@ class SearchController:
         )
 
     def _create_ticket(self, query: str, user: dict, category: str = "",
-                       parent_category: str = "") -> dict:
+                       parent_category: str = "", clf: dict = None) -> dict:
+        clf = clf or {}
         doc = {
             "question":   query,
             "response":   "",
             "status":     "en_attente",
             "category":   category,
             "parent_category": parent_category,
+            "ai_confidence":   clf.get("confidence", 0.0),
+            "ai_source":       clf.get("source", ""),
+            "needs_review":    clf.get("needs_review", False),
             "institution": user.get("institutions", ["Général"])[0] if isinstance(user, dict) and user.get("institutions") else "Général",
             "service":     user.get("service", "Scolarité") if isinstance(user, dict) else "Scolarité",
             "public_target": user.get("public_target", ["Étudiants"]) if isinstance(user, dict) else ["Étudiants"],

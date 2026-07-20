@@ -32,6 +32,11 @@ logger = logging.getLogger(__name__)
 
 # Seuil de similarité cosinus minimal pour accepter une catégorie sémantique.
 _SEMANTIC_CATEGORY_THRESHOLD = 0.35
+# En dessous de ce score, une classification par la SEULE voie sémantique est
+# jugée peu sûre → needs_review (l'humain tranche). Au-dessus, on fait confiance.
+# Calé à 0.55 : sous ce seuil, les scores sémantiques sont bruités (du texte
+# aléatoire matche une ancre vers ~0.48) → on préfère faire vérifier.
+_NEEDS_REVIEW_CONFIDENCE = 0.55
 
 
 class NLPEngine:
@@ -176,6 +181,46 @@ class NLPEngine:
         """Retourne (sous_categorie, categorie_parente)."""
         sub = self.classify_category(query)
         return sub, get_parent_category(sub)
+
+    def assess_confidence(self, query: str) -> dict:
+        """
+        Classification À LA SOURCE avec score de confiance (Phase 3).
+
+        Combine les deux voies (mots-clés + sémantique) et renvoie, en plus de
+        la catégorie, un score, la voie décisionnaire et un flag `needs_review`
+        pour router les cas douteux vers la révision humaine plutôt que de les
+        laisser retomber silencieusement sur la catégorie par défaut.
+
+        needs_review = True quand :
+          - aucune voie ne se prononce (abstention → défaut), OU
+          - les deux voies se contredisent (conflit), OU
+          - seule la sémantique tranche mais sous le seuil de confiance.
+
+        Retour : {category, parent_category, confidence, source, needs_review}.
+        """
+        kw = self._keyword_match(query)
+        sem_cat, sem_score = self.classify_category_semantic(query)
+        sem_score = round(float(sem_score), 3)
+
+        if kw and sem_cat and kw == sem_cat:
+            final, source, conf, needs_review = kw, "consensus", max(sem_score, 0.75), False
+        elif kw and sem_cat and kw != sem_cat:
+            final, source, conf, needs_review = kw, "conflit", sem_score, True
+        elif kw:
+            final, source, conf, needs_review = kw, "mots-clés", 0.70, False
+        elif sem_cat:
+            final, source, conf = sem_cat, "sémantique", sem_score
+            needs_review = sem_score < _NEEDS_REVIEW_CONFIDENCE
+        else:
+            final, source, conf, needs_review = DEFAULT_CATEGORY, "défaut", 0.0, True
+
+        return {
+            "category": final,
+            "parent_category": get_parent_category(final),
+            "confidence": round(float(conf), 3),
+            "source": source,
+            "needs_review": needs_review,
+        }
 
     # ── Intention (RG-05) ─────────────────────────────────────────────────────
     def classify_intent(self, query: str) -> str:

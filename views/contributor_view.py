@@ -127,8 +127,10 @@ def render_contributor_view():
                 has_proposal = has_real_response(item.get("response", ""))
                 user_level   = get_domain_level(user, category)
                 user_can     = can_answer(user, category)
+                needs_review = item.get("needs_review", False)
 
-                label = f"{'📝' if has_proposal else '❓'} [{category}] {item['question'][:75]}"
+                review_flag = "⚠️ " if needs_review else ""
+                label = f"{review_flag}{'📝' if has_proposal else '❓'} [{category}] {item['question'][:75]}"
 
                 with st.expander(label, expanded=False):
                     info_cols = st.columns([3, 1])
@@ -143,6 +145,14 @@ def render_contributor_view():
                             st.success(f"✍️ {user_level.capitalize()}")
                         else:
                             st.warning("📖 Hors domaine")
+
+                    if needs_review:
+                        st.info(
+                            "⚠️ Catégorie auto peu sûre "
+                            f"(voie : {item.get('ai_source','?')}, "
+                            f"confiance : {item.get('ai_confidence', 0):.0%}). "
+                            "Vérifiez / corrigez ci-dessous."
+                        )
 
                     # Recatégorisation (accessible à tous les contributeurs)
                     col_cat, _ = st.columns([2, 3])
