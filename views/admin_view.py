@@ -304,48 +304,66 @@ def _render_master_detail_user_management(current_user):
     # =========================================================================
     with col_master:
         st.subheader("👥 Liste des testeurs")
-        
-        filtre_type = st.selectbox(
-            "Filtrer l'annuaire par :",
-            options=["Tous", "SERVICES", "INSTITUTS"],
-            key="master_filter_type"
-        )
-        
+
+        f_col, s_col = st.columns([1, 1])
+        with f_col:
+            filtre_type = st.selectbox(
+                "Structure",
+                options=["Tous", "SERVICES", "INSTITUTS"],
+                key="master_filter_type",
+            )
+        with s_col:
+            search = st.text_input(
+                "Rechercher", placeholder="nom ou email…", key="master_search"
+            ).strip().lower()
+
         filtered_users = users_list
         if filtre_type != "Tous":
-            filtered_users = [u for u in users_list if u.get("structural_type") == filtre_type]
+            filtered_users = [u for u in filtered_users if u.get("structural_type") == filtre_type]
+        if search:
+            filtered_users = [
+                u for u in filtered_users
+                if search in u.get("full_name", "").lower() or search in u.get("email", "").lower()
+            ]
 
-        selected_user_id = None
+        # Badge lisible par rôle (normalisé via LEGACY_ROLE_MAP pour les valeurs héritées).
+        ROLE_BADGE = {
+            SUPER_ADMIN: "🟣 Super Admin",
+            ADMIN:       "🔴 Administration",
+            VALIDATOR:   "🟠 Validateur",
+            CONTRIBUTOR: "🟢 Contributeur",
+            STUDENT:     "⚪ Étudiant",
+        }
+
+        # La sélection est portée par session_state (clic sur « Gérer »).
+        selected_user_id = st.session_state.get("selected_tester_id")
 
         if not filtered_users:
             st.info("Aucun membre trouvé pour ce filtre.")
         else:
-            df_rows = []
+            st.caption(f"{len(filtered_users)} membre(s) — cliquez sur « Gérer » pour configurer les droits.")
             for u in filtered_users:
-                df_rows.append({
-                    "ID": str(u["_id"]),
-                    "Nom Complet": u.get("full_name", "Inconnu"),
-                    "Email": u.get("email", "—"),
-                    "Structure": u.get("structural_type", "Non défini"),
-                    "Rôle": u.get("role", "USER")
-                })
-            
-            df_users = pd.DataFrame(df_rows)
-            
-            st.write("👉 *Cliquez sur la case en début de ligne pour inspecter un membre :*")
-            selection_event = st.dataframe(
-                df_users,
-                use_container_width=True,
-                hide_index=True,
-                selection_mode="single-row",
-                on_select="rerun",
-                key="user_dataframe_selection"
-            )
-            
-            selected_rows = selection_event.get("selection", {}).get("rows", [])
-            if selected_rows:
-                selected_index = selected_rows[0]
-                selected_user_id = df_users.iloc[selected_index]["ID"]
+                uid = str(u["_id"])
+                norm_role = LEGACY_ROLE_MAP.get(str(u.get("role", "")).upper(), u.get("role"))
+                badge = ROLE_BADGE.get(norm_role, f"⚪ {u.get('role', '—')}")
+                scope = u.get("scope", {}) or {}
+                struct = (scope.get("services") or scope.get("instituts")
+                          or [u.get("structural_type", "—")])
+                struct_label = struct[0] if struct else "—"
+                is_selected = (uid == selected_user_id)
+
+                with st.container(border=True):
+                    info_col, btn_col = st.columns([3, 1], vertical_alignment="center")
+                    with info_col:
+                        st.markdown(f"**{u.get('full_name', 'Inconnu')}** — {badge}")
+                        st.caption(f"✉️ {u.get('email', '—')}  ·  🏢 {struct_label}")
+                    with btn_col:
+                        if is_selected:
+                            st.button("✓ Sélectionné", key=f"sel_{uid}",
+                                      disabled=True, use_container_width=True)
+                        elif st.button("Gérer", key=f"sel_{uid}", use_container_width=True):
+                            st.session_state["selected_tester_id"] = uid
+                            st.rerun()
 
         # Formulaire d'ajout rapide
         st.markdown("---")
@@ -532,6 +550,7 @@ def _render_master_detail_user_management(current_user):
                     if st.button("🗑️ Supprimer définitivement l'utilisateur", type="primary", disabled=not confirm_delete, key=f"del_btn_{selected_user_id}"):
                         try:
                             db.users.delete_one({"_id": ObjectId(selected_user_id)})
+                            st.session_state.pop("selected_tester_id", None)
                             st.toast("💥 Utilisateur supprimé de l'annuaire.")
                             st.rerun()
                         except Exception as e:
