@@ -16,6 +16,11 @@ Le classifieur produit une SOUS-CATÉGORIE (tag fin) + sa catégorie PARENTE
 (dérivée via get_parent_category).
 """
 
+from datetime import datetime
+
+# Collection MongoDB des sous-catégories ajoutées dynamiquement (persistance).
+EXTRA_CATEGORIES_COLLECTION = "categories_extra"
+
 # ── Hiérarchie enrichie (classification sémantique / zero-shot) ──────────────
 CATEGORY_HIERARCHY = {
     "Pédagogie": {
@@ -226,12 +231,48 @@ def normalize_category(cat: str) -> str:
     return cat_clean
 
 
+def _register_subcategory(name: str, parent: str) -> bool:
+    """
+    Enregistre une sous-catégorie dans les structures en mémoire (idempotent).
+    Retourne True si ajoutée, False si déjà connue ou nom vide.
+    """
+    name = (name or "").strip()
+    if not name or name in get_subcategories():
+        return False
+    if parent not in CATEGORY_HIERARCHY:
+        parent = "Pédagogie"
+    EXTRA_SUBCATEGORIES.append(name)
+    _SUB_TO_TOP[name]      = parent
+    CATEGORY_SYNONYMS[name] = []
+    CATEGORY_ANCHORS[name]  = [name]
+    return True
+
+
+def load_persisted_categories() -> int:
+    """
+    Charge les sous-catégories dynamiques depuis MongoDB dans les structures
+    en mémoire. Idempotent (ignore celles déjà connues). Non bloquant : en
+    l'absence de base (mode survie), seule la hiérarchie statique est utilisée.
+    Retourne le nombre de sous-catégories nouvellement enregistrées.
+    """
+    loaded = 0
+    try:
+        from services.db_connector import db_instance
+        col = db_instance.get_collection(EXTRA_CATEGORIES_COLLECTION)
+        for doc in col.find({}):
+            if _register_subcategory(doc.get("name", ""), doc.get("parent", "Pédagogie")):
+                loaded += 1
+    except Exception:
+        pass  # Pas de DB / erreur → hiérarchie statique seulement
+    return loaded
+
+
 def add_category_safe(new_cat: str, parent: str = "Pédagogie"):
     """
-    Ajoute une sous-catégorie dynamique rattachée au pôle `parent`.
-
-    Note : l'ajout est en mémoire pour la durée de vie du processus. Pour une
-    persistance durable, brancher un stockage (MongoDB) et recharger à l'import.
+    Ajoute une sous-catégorie dynamique rattachée au pôle `parent`, en mémoire
+    ET de façon persistante dans MongoDB (collection `categories_extra`).
+    La persistance est non bloquante : si la base est indisponible, la
+    sous-catégorie reste au moins active pour la session courante.
     """
     new_cat = (new_cat or "").strip()
     if not new_cat:
@@ -240,8 +281,19 @@ def add_category_safe(new_cat: str, parent: str = "Pédagogie"):
         return False, "Existe déjà."
     if parent not in CATEGORY_HIERARCHY:
         parent = "Pédagogie"
-    EXTRA_SUBCATEGORIES.append(new_cat)
-    _SUB_TO_TOP[new_cat] = parent
-    CATEGORY_SYNONYMS[new_cat] = []
-    CATEGORY_ANCHORS[new_cat] = [new_cat]
-    return True, f"Sous-catégorie '{new_cat}' ajoutée au pôle '{parent}'."
+
+    _register_subcategory(new_cat, parent)
+
+    persisted = True
+    try:
+        from services.db_connector import db_instance
+        db_instance.get_collection(EXTRA_CATEGORIES_COLLECTION).update_one(
+            {"name": new_cat},
+            {"$set": {"name": new_cat, "parent": parent, "created_at": datetime.now()}},
+            upsert=True,
+        )
+    except Exception:
+        persisted = False
+
+    suffix = "" if persisted else " (non persistée — base indisponible)"
+    return True, f"Sous-catégorie '{new_cat}' ajoutée au pôle '{parent}'{suffix}."

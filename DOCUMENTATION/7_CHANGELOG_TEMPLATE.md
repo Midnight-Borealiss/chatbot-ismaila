@@ -38,6 +38,30 @@ Brève description du changement
 
 ## Historique des Versions
 
+### Version 7.19 — 2026-07-20
+
+#### 🎯 Objectif
+Persister les sous-catégories ajoutées dynamiquement et fournir un outil de migration des comptes créés avant les correctifs auth/rôles.
+
+#### 📋 Modifications
+- **config/categories.py** : `add_category_safe()` persiste désormais dans MongoDB (`categories_extra`) ; nouveaux `load_persisted_categories()` (idempotent, non bloquant) et `_register_subcategory()`. Les sous-catégories ajoutées survivent aux redémarrages.
+- **app.py** : chargement unique des sous-catégories persistées au démarrage de session.
+- **scripts/migrate_pilot_accounts.py** (nouveau) : audit + migration des comptes — `password` → `password_hash` (hache si en clair), nettoyage des doublons, correction du vocabulaire des rôles, `must_change_password` posé sur les comptes réparés. Dry-run par défaut, `--apply`/`--yes`.
+
+#### 🔧 Détails Techniques
+- Collection `categories_extra` : `{name, parent, created_at}` (upsert par `name`).
+- Audit réel du pilote : 62 comptes — 0 bloqué, 0 rôle à corriger, 1 doublon à nettoyer.
+
+#### ⚠️ Notes
+- La persistance des catégories est non bloquante (mode survie → hiérarchie statique).
+- Le script de migration écrit en base : lancer d'abord sans `--apply` (audit).
+
+#### ✅ Tests
+- ✅ Suite pytest complète : 87 passed.
+- ✅ Audit de migration exécuté en lecture seule sur Atlas.
+
+---
+
 ### Version 7.18 — 2026-07-20
 
 #### 🎯 Objectif

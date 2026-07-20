@@ -78,6 +78,12 @@ def main():
                     st.markdown(f"🔗 [{k}]({v})")
         st.stop()
 
+    # Charge une seule fois les sous-catégories dynamiques persistées en base
+    if not st.session_state.get("_extra_categories_loaded"):
+        from config.categories import load_persisted_categories
+        load_persisted_categories()
+        st.session_state["_extra_categories_loaded"] = True
+
     st.sidebar.title("🎓 ISMaiLa")
 
     if st.session_state.user:
