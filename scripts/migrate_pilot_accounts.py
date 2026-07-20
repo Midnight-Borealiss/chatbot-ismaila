@@ -164,13 +164,55 @@ def apply_migration(col, report: dict):
     print(f"\n  Résultat : {moved} MDP migré(s), {cleaned} doublon(s) nettoyé(s), {roled} rôle(s) corrigé(s).")
 
 
+def force_reset_all(col, exclude_emails, apply_changes: bool, assume_yes: bool):
+    """
+    Pose must_change_password=True sur TOUS les comptes sauf ceux dans
+    exclude_emails → chacun devra définir son propre mot de passe à la
+    prochaine connexion (écran bloquant), puis se reconnecter.
+    """
+    exclude = {e.strip().lower() for e in exclude_emails if e.strip()}
+    targets = [u for u in col.find({}, {"email": 1, "role": 1})
+               if str(u.get("email", "")).lower() not in exclude]
+
+    print(f"\n{'═'*64}")
+    print(f"  FORCER LE CHANGEMENT DE MOT DE PASSE")
+    print(f"{'═'*64}")
+    print(f"  Comptes ciblés : {len(targets)}")
+    print(f"  Exclus         : {', '.join(sorted(exclude)) or '(aucun)'}")
+
+    if not apply_changes:
+        print(f"  (dry-run — ajoutez --apply pour écrire)\n{'═'*64}\n")
+        return
+
+    if not assume_yes:
+        confirm = input(f"  Appliquer sur {len(targets)} compte(s) ? (oui/non) : ").strip().lower()
+        if confirm not in ("oui", "o", "yes", "y"):
+            print("  Annulé.")
+            return
+
+    ids = [u["_id"] for u in targets]
+    res = col.update_many({"_id": {"$in": ids}}, {"$set": {"must_change_password": True}})
+    print(f"  ✅ {res.modified_count} compte(s) mis à jour (must_change_password=True).")
+    print(f"{'═'*64}\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Migration des comptes pilote ISMaiLa")
     parser.add_argument("--apply", action="store_true", help="Appliquer la migration")
     parser.add_argument("--yes", action="store_true", help="Confirmer sans prompt")
+    parser.add_argument("--force-reset-all", action="store_true",
+                        help="Poser must_change_password=True sur tous les comptes sauf --except")
+    parser.add_argument("--except", dest="exclude", default="",
+                        help="Emails à exclure du reset forcé (séparés par des virgules)")
     args = parser.parse_args()
 
     col = get_collection()
+
+    # Mode dédié : forcer le changement de mot de passe
+    if args.force_reset_all:
+        force_reset_all(col, args.exclude.split(","), args.apply, args.yes)
+        return
+
     report = audit(col)
     needs = print_audit(report)
 

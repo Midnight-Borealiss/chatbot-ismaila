@@ -38,6 +38,29 @@ Brève description du changement
 
 ## Historique des Versions
 
+### Version 7.20 — 2026-07-20
+
+#### 🎯 Objectif
+Supprimer le formulaire d'auto-qualification (code mort) et forcer le changement de mot de passe à la première connexion pour tous les comptes du pilote sauf le super admin.
+
+#### 📋 Modifications
+- **views/qualification_view.py** : **SUPPRIMÉ** (désactivé depuis v7.15, jamais appelé). L'assignation des profils/droits se fait uniquement via `admin_view.py`.
+- **scripts/migrate_pilot_accounts.py** : nouveau mode `--force-reset-all --except <emails>` posant `must_change_password=True` sur tous les comptes sauf ceux exclus.
+- **DOCUMENTATION/4_MODULES_DETAILLES.md** : note de suppression.
+
+#### 🔧 Détails Techniques
+- Exécuté en base : `must_change_password=True` sur **61 comptes**, exclu `minawade005@gmail.com` (SUPER_ADMIN).
+- Chaque collègue devra définir son mot de passe à la 1re connexion (écran bloquant de `app.py`) puis se reconnecter.
+
+#### ⚠️ Notes
+- Le super admin conserve son accès sans changement forcé.
+
+#### ✅ Tests
+- ✅ Aucune référence Python restante à `qualification_view`.
+- ✅ Vérification base : 61 comptes flaggés, super admin intact.
+
+---
+
 ### Version 7.19 — 2026-07-20
 
 #### 🎯 Objectif

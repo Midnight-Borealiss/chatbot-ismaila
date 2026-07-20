@@ -147,9 +147,10 @@ Dashboard personnel. **Profil en lecture seule (figé pour le pilote)** : profil
 et permissions pré-assignés par l'administration. Seul le changement de mot de
 passe reste actif (`render_user_dashboard_view()` est le point d'entrée appelé par `app.py`).
 
-### `qualification_view.py`
-Formulaire d'auto-qualification **désactivé pendant le pilote**
-(`QUALIFICATION_FORM_ENABLED = False`). Conservé pour réactivation post-pilote.
+### `qualification_view.py` — SUPPRIMÉ (v7.20)
+Ancien formulaire d'auto-qualification des utilisateurs. Désactivé depuis v7.15
+puis **supprimé en v7.20** (code mort, jamais appelé). L'assignation des
+profils/permissions se fait exclusivement via l'admin (`admin_view.py`).
 
 ### `feedback_view.py`
 Collecte de feedback en temps réel (depuis v7.16). Bouton sidebar « 💬 Signaler / Avis »
