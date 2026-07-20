@@ -119,6 +119,8 @@ def run(limit: int = 0, use_semantic: bool = True, top: int = 25, report_path: s
     parent_confusion = defaultdict(Counter)   # stored_parent -> pred_parent -> n
     sub_flows = Counter()                      # (stored_sub, pred_sub) off-diagonal
     disagreements = []                         # stored != final
+    agree_positive = 0                         # stocké == prédit ET une voie s'est prononcée
+    agree_default = 0                          # stocké == prédit MAIS aucune voie (abstention)
     human_labeled = 0
     human_agree = 0
     details = []
@@ -137,6 +139,7 @@ def run(limit: int = 0, use_semantic: bool = True, top: int = 25, report_path: s
         source_dist[v["source"]] += 1
         parent_confusion[stored_par][pred_par] += 1
 
+        fired = v["keyword"] is not None or v["semantic"] is not None
         if stored_sub_cat != pred_sub:
             sub_flows[(stored_sub_cat, pred_sub)] += 1
             disagreements.append({
@@ -149,6 +152,10 @@ def run(limit: int = 0, use_semantic: bool = True, top: int = 25, report_path: s
                 "both_agree": v["both_agree"],
                 "source": v["source"],
             })
+        elif fired:
+            agree_positive += 1   # accord confirmé par au moins une voie
+        else:
+            agree_default += 1    # « accord » illusoire : abstention retombée sur le défaut
 
         # Vérité-terrain : label posé manuellement par un humain.
         if d.get("recategorized_by"):
@@ -221,11 +228,19 @@ def run(limit: int = 0, use_semantic: bool = True, top: int = 25, report_path: s
     print(f"\n{SEP}\n▌ SYNTHÈSE\n")
     auto_candidates = n_high  # consensus 2 voies + stocké différent → Phase 2 auto (dry-run)
     review_candidates = len(disagreements) - n_high
+    total_agree = len(docs) - len(disagreements)
     print(f"    Contributions analysées      : {len(docs)}")
-    print(f"    En accord (stocké == prédit) : {len(docs) - len(disagreements)}")
+    print(f"    En accord (stocké == prédit) : {total_agree}")
+    print(f"      • accord POSITIF (une voie a tranché)          : {agree_positive}")
+    print(f"      • accord-par-DÉFAUT (abstention → {DEFAULT_CATEGORY}) : {agree_default}")
+    print(f"        ⚠ non fiable : le classifieur n'a rien affirmé, il")
+    print(f"          est juste retombé sur le libellé par défaut.")
     print(f"    Désaccords                   : {len(disagreements)}")
     print(f"      • consensus 2 voies (→ Phase 2 auto, sous réserve) : {auto_candidates}")
     print(f"      • voie unique / conflit (→ révision humaine)       : {review_candidates}")
+    print(f"\n  → Accord réellement vérifié : {agree_positive}/{len(docs)} "
+          f"({agree_positive/len(docs):.0%}). Le reste ({agree_default} accord-défaut + "
+          f"{len(disagreements)} désaccords) reste à confirmer.")
     print(f"\n  ⓘ READ-ONLY : aucune écriture effectuée. Reclassement = Phase 2.")
 
     # ── Export JSON ───────────────────────────────────────────────────────────
@@ -234,6 +249,12 @@ def run(limit: int = 0, use_semantic: bool = True, top: int = 25, report_path: s
         payload = {
             "total": len(docs),
             "semantic_used": use_semantic,
+            "agreement": {
+                "positive": agree_positive,
+                "by_default": agree_default,
+                "disagreements": len(disagreements),
+                "consensus_2voies": n_high,
+            },
             "stored_parent": dict(stored_parent),
             "stored_sub": dict(stored_sub),
             "source_distribution": dict(source_dist),
