@@ -5,6 +5,8 @@ Application principale Streamlit pour le pilote ISM.
 Module principal d'orchestration avec routing utilisateurs et pages.
 """
 
+import logging
+
 import streamlit as st
 
 from controllers.auth_controller import auth_controller
@@ -80,11 +82,16 @@ def main():
         st.stop()
 
     # Charge une seule fois les sous-catégories dynamiques + les ancres apprises
-    # (boucle d'apprentissage) persistées en base.
+    # (boucle d'apprentissage) persistées en base. Chargement NON CRITIQUE :
+    # l'app doit démarrer même s'il échoue (base indisponible, déploiement
+    # transitoire, etc.) — on dégrade gracieusement sans préchargement.
     if not st.session_state.get("_extra_categories_loaded"):
-        from config.categories import load_persisted_categories, load_learned_anchors
-        load_persisted_categories()
-        load_learned_anchors()
+        try:
+            from config.categories import load_persisted_categories, load_learned_anchors
+            load_persisted_categories()
+            load_learned_anchors()
+        except Exception as e:
+            logging.warning(f"Préchargement catégories/ancres ignoré : {e}")
         st.session_state["_extra_categories_loaded"] = True
 
     st.sidebar.title("🎓 ISMaiLa")
