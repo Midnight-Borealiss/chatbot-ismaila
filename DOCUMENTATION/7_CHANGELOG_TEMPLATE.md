@@ -38,6 +38,33 @@ Brève description du changement
 
 ## Historique des Versions
 
+### Version 7.23 — 2026-07-20
+
+#### 🎯 Objectif
+Restaurer et compléter le dispositif de retour utilisateur : bouton « Signaler / Avis » (régression v7.17), vote 👍/👎 sur les réponses du chat, capture de la page courante, historique personnel dans « Mon espace », et corrections de modération.
+
+#### 📋 Modifications
+- **app.py** : import + appel `render_feedback_sidebar()` restaurés (supprimés par erreur en v7.17), sous les infos utilisateur (connecté) et en page publique. Mémorisation de `st.session_state["current_view"]` au routage.
+- **controllers/rating_controller.py** *(nouveau)* : votes 👍/👎 → collection dédiée `response_ratings` (upsert par utilisateur+question, non bloquant). `get_global_stats()` = taux de satisfaction.
+- **views/student_view.py** : `st.feedback("thumbs")` sous chaque réponse de l'Assistant, persistance idempotente ; catégorie ajoutée aux messages.
+- **views/user_dashboard_view.py** : section « 🕑 Mon activité » (onglets Avis / Contributions / Validations), lecture seule, pour tous les rôles.
+- **controllers/feedback_controller.py** : `update_status()` renseigne `resolved_at` au passage à « Résolu » (et le remet à None si rouvert) + paramètre `priority` optionnel.
+- **views/admin_view.py** : selectbox **Priorité** dans la modération ; bandeau satisfaction chat (👍/👎) dans le dashboard feedback.
+
+#### 🔧 Détails Techniques
+- Collection `response_ratings` : `{user_email, question, response, category, score, rating: up|down, created_at, updated_at}`. Séparée de `feedbacks` pour ne pas polluer la modération.
+- `current_view` : lu par `feedback_view._capture_user_context()` — désormais alimenté, l'admin voit la page d'origine de chaque signalement (fini « Inconnue »).
+- Historique : requêtes `feedbacks{context.user_email}`, `contributions{author_email}`, `contributions{validated_by}` (limite 25, tri décroissant).
+
+#### ⚠️ Notes
+- Nouvelle collection isolée, aucune migration. Votes anonymes agrégés sous `user_email="anonyme"`.
+
+#### ✅ Tests
+- ✅ Compilation `py_compile` + imports complets OK.
+- À vérifier en pilote : bouton Avis visible ; vote 👍/👎 persistant ; « Mon activité » alimentée ; page capturée côté admin ; priorité modifiable.
+
+---
+
 ### Version 7.22 — 2026-07-20
 
 #### 🎯 Objectif

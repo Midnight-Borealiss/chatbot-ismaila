@@ -7,7 +7,8 @@ from bson.objectid import ObjectId
 from controllers.admin_controller import admin_controller
 from controllers.kb_controller import kb_controller
 from controllers.auth_controller import AuthController
-from controllers.feedback_controller import feedback_controller 
+from controllers.feedback_controller import feedback_controller
+from controllers.rating_controller import rating_controller
 from services.db_connector import db_instance
 from config.roles import (
     ADMIN, SUPER_ADMIN, VALIDATOR, CONTRIBUTOR, STUDENT,
@@ -117,6 +118,14 @@ def _render_feedback_dashboard():
     m4.metric("🟢 Résolus", resolus)
     m5.metric("⚠️ Priorité haute", hautes)
 
+    # Satisfaction issue des votes 👍/👎 sur les réponses du chat (collection dédiée)
+    rstats = rating_controller.get_global_stats()
+    if rstats["total"]:
+        r1, r2, r3 = st.columns(3)
+        r1.metric("😊 Satisfaction chat", f"{rstats['satisfaction']}%")
+        r2.metric("👍 Réponses utiles", rstats["up"])
+        r3.metric("👎 À améliorer", rstats["down"])
+
     df = pd.DataFrame(all_fb)
     c1, c2 = st.columns(2)
     with c1:
@@ -165,9 +174,13 @@ def _render_feedback_moderation_tab():
                 st.caption(f"👤 {ctx.get('user_email', 'anonyme')} | 📍 {ctx.get('current_view', 'Inconnue')}")
             with col_actions:
                 new_status = st.selectbox("État :", ["Ouvert", "En cours", "Résolu"], index=["Ouvert", "En cours", "Résolu"].index(fb.get("status", "Ouvert")), key=f"status_{fb_id}")
+                prio_opts = ["haute", "moyenne", "normale"]
+                new_priority = st.selectbox("Priorité :", prio_opts,
+                                            index=prio_opts.index(fb.get("priority", "normale")) if fb.get("priority") in prio_opts else 2,
+                                            key=f"prio_{fb_id}")
                 notes = st.text_input("Notes admin :", value=fb.get("admin_notes", ""), key=f"notes_{fb_id}")
                 if st.button("🔄 Mettre à jour", key=f"btn_{fb_id}"):
-                    feedback_controller.update_status(fb_id, new_status, notes)
+                    feedback_controller.update_status(fb_id, new_status, notes, priority=new_priority)
                     st.rerun()
 
 def _render_stats_tab():

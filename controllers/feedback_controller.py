@@ -35,20 +35,23 @@ class FeedbackController:
             st.error(f"Erreur de récupération des feedbacks : {e}")
             return []
 
-    def update_status(self, feedback_id, new_status, admin_notes=""):
-        """Met à jour le statut et ajoute les notes de l'administrateur."""
+    def update_status(self, feedback_id, new_status, admin_notes="", priority=None):
+        """Met à jour le statut, les notes admin et, optionnellement, la priorité.
+
+        Renseigne `resolved_at` au passage à « Résolu » et le remet à None si
+        le feedback est rouvert (statut différent de « Résolu »).
+        """
         try:
             coll = self._get_collection()
-            coll.update_one(
-                {"_id": ObjectId(feedback_id)},
-                {
-                    "$set": {
-                        "status": new_status,
-                        "admin_notes": admin_notes,
-                        "updated_at": datetime.utcnow()
-                    }
-                }
-            )
+            changes = {
+                "status": new_status,
+                "admin_notes": admin_notes,
+                "updated_at": datetime.utcnow(),
+                "resolved_at": datetime.utcnow() if new_status == "Résolu" else None,
+            }
+            if priority:
+                changes["priority"] = priority
+            coll.update_one({"_id": ObjectId(feedback_id)}, {"$set": changes})
             return True
         except Exception as e:
             st.error(f"Erreur lors de la mise à jour du statut : {e}")

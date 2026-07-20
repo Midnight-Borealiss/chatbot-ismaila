@@ -2,6 +2,30 @@ import streamlit as st
 
 from controllers.search_controller import search_controller
 from controllers.mkt_controller import mkt_controller
+from controllers.rating_controller import rating_controller
+
+
+def _render_response_rating(idx: int, question: str, msg: dict, user_email: str):
+    """Affiche le vote 👍/👎 sous une réponse de l'Assistant et le persiste.
+
+    Idempotent : on n'écrit en base que lorsque le choix change, pour éviter
+    une réécriture à chaque rerun de Streamlit.
+    """
+    key = f"rate_{idx}"
+    choice = st.feedback("thumbs", key=key)
+    if choice is None:
+        return
+    rating = "up" if choice == 1 else "down"
+    saved = st.session_state.setdefault("_ratings_saved", {})
+    if saved.get(key) == rating:
+        return
+    ok = rating_controller.save_rating(
+        user_email, question, msg.get("content", ""),
+        rating, category=msg.get("category", ""), score=msg.get("score", 0),
+    )
+    if ok:
+        saved[key] = rating
+        st.toast("Merci pour votre retour 👍" if rating == "up" else "Merci, c'est noté 👎")
 
 
 def render_student_view():
@@ -28,7 +52,8 @@ def render_student_view():
             for ex in persisted:
                 st.session_state.messages.append({"role": "user",      "content": ex["question"]})
                 st.session_state.messages.append({"role": "assistant", "content": ex["response"],
-                                                  "score": ex.get("score", 0), "intent": ex.get("intent","")})
+                                                  "score": ex.get("score", 0), "intent": ex.get("intent",""),
+                                                  "category": ex.get("category", "")})
         else:
             st.session_state.messages = []
 
@@ -56,11 +81,15 @@ def render_student_view():
                 st.session_state.session_history = []
                 st.rerun()
 
-    for msg in st.session_state.messages:
+    for i, msg in enumerate(st.session_state.messages):
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
             if msg.get("score", 0) > 0:
                 st.caption(f"Score de confiance : {round(msg['score']*100,1)}%")
+            # Vote 👍/👎 sous chaque réponse de l'Assistant
+            if msg["role"] == "assistant":
+                question = st.session_state.messages[i - 1]["content"] if i > 0 else ""
+                _render_response_rating(i, question, msg, user_email)
 
     # ── Saisie ────────────────────────────────────────────────────────
     if prompt := st.chat_input("Comment puis-je vous aider ?"):
@@ -84,7 +113,8 @@ def render_student_view():
                 st.caption(f"Score de confiance : {round(score*100,1)}%  |  Catégorie : {result.get('category','?')}")
 
         st.session_state.messages.append({
-            "role": "assistant", "content": response, "score": score, "intent": intent
+            "role": "assistant", "content": response, "score": score, "intent": intent,
+            "category": result.get("category", ""),
         })
         st.session_state.session_history.append({
             "question": prompt, "response": response, "score": score, "intent": intent,

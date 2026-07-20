@@ -10,6 +10,7 @@ import streamlit as st
 from controllers.auth_controller import auth_controller
 from services.db_connector import db_instance
 from config.roles import ADMIN, SUPER_ADMIN, VALIDATOR, CONTRIBUTOR, is_admin_or_higher
+from views.feedback_view import render_feedback_sidebar
 
 
 def render_login_form():
@@ -90,6 +91,8 @@ def main():
         user = st.session_state.user
         st.sidebar.success(f"👤 {user.get('full_name') or user.get('email', 'Utilisateur')}")
         st.sidebar.caption(f"Rôle : **{user['role']}**")
+        # Bouton « Signaler / Avis » — juste sous les infos utilisateur, visible par tous
+        render_feedback_sidebar()
         st.sidebar.divider()
 
         # Verrou : changement de mot de passe obligatoire à la première connexion
@@ -109,6 +112,8 @@ def main():
             menu_options.append("🛡️ Administration")
 
         page = st.sidebar.radio("Navigation", menu_options)
+        # Mémorise la page courante → capturée dans le contexte des feedbacks
+        st.session_state["current_view"] = page
         if st.sidebar.button("🚪 Déconnexion"):
             auth_controller.logout()
 
@@ -131,6 +136,9 @@ def main():
             from views.admin_view import render_admin_view
             render_admin_view()
     else:
+        # Utilisateur non connecté : bouton « Signaler / Avis » disponible aussi (visible par tous)
+        st.session_state["current_view"] = "Accueil public (non connecté)"
+        render_feedback_sidebar()
         tab_help, tab_chat, tab_login = st.tabs(["❓ Aide", "💬 Poser une question", "🔐 Connexion"])
         with tab_help:
             from views.help_view import render_help_view
