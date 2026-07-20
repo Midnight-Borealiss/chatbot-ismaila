@@ -14,6 +14,9 @@ except Exception:
 API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
 
 # Catégories valides = sous-catégories canoniques (hiérarchie ISMaiLa).
+# ATTENTION : snapshot figé à l'import — n'inclut PAS les sous-catégories
+# ajoutées dynamiquement après le démarrage. Pour un affichage à jour (UI,
+# selectbox), appeler get_all_canonical() au moment du rendu, pas ce constant.
 VALID_CATEGORIES = get_all_canonical()
 CONFIDENCE_MIN = 0.6
 

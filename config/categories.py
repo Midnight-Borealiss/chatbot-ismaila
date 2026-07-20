@@ -61,7 +61,10 @@ CATEGORY_HIERARCHY = {
         "subcategories": {
             "Caisse / Recouvrement": {
                 "description": "Paiement de la scolarité, caisse, reçus, relances pour impayés, échéancier de paiement.",
-                "synonyms": ["caisse", "payer", "scolarite", "recouvrement", "facture", "recu", "versement"]
+                # NB : « scolarite » nu est volontairement absent (il appartient à
+                # la sous-catégorie « Scolarité ») ; ici on ne matche que le
+                # contexte financier (« frais/paiement de scolarité »).
+                "synonyms": ["caisse", "payer", "frais de scolarite", "paiement scolarite", "recouvrement", "facture", "recu", "versement", "echeancier", "impaye"]
             },
             "Scolarité": {
                 "description": "Inscriptions, attestations de scolarité, relevés de notes, badges, dossiers administratifs.",

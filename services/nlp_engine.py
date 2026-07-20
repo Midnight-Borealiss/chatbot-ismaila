@@ -40,6 +40,7 @@ class NLPEngine:
         self._model_failed = False      # évite de retenter un chargement qui a échoué
         self._anchor_matrix = None      # embeddings des ancres (cache)
         self._anchor_labels = None      # catégorie correspondant à chaque ligne
+        self._anchor_signature = None   # empreinte des ancres ayant bâti le cache
 
     # ── Modèle d'embedding (lazy + cache process) ────────────────────────────
     def get_model(self):
@@ -103,9 +104,21 @@ class NLPEngine:
         """Fast path : retourne la sous-catégorie ou DEFAULT_CATEGORY si rien."""
         return self._keyword_match(query) or DEFAULT_CATEGORY
 
+    @staticmethod
+    def _anchor_fingerprint():
+        """
+        Empreinte des ancres courantes. Change dès qu'une sous-catégorie (donc
+        une ancre) est ajoutée/retirée dynamiquement → permet d'invalider le
+        cache d'embeddings au lieu de le figer au premier appel.
+        """
+        return tuple(
+            (cat, tuple(phrases)) for cat, phrases in CATEGORY_ANCHORS.items()
+        )
+
     def _ensure_anchor_embeddings(self):
-        """Précalcule (une fois) les embeddings des phrases d'ancrage."""
-        if self._anchor_matrix is not None:
+        """Précalcule les embeddings des ancres ; reconstruit si elles changent."""
+        signature = self._anchor_fingerprint()
+        if self._anchor_matrix is not None and self._anchor_signature == signature:
             return
         model = self.get_model()
         if model is None:
@@ -118,6 +131,7 @@ class NLPEngine:
         try:
             self._anchor_matrix = model.encode(texts, normalize_embeddings=True)
             self._anchor_labels = labels
+            self._anchor_signature = signature
         except Exception as e:
             logger.warning(f"Échec du calcul des ancres sémantiques : {e}")
 

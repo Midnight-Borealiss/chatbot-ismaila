@@ -14,8 +14,8 @@ import pandas as pd
 import streamlit as st
 
 from services.db_connector import db_instance
-from services.llm_service import llm_service, VALID_CATEGORIES, CONFIDENCE_MIN
-from config.categories import normalize_category
+from services.llm_service import llm_service, CONFIDENCE_MIN
+from config.categories import normalize_category, get_all_canonical
 
 
 def render_ai_categorization_view():
@@ -260,11 +260,14 @@ def render_ai_categorization_view():
                         f"({row['Actuelle']} → {row['Suggérée']} — {row['Confiance']})"
                     ):
                         st.caption(f"Raison IA : {row['Raison']}")
+                        # Liste recalculée à chaque rendu : intègre les
+                        # sous-catégories ajoutées dynamiquement (fix cache figé).
+                        valid_categories = get_all_canonical()
                         correct_cat = st.selectbox(
                             "Catégorie correcte",
-                            VALID_CATEGORIES,
-                            index=VALID_CATEGORIES.index(row["Suggérée"])
-                            if row["Suggérée"] in VALID_CATEGORIES else 0,
+                            valid_categories,
+                            index=valid_categories.index(row["Suggérée"])
+                            if row["Suggérée"] in valid_categories else 0,
                             key=f"manual_{row['_id']}",
                         )
                         if st.button("Appliquer", key=f"apply_manual_{row['_id']}"):
