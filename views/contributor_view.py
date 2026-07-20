@@ -2,11 +2,12 @@ import streamlit as st
 from datetime import datetime
 
 from services.db_connector import db_instance
+from services.nlp_engine import nlp_engine
 from controllers.kb_controller import kb_controller
 from config.roles import CONTRIBUTOR, VALIDATOR, ADMIN, SUPER_ADMIN, is_admin_or_higher
 from config.categories import (
     get_categories_for_select, normalize_category,
-    get_top_categories, get_subcategories_by_parent,
+    get_top_categories, get_subcategories_by_parent, get_parent_category,
 )
 from config.permissions import get_domain_level, can_answer, get_user_domains_summary
 from config.response_helpers import has_real_response, has_no_real_response
@@ -21,6 +22,8 @@ def _insert_contribution(kb_col, question: str, response: str, canonical_cat: st
         "response":      response,
         "status":        "en_attente",
         "category":      canonical_cat,
+        "parent_category": get_parent_category(canonical_cat),
+        "needs_review":  False,   # catégorie choisie par un humain → pas de doute
         "author_email":  user["email"],
         "created_at":    datetime.now(),
         "validated_by":  None,
@@ -212,15 +215,32 @@ def render_contributor_view():
     with tabs[1]:
         st.markdown("Proposez une nouvelle entrée dans la base de connaissances.")
 
-        with st.form("new_contribution_form", clear_on_submit=True):
-            question = st.text_input("Question *", placeholder="Ex : Quels sont les frais du MBA ?")
+        # Question saisie HORS formulaire : Streamlit ne réagit pas aux widgets
+        # d'un st.form avant soumission ; en la sortant, on peut suggérer une
+        # catégorie en direct dès que la question est saisie.
+        question = st.text_input("Question *", placeholder="Ex : Quels sont les frais du MBA ?",
+                                 key="new_contrib_question")
 
-            # Pour la nouvelle Q/R, on propose toutes les catégories
-            # mais on indique celles où l'utilisateur a des droits
-            all_cats = get_categories_for_select()
+        all_cats = get_categories_for_select()
+        suggested_index = 0
+        if question.strip():
+            sugg = nlp_engine.assess_confidence(question.strip())
+            if sugg["category"] in all_cats:
+                suggested_index = all_cats.index(sugg["category"])
+            icon = "⚠️ Suggestion incertaine" if sugg["needs_review"] else "💡 Catégorie suggérée"
+            st.caption(
+                f"{icon} : **{sugg['category']}** "
+                f"(confiance {sugg['confidence']:.0%}, via {sugg['source']})"
+                + (" — vérifiez avant de soumettre." if sugg["needs_review"] else ".")
+            )
+
+        with st.form("new_contribution_form", clear_on_submit=True):
+            # Pour la nouvelle Q/R, on propose toutes les catégories (pré-sélection
+            # = suggestion IA), en indiquant celles où l'utilisateur a des droits.
             category = st.selectbox(
                 "Catégorie *",
                 all_cats,
+                index=suggested_index,
                 help="Catégories où vous avez des droits de contribution : "
                      + (", ".join(contrib_domains) if contrib_domains else "aucune définie")
             )
@@ -247,6 +267,9 @@ def render_contributor_view():
                 else:
                     _insert_contribution(kb_col, question.strip(), response.strip(),
                                          canonical_cat, user)
+                    # Le champ Question est hors du form (clear_on_submit ne
+                    # l'atteint pas) → on le vide manuellement avant le rerun.
+                    st.session_state.pop("new_contrib_question", None)
                     st.rerun()
             else:
                 st.error("La question et la réponse sont obligatoires.")
