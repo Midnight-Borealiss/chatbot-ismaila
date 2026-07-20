@@ -3,7 +3,10 @@ import streamlit as st
 from controllers.kb_controller import kb_controller
 from services.db_connector import db_instance
 from config.roles import VALIDATOR, ADMIN, SUPER_ADMIN, is_admin_or_higher
-from config.categories import get_categories_for_select
+from config.categories import (
+    get_categories_for_select, get_top_categories,
+    get_subcategories_by_parent, get_parent_category,
+)
 from config.permissions import get_domain_level, can_validate, can_answer, get_user_domains_summary
 from config.response_helpers import has_real_response, has_no_real_response
 from views.shared_components import render_comments_and_delete
@@ -32,27 +35,36 @@ def render_validator_view():
                     else:
                         st.markdown("*Aucun*")
 
-    # ── Filtres ───────────────────────────────────────────────────────
+    # ── Filtres à deux niveaux : Pôle → Sous-catégorie ────────────────
     with st.expander("🔍 Filtres", expanded=True):
-        vc1, vc2, vc3, vc4 = st.columns(4)
+        vc1, vc2, vc3 = st.columns(3)
         with vc1:
-            cats  = ["Toutes"] + get_categories_for_select()
-            f_cat = st.selectbox("Catégorie", cats, key="val_f_cat")
+            poles  = ["Tous"] + get_top_categories()
+            f_pole = st.selectbox("Pôle", poles, key="val_f_pole")
         with vc2:
-            f_status = st.selectbox("Statut", ["Toutes", "En attente", "Validée", "Archivée"], key="val_f_status")
+            subcats = get_categories_for_select() if f_pole == "Tous" \
+                      else get_subcategories_by_parent(f_pole)
+            f_cat = st.selectbox("Sous-catégorie", ["Toutes"] + subcats, key="val_f_cat")
         with vc3:
-            f_kw = st.text_input("Mot-clé", placeholder="rechercher...", key="val_f_kw")
+            f_status = st.selectbox("Statut", ["Toutes", "En attente", "Validée", "Archivée", "Test (hors-contexte)"], key="val_f_status")
+
+        vc4, vc5 = st.columns([3, 1])
         with vc4:
+            f_kw = st.text_input("Mot-clé", placeholder="rechercher...", key="val_f_kw")
+        with vc5:
             f_mine = st.checkbox("Mes domaines uniquement", value=True, key="val_f_mine")
 
     # ── Récupération et filtrage ──────────────────────────────────────
     kb_col = db_instance.get_collection("contributions")
     query = {}
-    status_map = {"En attente": "en_attente", "Validée": "valide", "Archivée": "archive"}
+    status_map = {"En attente": "en_attente", "Validée": "valide", "Archivée": "archive", "Test (hors-contexte)": "test"}
     if f_status != "Toutes":
         query["status"] = status_map.get(f_status)
     if f_cat != "Toutes":
         query["category"] = f_cat
+    elif f_pole != "Tous":
+        # Aucune sous-catégorie précise : on filtre sur tout le pôle.
+        query["category"] = {"$in": get_subcategories_by_parent(f_pole)}
 
     pending = list(kb_col.find(query).sort("created_at", -1))
 
@@ -199,4 +211,5 @@ def render_validator_view():
             render_comments_and_delete(
                 kb_col, item, user,
                 key_prefix="val", on_delete=kb_controller.delete,
+                on_mark_test=kb_controller.move_to_test,
             )

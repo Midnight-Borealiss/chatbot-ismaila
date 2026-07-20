@@ -5,17 +5,20 @@ from bson.objectid import ObjectId
 
 
 def render_comments_and_delete(collection, doc, user, *, key_prefix,
-                               allow_delete=True, on_delete=None):
+                               allow_delete=True, on_delete=None,
+                               on_mark_test=None):
     """
     Affiche les commentaires existants d'un document + un champ d'ajout de
     commentaire interne et (optionnel) un bouton de suppression avec confirmation.
 
     Générique : fonctionne pour les contributions comme pour les logs.
 
-    - collection : collection MongoDB du document (pour push/delete par défaut)
-    - doc        : le document (doit contenir _id)
-    - user       : utilisateur courant (pour l'auteur du commentaire)
-    - on_delete  : callback(doc_id) appelé à la suppression (sinon delete_one)
+    - collection   : collection MongoDB du document (pour push/delete par défaut)
+    - doc          : le document (doit contenir _id)
+    - user         : utilisateur courant (pour l'auteur du commentaire)
+    - on_delete    : callback(doc_id) appelé à la suppression (sinon delete_one)
+    - on_mark_test : callback(doc_id, author_email) pour basculer en statut 'test'
+                     (contribution hors-contexte, récupérable). Si None, non affiché.
     """
     doc_id = str(doc.get("_id"))
     email = (user or {}).get("email", "anonyme")
@@ -53,6 +56,14 @@ def render_comments_and_delete(collection, doc, user, *, key_prefix,
                 st.rerun()
             else:
                 st.warning("Commentaire vide.")
+
+    # ── Basculer en Test / Hors-contexte (récupérable) ───────────────────
+    if on_mark_test and doc.get("status") != "test":
+        if st.button("🧪 Marquer hors-contexte (Test)",
+                     key=f"test_{key_prefix}_{doc_id}", use_container_width=True):
+            on_mark_test(doc_id, email)
+            st.toast("Contribution basculée en Test.")
+            st.rerun()
 
     # ── Suppression (avec confirmation) ──────────────────────────────────
     if allow_delete:

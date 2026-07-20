@@ -37,7 +37,7 @@ CATEGORY_HIERARCHY = {
                 "description": "Emploi du temps, dates des examens, changements de salles, calendrier universitaire.",
                 "synonyms": ["planning", "emploi du temps", "calendrier", "horaire de cours", "examens"]
             },
-            "Plaquette d'enseignement - UE": {
+            "Formations": {
                 "description": "Contenu des programmes, syllabus des cours, Unités d'Enseignement et crédits ECTS.",
                 "synonyms": ["plaquette", "ue", "syllabus", "matiere", "programme d'enseignement"]
             },
@@ -168,6 +168,16 @@ def get_subcategories():
     return list(_SUB_TO_TOP.keys()) + list(EXTRA_SUBCATEGORIES)
 
 
+def get_subcategories_by_parent(parent: str) -> list:
+    """
+    Retourne les sous-catégories rattachées à un pôle (catégorie parente) donné.
+    Utilisé par le filtre à deux niveaux (Pôle → Sous-catégorie) de l'interface.
+    """
+    if not parent:
+        return get_subcategories()
+    return [sub for sub, top in _SUB_TO_TOP.items() if top == parent]
+
+
 def get_all_categories_config():
     """Compat : dictionnaire {sous-catégorie: synonymes}."""
     return CATEGORY_SYNONYMS
@@ -216,14 +226,22 @@ def normalize_category(cat: str) -> str:
     return cat_clean
 
 
-def add_category_safe(new_cat: str):
-    """Ajoute une sous-catégorie dynamique (rattachée à 'Pédagogie' par défaut)."""
+def add_category_safe(new_cat: str, parent: str = "Pédagogie"):
+    """
+    Ajoute une sous-catégorie dynamique rattachée au pôle `parent`.
+
+    Note : l'ajout est en mémoire pour la durée de vie du processus. Pour une
+    persistance durable, brancher un stockage (MongoDB) et recharger à l'import.
+    """
+    new_cat = (new_cat or "").strip()
     if not new_cat:
         return False, "Nom vide."
     if new_cat in get_subcategories():
         return False, "Existe déjà."
+    if parent not in CATEGORY_HIERARCHY:
+        parent = "Pédagogie"
     EXTRA_SUBCATEGORIES.append(new_cat)
-    _SUB_TO_TOP[new_cat] = "Pédagogie"
+    _SUB_TO_TOP[new_cat] = parent
     CATEGORY_SYNONYMS[new_cat] = []
     CATEGORY_ANCHORS[new_cat] = [new_cat]
-    return True, f"Sous-catégorie '{new_cat}' ajoutée."
+    return True, f"Sous-catégorie '{new_cat}' ajoutée au pôle '{parent}'."

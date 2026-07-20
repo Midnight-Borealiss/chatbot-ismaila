@@ -13,13 +13,13 @@ from config.roles import ADMIN, SUPER_ADMIN, is_admin_or_higher, is_super_admin
 from config.categories import (
     get_categories_for_select, add_category_safe,
     get_top_categories, get_parent_category,
+    get_subcategories_by_parent,
 )
 from config.response_helpers import has_real_response
 from views.ai_categorization_view import render_ai_categorization_view
 from views.shared_components import render_comments_and_delete
-
-# --- CONSTANTE LOCALE (Fixe le problème du fichier manquant) ---
-FEEDBACK_TYPES = ["Bug", "Erreur de contenu", "Demande d'amélioration", "Signalement", "Autre"]
+# Source unique des types de feedback (identique à la saisie utilisateur)
+from views.feedback_view import FEEDBACK_TYPES
 
 def _require_admin():
     """Vérifie que l'utilisateur a au moins le rôle ADMIN."""
@@ -47,10 +47,11 @@ def render_admin_view():
         _render_stats_tab()
     with tabs[1]:
         st.header("📝 Centralisation des Contributions")
-        sous_onglet_questions = st.radio("Filtrer :", ["📥 À traiter", "✨ Validées récemment", "🗄️ Santé de la Base de Données"], horizontal=True, key="questions_subtab")
+        sous_onglet_questions = st.radio("Filtrer :", ["📥 À traiter", "✨ Validées récemment", "🧪 Hors-contexte (Test)", "🗄️ Santé de la Base de Données"], horizontal=True, key="questions_subtab")
         st.divider()
         if sous_onglet_questions == "📥 À traiter": _render_pending_questions(user)
         elif sous_onglet_questions == "✨ Validées récemment": _render_validated_questions()
+        elif sous_onglet_questions == "🧪 Hors-contexte (Test)": _render_test_questions(user)
         elif sous_onglet_questions == "🗄️ Santé de la Base de Données": _render_db_health_subtab()
     with tabs[2]:
         st.header("👥 Équipes, Thématiques & Flux")
@@ -63,18 +64,74 @@ def render_admin_view():
     with tabs[4]:
         st.header("🤖 Configuration IA & Catégories")
         with st.expander("Gérer les catégories", expanded=False):
-            st.write("Catégories actives :", ", ".join(get_categories_for_select()))
-            new_cat = st.text_input("Ajouter une catégorie")
+            for pole in get_top_categories():
+                subs = ", ".join(get_subcategories_by_parent(pole)) or "—"
+                st.markdown(f"**{pole}** : {subs}")
+            st.divider()
+            st.caption("➕ Ajouter une sous-catégorie")
+            ac1, ac2 = st.columns([2, 2])
+            with ac1:
+                new_cat = st.text_input("Nom de la sous-catégorie", key="admin_new_cat")
+            with ac2:
+                new_cat_parent = st.selectbox("Pôle de rattachement", get_top_categories(), key="admin_new_cat_parent")
             if st.button("Valider l'ajout"):
-                success, msg = add_category_safe(new_cat)
+                success, msg = add_category_safe(new_cat, new_cat_parent)
                 st.success(msg) if success else st.error(msg)
                 if success: st.rerun()
         render_ai_categorization_view()
 
 # --- FONCTIONS INTERNES (Logique de rendu) ---
 
+def _render_feedback_dashboard():
+    """Visualisation synthétique des feedbacks (collection `feedbacks`)."""
+    all_fb = feedback_controller.get_filtered_feedbacks(status="Tous", feedback_type="Tous")
+    if not all_fb:
+        st.info("📊 Aucun feedback enregistré pour l'instant — le dashboard s'affichera dès les premiers retours.")
+        return
+
+    total    = len(all_fb)
+    ouverts  = sum(1 for f in all_fb if f.get("status") == "Ouvert")
+    en_cours = sum(1 for f in all_fb if f.get("status") == "En cours")
+    resolus  = sum(1 for f in all_fb if f.get("status") == "Résolu")
+    hautes   = sum(1 for f in all_fb if f.get("priority") == "haute")
+
+    m1, m2, m3, m4, m5 = st.columns(5)
+    m1.metric("Total", total)
+    m2.metric("🔴 Ouverts", ouverts)
+    m3.metric("🟡 En cours", en_cours)
+    m4.metric("🟢 Résolus", resolus)
+    m5.metric("⚠️ Priorité haute", hautes)
+
+    df = pd.DataFrame(all_fb)
+    c1, c2 = st.columns(2)
+    with c1:
+        if "type" in df.columns:
+            st.markdown("###### Répartition par type")
+            st.bar_chart(df["type"].fillna("Autre").value_counts())
+    with c2:
+        if "status" in df.columns:
+            st.markdown("###### Répartition par statut")
+            st.bar_chart(df["status"].fillna("Ouvert").value_counts())
+
+    # Tendance temporelle (feedbacks par jour)
+    if "created_at" in df.columns:
+        try:
+            df["_jour"] = pd.to_datetime(df["created_at"], errors="coerce").dt.date
+            trend = df.dropna(subset=["_jour"]).groupby("_jour").size()
+            if not trend.empty:
+                st.markdown("###### Volume de feedbacks par jour")
+                st.line_chart(trend)
+        except Exception:
+            pass
+    st.divider()
+
+
 def _render_feedback_moderation_tab():
     st.header("💬 Retours Utilisateurs & Alertes Qualité")
+
+    _render_feedback_dashboard()
+
+    st.subheader("🗂️ Modération des retours")
     f1, f2 = st.columns(2)
     with f1: statut_filtre = st.selectbox("Statut :", ["Tous", "Ouvert", "En cours", "Résolu"])
     with f2: type_filtre = st.selectbox("Type d'avis :", ["Tous"] + FEEDBACK_TYPES)
@@ -123,7 +180,10 @@ def _render_stats_tab():
 def _render_pending_questions(user):
     f1, f2, f3 = st.columns(3)
     with f1: f_pole = st.selectbox("Pôle", ["Tous"] + get_top_categories())
-    with f2: f_cat = st.selectbox("Thématique", ["Toutes"] + get_categories_for_select())
+    with f2:
+        sub_opts = get_categories_for_select() if f_pole == "Tous" \
+                   else get_subcategories_by_parent(f_pole)
+        f_cat = st.selectbox("Thématique", ["Toutes"] + sub_opts)
     with f3: f_rep = st.selectbox("Réponse", ["Toutes", "Avec proposition", "Sans réponse"])
 
     filtered = admin_controller.get_filtered_pending(
@@ -149,6 +209,7 @@ def _render_pending_questions(user):
             render_comments_and_delete(
                 kb_col, item, user,
                 key_prefix="admin_pending", on_delete=kb_controller.delete,
+                on_mark_test=kb_controller.move_to_test,
             )
 
 def _render_validated_questions():
@@ -163,6 +224,33 @@ def _render_validated_questions():
             render_comments_and_delete(
                 kb_col, item, user,
                 key_prefix="admin_valid", on_delete=kb_controller.delete,
+                on_mark_test=kb_controller.move_to_test,
+            )
+
+def _render_test_questions(user):
+    """Contributions basculées hors-contexte (statut 'test') : restaurer ou supprimer."""
+    kb_col = db_instance.get_collection("contributions")
+    test_items = list(kb_col.find({"status": "test"}).sort("flagged_test_at", -1))
+    st.caption(f"🧪 {len(test_items)} contribution(s) hors-contexte.")
+    if not test_items:
+        st.info("Aucune contribution en Test. Utilisez « 🧪 Marquer hors-contexte » depuis une question pour en placer ici.")
+        return
+    for item in test_items:
+        item_id = str(item["_id"])
+        with st.container(border=True):
+            st.write(f"**Q:** {item.get('question', '—')}")
+            st.caption(
+                f"Catégorie : **{item.get('category', '—')}** | "
+                f"Basculée par : {item.get('flagged_test_by', '?')} | "
+                f"Le : {str(item.get('flagged_test_at', ''))[:16]}"
+            )
+            if st.button("↩️ Restaurer (remettre en attente)", key=f"restore_{item_id}"):
+                kb_controller.invalidate(item_id)
+                st.toast("Contribution restaurée en file d'attente.")
+                st.rerun()
+            render_comments_and_delete(
+                kb_col, item, user,
+                key_prefix="admin_test", on_delete=kb_controller.delete,
             )
 
 def _render_db_health_subtab():
@@ -239,22 +327,38 @@ def _render_master_detail_user_management(current_user):
                     u_name = st.text_input("Nom complet *")
                     u_email = st.text_input("Adresse email *")
                     u_role = st.selectbox("Rôle global initial", ["USER", "CONTRIBUTOR", "VALIDATOR", "ADMINISTRATION"])
-                    u_pass = st.text_input("Mot de passe par défaut *", type="password")
-                    
+                    u_pass = st.text_input("Mot de passe temporaire *", type="password",
+                                           help="L'utilisateur devra le changer à sa première connexion.")
+                    send_mail = st.checkbox("📧 Envoyer les identifiants par email", value=True)
+
                     submit_create = st.form_submit_button("Enregistrer le compte")
-                    
+
                     if submit_create and u_name and u_email and u_pass:
+                        email_norm = u_email.lower().strip()
                         try:
-                            db.users.insert_one({
-                                "full_name": u_name,
-                                "email": u_email,
-                                "password": AuthController.hash_password(u_pass) if hasattr(AuthController, 'hash_password') else u_pass,
-                                "role": u_role,
-                                "profile_configured": False,
-                                "created_at": datetime.utcnow()
-                            })
-                            st.toast(f"🎉 Compte créé pour {u_name} !")
-                            st.rerun()
+                            if db.users.find_one({"email": email_norm}):
+                                st.error("❌ Un compte existe déjà avec cet email.")
+                            else:
+                                db.users.insert_one({
+                                    "full_name": u_name,
+                                    "email": email_norm,
+                                    "password_hash": AuthController.hash_password(u_pass),
+                                    "role": u_role,
+                                    "profile_configured": False,
+                                    "must_change_password": True,
+                                    "created_at": datetime.utcnow()
+                                })
+                                st.toast(f"🎉 Compte créé pour {u_name} !")
+                                if send_mail:
+                                    try:
+                                        ok = admin_controller.send_welcome_email(
+                                            email_norm, u_name, u_role, u_pass
+                                        )
+                                        st.info("📧 Email d'identifiants envoyé." if ok
+                                                else "⚠️ Compte créé mais l'email n'a pas pu être envoyé.")
+                                    except Exception as mail_err:
+                                        st.warning(f"Compte créé, échec de l'email : {mail_err}")
+                                st.rerun()
                         except Exception as e:
                             st.error(f"Erreur de création : {e}")
         else:

@@ -10,7 +10,6 @@ import streamlit as st
 from controllers.auth_controller import auth_controller
 from services.db_connector import db_instance
 from config.roles import ADMIN, SUPER_ADMIN, VALIDATOR, CONTRIBUTOR, is_admin_or_higher
-from views.feedback_view import render_feedback_sidebar
 
 
 def render_login_form():
@@ -26,6 +25,33 @@ def render_login_form():
             st.rerun()
         else:
             st.error("Email ou mot de passe incorrect.")
+
+
+def render_forced_password_change(user):
+    """
+    Écran bloquant de changement de mot de passe à la première connexion.
+    Tant que must_change_password est vrai, l'utilisateur ne peut accéder
+    à aucune autre page. Seule la déconnexion reste possible.
+    """
+    st.warning("🔒 Première connexion — vous devez définir un nouveau mot de passe avant de continuer.")
+    st.subheader("Définir mon mot de passe")
+    with st.form("forced_password_form"):
+        new_pass     = st.text_input("Nouveau mot de passe *", type="password",
+                                     help="Minimum 8 caractères.")
+        confirm_pass = st.text_input("Confirmer le mot de passe *", type="password")
+        submit       = st.form_submit_button("🔐 Enregistrer et continuer", type="primary")
+
+    if submit:
+        if not new_pass or len(new_pass.strip()) < 8:
+            st.error("❌ Le mot de passe doit contenir au moins 8 caractères.")
+        elif new_pass != confirm_pass:
+            st.error("❌ Les deux mots de passe ne correspondent pas.")
+        else:
+            if auth_controller.change_password(user["id"], new_pass.strip()):
+                st.success("✅ Mot de passe mis à jour. Accès débloqué.")
+                st.rerun()
+            else:
+                st.error("❌ Échec de la mise à jour. Réessayez ou contactez un administrateur.")
 
 
 def main():
@@ -59,6 +85,13 @@ def main():
         st.sidebar.success(f"👤 {user.get('full_name') or user.get('email', 'Utilisateur')}")
         st.sidebar.caption(f"Rôle : **{user['role']}**")
         st.sidebar.divider()
+
+        # Verrou : changement de mot de passe obligatoire à la première connexion
+        if user.get("must_change_password"):
+            if st.sidebar.button("🚪 Déconnexion"):
+                auth_controller.logout()
+            render_forced_password_change(user)
+            return
 
         role         = user["role"]
         menu_options = ["📊 Mon Dashboard", "💬 Assistant", "❓ Aide"]
@@ -101,9 +134,6 @@ def main():
             render_student_view()
         with tab_login:
             render_login_form()
-
-    # Bouton « Signaler / Avis » accessible à tous (connectés ou non)
-    render_feedback_sidebar()
 
 
 if __name__ == "__main__":

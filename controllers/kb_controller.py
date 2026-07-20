@@ -132,6 +132,22 @@ class KBController:
             {"$set": {"status": "archive", "archived_at": datetime.now()}}
         )
 
+    def move_to_test(self, c_id: str, author_email: str = ""):
+        """
+        Écarte une contribution hors-contexte du flux normal en la basculant
+        au statut "test" (récupérable). Elle disparaît des files d'attente et
+        de validation mais reste consultable via le filtre 'Test'.
+        """
+        self.col.update_one(
+            {"_id": ObjectId(c_id)},
+            {"$set": {
+                "status":         "test",
+                "flagged_test_by": author_email,
+                "flagged_test_at": datetime.now(),
+                "updated_at":      datetime.now(),
+            }}
+        )
+
     def delete(self, c_id: str):
         self.col.delete_one({"_id": ObjectId(c_id)})
 
@@ -218,6 +234,7 @@ class KBController:
             "en_attente": self.col.count_documents({"status": "en_attente"}),
             "valide":     self.col.count_documents({"status": "valide"}),
             "archive":    self.col.count_documents({"status": "archive"}),
+            "test":       self.col.count_documents({"status": "test"}),
         }
 
     def get_categories_in_db(self) -> list[str]:

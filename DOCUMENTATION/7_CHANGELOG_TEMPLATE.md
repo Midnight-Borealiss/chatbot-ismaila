@@ -38,6 +38,36 @@ Brève description du changement
 
 ## Historique des Versions
 
+### Version 7.17 — 2026-07-20
+
+#### 🎯 Objectif
+Corriger l'authentification (mot de passe non effectif), renforcer la catégorisation (filtre à deux niveaux + ajout de sous-catégorie dans l'UI), permettre d'écarter les contributions hors-contexte (statut `test`), et visualiser les feedbacks (dashboard in-app).
+
+#### 📋 Modifications
+- **controllers/auth_controller.py** : `login()` expose `must_change_password` en session ; nouvelle méthode `change_password(user_id, new_password)` écrivant dans `password_hash` (+ audit).
+- **app.py** : écran bloquant `render_forced_password_change()` — changement obligatoire à la première connexion avant tout accès.
+- **views/admin_view.py** : création de compte corrigée (écrit `password_hash`, plus `password`) + `must_change_password=True` + garde anti-doublon email + option d'envoi d'email d'identifiants ; ajout de sous-catégorie avec **choix du pôle parent** ; filtre thématique contraint par le pôle ; sous-onglet **🧪 Hors-contexte (Test)** ; **dashboard feedback** (métriques + graphiques type/statut/tendance) ; types de feedback unifiés avec la saisie.
+- **views/user_dashboard_view.py** : ajout du wrapper `render_user_dashboard_view()` (attendu par `app.py`) ; identifiant de session (`id`) géré ; changement de mot de passe via `auth_controller.change_password` (écrit `password_hash`).
+- **config/categories.py** : `get_subcategories_by_parent(parent)` ; `add_category_safe(new_cat, parent)` (rattachement au pôle choisi).
+- **views/validator_view.py** : filtre **Pôle → Sous-catégorie**, statut `Test`, bouton « Marquer hors-contexte ».
+- **controllers/kb_controller.py** : `move_to_test(c_id, author_email)` (statut `test`, récupérable) ; `get_stats()` compte les `test`.
+- **views/shared_components.py** : `render_comments_and_delete(..., on_mark_test=...)`.
+
+#### 🔧 Détails Techniques
+- Champ d'auth canonique confirmé : **`password_hash`** (bcrypt). L'ancien champ `password` n'est plus écrit.
+- Nouveau statut de contribution : `test` (exclu des files `en_attente`/`valide`/`archive`, restaurable via « Restaurer »).
+- Ajout de sous-catégorie : en **mémoire process** (non persisté au redémarrage) — persistance MongoDB à prévoir.
+
+#### ⚠️ Notes
+- **Breaking (données)** : les comptes créés avant ce correctif avec un hash dans `password` ne peuvent pas se connecter — ré-initialiser via `password_hash` (script seed ou recréation).
+- Le formulaire admin de droits écrit toujours `scope`/`permissions` (pas `domain_permissions`) : le filtre « Mes domaines » s'appuie sur `domain_permissions` — unification à planifier.
+
+#### ✅ Tests
+- ✅ Suite pytest complète : 87 passed.
+- ✅ Compilation de tous les fichiers modifiés.
+
+---
+
 ### Version 7.16 — 2026-06-22
 
 #### 🎯 Objectif

@@ -72,6 +72,7 @@ class AuthController:
                 "role":               user.get("role", "ETUDIANT"),
                 "domain_permissions": user.get("domain_permissions", {}),
                 "expert_topics":      user.get("expert_topics", []),
+                "must_change_password": bool(user.get("must_change_password", False)),
             }
             
             # Log la connexion
@@ -117,6 +118,35 @@ class AuthController:
         
         st.session_state.user = None
         st.rerun()
+
+    def change_password(self, user_id: str, new_password: str) -> bool:
+        """
+        Change le mot de passe d'un utilisateur et lève le drapeau
+        must_change_password. Écrit dans le champ canonique `password_hash`
+        (celui lu par check_login) et synchronise la session courante.
+        """
+        from bson.objectid import ObjectId
+        hashed = self.hash_password(new_password)
+        result = self.users.update_one(
+            {"_id": ObjectId(str(user_id))},
+            {"$set": {
+                "password_hash":        hashed,
+                "must_change_password": False,
+                "password_changed_at":  datetime.now(),
+            }}
+        )
+        # Synchronise la session pour lever immédiatement le blocage
+        if st.session_state.get("user"):
+            st.session_state.user["must_change_password"] = False
+        try:
+            audit_instance.log_action(
+                user_email=(st.session_state.get("user") or {}).get("email", ""),
+                action="PASSWORD_CHANGE",
+                description="Changement de mot de passe",
+            )
+        except Exception:
+            pass  # Non bloquant
+        return bool(result.modified_count)
 
     def is_authenticated(self) -> bool:
         return st.session_state.get("user") is not None
