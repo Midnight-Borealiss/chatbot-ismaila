@@ -401,12 +401,15 @@ def _render_master_detail_user_management(current_user):
                 raw_role = LEGACY_ROLE_MAP.get(str(target_user.get("role", "")).upper(), STUDENT)
                 default_role_index = ROLE_OPTIONS.index(raw_role) if raw_role in ROLE_OPTIONS else 0
 
-                with st.form(key=f"form_permissions_{selected_user_id}"):
+                # NB : on utilise un conteneur (et non st.form) pour que les menus
+                # dépendants (SERVICE/INSTITUT, rôle → matrice) réagissent en direct.
+                with st.container(border=True):
                     st.markdown("##### 🎯 1. Attribution du Rôle Système")
                     new_role = st.selectbox(
                         "Modifier le rôle global :",
                         options=ROLE_OPTIONS,
-                        index=default_role_index
+                        index=default_role_index,
+                        key=f"role_{selected_user_id}",
                     )
 
                     st.markdown("---")
@@ -415,26 +418,29 @@ def _render_master_detail_user_management(current_user):
                         "Type de rattachement :",
                         options=["SERVICE", "INSTITUT"],
                         index=0 if target_user.get("structural_type") == "SERVICE" else 1,
-                        horizontal=True
+                        horizontal=True,
+                        key=f"struct_{selected_user_id}",
                     )
-                    
+
                     current_services = current_scope.get("services", [])
                     current_instituts = current_scope.get("instituts", [])
-                    
+
                     new_service = None
                     new_institut = None
-                    
+
                     if new_structural_type == "SERVICE":
                         new_service = st.selectbox(
                             "Service concerné :",
                             options=liste_services,
-                            index=liste_services.index(current_services[0]) if current_services else 0
+                            index=liste_services.index(current_services[0]) if current_services and current_services[0] in liste_services else 0,
+                            key=f"service_{selected_user_id}",
                         )
                     else:
                         new_institut = st.selectbox(
                             "Institut concerné :",
                             options=liste_instituts,
-                            index=liste_instituts.index(current_instituts[0]) if current_instituts else 0
+                            index=liste_instituts.index(current_instituts[0]) if current_instituts and current_instituts[0] in liste_instituts else 0,
+                            key=f"institut_{selected_user_id}",
                         )
 
                     st.markdown("---")
@@ -476,7 +482,8 @@ def _render_master_detail_user_management(current_user):
                                     domain_selections[sub] = LABEL_TO_LEVEL[choice]
 
                     st.markdown(" ")
-                    save_btn = st.form_submit_button("💾 Sauvegarder et appliquer les accès")
+                    save_btn = st.button("💾 Sauvegarder et appliquer les accès",
+                                         key=f"save_perms_{selected_user_id}", type="primary")
 
                 if save_btn:
                     # Source de vérité du filtrage : domain_permissions (par sous-catégorie).

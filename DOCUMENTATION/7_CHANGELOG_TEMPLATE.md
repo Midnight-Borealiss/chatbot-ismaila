@@ -38,6 +38,23 @@ Brève description du changement
 
 ## Historique des Versions
 
+### Version 7.21 — 2026-07-20
+
+#### 🎯 Objectif
+Corriger la non-réactivité des menus dépendants (bug : le choix SERVICE/INSTITUT ne changeait pas le libellé ni la liste ; la matrice ne suivait pas le rôle).
+
+#### 📋 Modifications
+- **views/admin_view.py** : le formulaire de droits n'est plus un `st.form` (qui bloque les reruns jusqu'à soumission) mais un `st.container` → SERVICE/INSTITUT et Rôle→matrice réagissent en direct. `st.form_submit_button` → `st.button`. Index de selectbox durci (valeur hors-liste → 0).
+- **views/user_dashboard_view.py** : formulaire de profil initial idem — la liste dépend du type (services vs instituts), cohérente avec l'admin, réactive.
+
+#### 🔧 Détails Techniques
+- Cause racine : dans un `st.form`, les widgets ne déclenchent pas de rerun avant la soumission → les blocs conditionnels utilisent la valeur précédente. Le passage à `st.container` restaure la réactivité.
+
+#### ✅ Tests
+- ✅ Suite pytest complète : 87 passed.
+
+---
+
 ### Version 7.20 — 2026-07-20
 
 #### 🎯 Objectif

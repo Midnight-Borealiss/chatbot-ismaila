@@ -40,24 +40,32 @@ def render_user_dashboard(user):
     if not user.get("profile_configured", False):
         st.info("👋 Bienvenue ! Veuillez compléter votre profil.")
         
-        with st.form(key="initial_profile_form"):
+        # Listes cohérentes avec le formulaire admin (SERVICE vs INSTITUT).
+        LISTE_SERVICES  = ["Call Center / Orientation", "Scolarité", "Admission & Recrutement",
+                           "Marketing & Communication", "Soft Skills Academy (Vie estudiantine)"]
+        LISTE_INSTITUTS = ["Institut Ingénieur", "Institut Management", "Institut Droit",
+                           "Madiba Leadership Institute"]
+
+        # Conteneur (et non st.form) pour que la liste dépende du type en direct.
+        with st.container(border=True):
             st.markdown("##### 📝 Informations Générales")
             full_name = st.text_input("Nom complet", value=user.get("full_name", ""))
-            
-            # Alignement avec le formulaire structurel de ton application
+
             new_structural_type = st.radio(
-                "Type de structure", 
+                "Type de structure",
                 ["Un Service Transversal", "Un Institut / Entité Académique"],
+                horizontal=True,
                 key="contrib_structural_type"
             )
-            
-            departement = st.selectbox("Votre département ou entité principale", [
-                "Scolarité", "Admission & Recrutement", "Marketing & Communication", "Direction Académique", "TG Sénégal"
-            ])
-            
+
+            if new_structural_type == "Un Service Transversal":
+                departement = st.selectbox("Votre service", LISTE_SERVICES, key="contrib_departement")
+            else:
+                departement = st.selectbox("Votre institut / entité", LISTE_INSTITUTS, key="contrib_departement")
+
             st.markdown(" ")
-            submit_profile = st.form_submit_button("💾 Enregistrer mon profil")
-            
+            submit_profile = st.button("💾 Enregistrer mon profil", type="primary", key="contrib_submit_profile")
+
             if submit_profile:
                 if not full_name.strip():
                     st.error("❌ Le nom complet est obligatoire.")
