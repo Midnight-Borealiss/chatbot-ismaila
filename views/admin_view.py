@@ -297,11 +297,10 @@ def _render_master_detail_user_management(current_user):
         st.error(f"Erreur lors du chargement de l'annuaire : {e}")
         return
 
-    col_master, col_detail = st.columns([2, 3], gap="medium")
+    # Affichage pleine largeur : les droits se déroulent sous la carte du
+    # testeur sélectionné (plus de colonne détail séparée).
+    col_master = st.container()
 
-    # =========================================================================
-    # COLONNE DE GAUCHE : ANNUAIRE INTERACTIF (TABLEAU DATAFRAME)
-    # =========================================================================
     with col_master:
         st.subheader("👥 Liste des testeurs")
 
@@ -359,11 +358,17 @@ def _render_master_detail_user_management(current_user):
                         st.caption(f"✉️ {u.get('email', '—')}  ·  🏢 {struct_label}")
                     with btn_col:
                         if is_selected:
-                            st.button("✓ Sélectionné", key=f"sel_{uid}",
-                                      disabled=True, use_container_width=True)
+                            if st.button("✕ Fermer", key=f"sel_{uid}", use_container_width=True):
+                                st.session_state.pop("selected_tester_id", None)
+                                st.rerun()
                         elif st.button("Gérer", key=f"sel_{uid}", use_container_width=True):
                             st.session_state["selected_tester_id"] = uid
                             st.rerun()
+
+                    # Droits dépliés directement sous le profil sélectionné.
+                    if is_selected:
+                        with st.expander("🔑 Droits & accès", expanded=True):
+                            _render_user_rights(u, db)
 
         # Formulaire d'ajout rapide
         st.markdown("---")
@@ -410,151 +415,143 @@ def _render_master_detail_user_management(current_user):
         else:
             st.caption("🔒 La création de nouveaux comptes est réservée au Super Administrateur.")
 
-    # =========================================================================
-    # COLONNE DE DROITE : ÉDITION DYNAMIQUE DES PERMISSIONS (DETAIL)
-    # =========================================================================
-    with col_detail:
-        if not selected_user_id:
-            st.subheader("🔑 Matrice de Droits")
-            st.info("Sélectionnez une ligne dans le tableau de gauche pour configurer le périmètre thématique et les accès de l'expert.")
+
+def _render_user_rights(target_user, db):
+    """Éditeur de droits d'un testeur, affiché en ligne (déroulé) sous son profil.
+
+    Conserve la logique historique de la « Matrice de Droits » (rôle, ancrage
+    SERVICE/INSTITUT, périmètre thématique, sauvegarde, suppression), mais rendu
+    inline au lieu d'une colonne détail séparée.
+    """
+    uid = str(target_user["_id"])
+    current_scope = target_user.get("scope", {}) or {}
+
+    liste_services = ["Call Center / Orientation", "Scolarité", "Admission & Recrutement", "Marketing & Communication", "Soft Skills Academy (Vie estudiantine)"]
+    liste_instituts = ["Institut Ingénieur", "Institut Management", "Institut Droit", "Madiba Leadership Institute"]
+
+    raw_role = LEGACY_ROLE_MAP.get(str(target_user.get("role", "")).upper(), STUDENT)
+    default_role_index = ROLE_OPTIONS.index(raw_role) if raw_role in ROLE_OPTIONS else 0
+
+    # Conteneur (et non st.form) pour que les menus dépendants réagissent en direct.
+    with st.container(border=True):
+        st.markdown("##### 🎯 1. Attribution du Rôle Système")
+        new_role = st.selectbox(
+            "Modifier le rôle global :",
+            options=ROLE_OPTIONS,
+            index=default_role_index,
+            key=f"role_{uid}",
+        )
+
+        st.markdown("---")
+        st.markdown("##### 🏢 2. Ancrage Institutionnel de l'expert")
+        new_structural_type = st.radio(
+            "Type de rattachement :",
+            options=["SERVICE", "INSTITUT"],
+            index=0 if target_user.get("structural_type") == "SERVICE" else 1,
+            horizontal=True,
+            key=f"struct_{uid}",
+        )
+
+        current_services = current_scope.get("services", [])
+        current_instituts = current_scope.get("instituts", [])
+
+        new_service = None
+        new_institut = None
+
+        if new_structural_type == "SERVICE":
+            new_service = st.selectbox(
+                "Service concerné :",
+                options=liste_services,
+                index=liste_services.index(current_services[0]) if current_services and current_services[0] in liste_services else 0,
+                key=f"service_{uid}",
+            )
         else:
-            target_user = next((u for u in users_list if str(u["_id"]) == selected_user_id), None)
-            
-            if target_user:
-                st.subheader(f"🛠️ Droits de : {target_user.get('full_name', 'Utilisateur')}")
-                st.caption(f"Email : `{target_user.get('email')}`")
-                
-                current_scope = target_user.get("scope", {})
+            new_institut = st.selectbox(
+                "Institut concerné :",
+                options=liste_instituts,
+                index=liste_instituts.index(current_instituts[0]) if current_instituts and current_instituts[0] in liste_instituts else 0,
+                key=f"institut_{uid}",
+            )
 
-                liste_services = ["Call Center / Orientation", "Scolarité", "Admission & Recrutement", "Marketing & Communication", "Soft Skills Academy (Vie estudiantine)"]
-                liste_instituts = ["Institut Ingénieur", "Institut Management", "Institut Droit", "Madiba Leadership Institute"]
+        st.markdown("---")
+        st.markdown("##### 🎚️ 3. Périmètre thématique (droits par sous-catégorie)")
+        st.caption(
+            "Définissez, pôle par pôle, les sous-catégories que ce membre peut traiter. "
+            "Ces droits pilotent directement le filtre « Mes domaines » côté validateur/contributeur."
+        )
 
-                raw_role = LEGACY_ROLE_MAP.get(str(target_user.get("role", "")).upper(), STUDENT)
-                default_role_index = ROLE_OPTIONS.index(raw_role) if raw_role in ROLE_OPTIONS else 0
+        existing_perms = target_user.get("domain_permissions", {}) or {}
+        if not existing_perms and target_user.get("expert_topics"):
+            existing_perms = {c: "expert" for c in target_user.get("expert_topics", [])}
 
-                # NB : on utilise un conteneur (et non st.form) pour que les menus
-                # dépendants (SERVICE/INSTITUT, rôle → matrice) réagissent en direct.
-                with st.container(border=True):
-                    st.markdown("##### 🎯 1. Attribution du Rôle Système")
-                    new_role = st.selectbox(
-                        "Modifier le rôle global :",
-                        options=ROLE_OPTIONS,
-                        index=default_role_index,
-                        key=f"role_{selected_user_id}",
-                    )
+        LEVEL_TO_LABEL = {"contributor": "Contributeur", "expert": "Expert"}
+        LABEL_TO_LEVEL = {"—": "—", "Contributeur": "contributor", "Expert": "expert"}
+        LEVEL_CHOICES = ["—", "Contributeur", "Expert"]
 
-                    st.markdown("---")
-                    st.markdown("##### 🏢 2. Ancrage Institutionnel de l'expert")
-                    new_structural_type = st.radio(
-                        "Type de rattachement :",
-                        options=["SERVICE", "INSTITUT"],
-                        index=0 if target_user.get("structural_type") == "SERVICE" else 1,
-                        horizontal=True,
-                        key=f"struct_{selected_user_id}",
-                    )
+        domain_selections = {}
+        is_full_access_role = new_role in (ADMIN, SUPER_ADMIN)
 
-                    current_services = current_scope.get("services", [])
-                    current_instituts = current_scope.get("instituts", [])
-
-                    new_service = None
-                    new_institut = None
-
-                    if new_structural_type == "SERVICE":
-                        new_service = st.selectbox(
-                            "Service concerné :",
-                            options=liste_services,
-                            index=liste_services.index(current_services[0]) if current_services and current_services[0] in liste_services else 0,
-                            key=f"service_{selected_user_id}",
+        if is_full_access_role:
+            st.info("🔓 Les rôles **ADMINISTRATION** et **SUPER_ADMIN** accèdent automatiquement à **toutes** les catégories (aucune assignation nécessaire).")
+        else:
+            for pole in get_top_categories():
+                subs = get_subcategories_by_parent(pole)
+                if not subs:
+                    continue
+                assigned = sum(1 for s in subs if existing_perms.get(s) in LEVEL_TO_LABEL)
+                with st.expander(f"📂 {pole} — {assigned}/{len(subs)} assignée(s)", expanded=bool(assigned)):
+                    for sub in subs:
+                        cur_label = LEVEL_TO_LABEL.get(existing_perms.get(sub), "—")
+                        choice = st.selectbox(
+                            sub,
+                            options=LEVEL_CHOICES,
+                            index=LEVEL_CHOICES.index(cur_label),
+                            key=f"dp_{uid}_{sub}",
                         )
-                    else:
-                        new_institut = st.selectbox(
-                            "Institut concerné :",
-                            options=liste_instituts,
-                            index=liste_instituts.index(current_instituts[0]) if current_instituts and current_instituts[0] in liste_instituts else 0,
-                            key=f"institut_{selected_user_id}",
-                        )
+                        domain_selections[sub] = LABEL_TO_LEVEL[choice]
 
-                    st.markdown("---")
-                    st.markdown("##### 🎚️ 3. Périmètre thématique (droits par sous-catégorie)")
-                    st.caption(
-                        "Définissez, pôle par pôle, les sous-catégories que ce membre peut traiter. "
-                        "Ces droits pilotent directement le filtre « Mes domaines » côté validateur/contributeur."
-                    )
+        st.markdown(" ")
+        save_btn = st.button("💾 Sauvegarder et appliquer les accès",
+                             key=f"save_perms_{uid}", type="primary")
 
-                    # Droits existants : domain_permissions, avec repli sur expert_topics (ancien modèle)
-                    existing_perms = target_user.get("domain_permissions", {}) or {}
-                    if not existing_perms and target_user.get("expert_topics"):
-                        existing_perms = {c: "expert" for c in target_user.get("expert_topics", [])}
+    if save_btn:
+        # Source de vérité du filtrage : domain_permissions (par sous-catégorie).
+        # Pour un rôle à accès total, on n'écrit pas de restriction thématique.
+        if new_role in (ADMIN, SUPER_ADMIN):
+            new_domain_permissions = {}
+        else:
+            new_domain_permissions = build_domain_permissions_from_form(domain_selections)
 
-                    LEVEL_TO_LABEL = {"contributor": "Contributeur", "expert": "Expert"}
-                    LABEL_TO_LEVEL = {"—": "—", "Contributeur": "contributor", "Expert": "expert"}
-                    LEVEL_CHOICES  = ["—", "Contributeur", "Expert"]
+        updated_payload = {
+            "role": new_role,
+            "structural_type": new_structural_type,
+            "scope": {
+                "services": [new_service] if new_structural_type == "SERVICE" else [],
+                "instituts": [new_institut] if new_structural_type == "INSTITUT" else []
+            },
+            "domain_permissions": new_domain_permissions,
+            "profile_configured": True
+        }
+        try:
+            db.users.update_one({"_id": ObjectId(uid)}, {"$set": updated_payload})
+            st.toast("✅ Droits thématiques synchronisés sur Atlas !")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Erreur de mise à jour : {e}")
 
-                    domain_selections = {}
-                    is_full_access_role = new_role in (ADMIN, SUPER_ADMIN)
+    st.markdown(" ")
+    with st.expander("⚠️ Zone de Danger (Action destructive)"):
+        st.warning(f"Vous êtes sur le point de supprimer le compte de {target_user.get('full_name')}.")
+        confirm_delete = st.checkbox("Je confirme la destruction définitive de ce compte dans MongoDB Atlas.", key=f"del_conf_{uid}")
+        if st.button("🗑️ Supprimer définitivement l'utilisateur", type="primary", disabled=not confirm_delete, key=f"del_btn_{uid}"):
+            try:
+                db.users.delete_one({"_id": ObjectId(uid)})
+                st.session_state.pop("selected_tester_id", None)
+                st.toast("💥 Utilisateur supprimé de l'annuaire.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erreur lors de la suppression : {e}")
 
-                    if is_full_access_role:
-                        st.info("🔓 Les rôles **ADMINISTRATION** et **SUPER_ADMIN** accèdent automatiquement à **toutes** les catégories (aucune assignation nécessaire).")
-                    else:
-                        for pole in get_top_categories():
-                            subs = get_subcategories_by_parent(pole)
-                            if not subs:
-                                continue
-                            assigned = sum(1 for s in subs if existing_perms.get(s) in LEVEL_TO_LABEL)
-                            with st.expander(f"📂 {pole} — {assigned}/{len(subs)} assignée(s)", expanded=bool(assigned)):
-                                for sub in subs:
-                                    cur_label = LEVEL_TO_LABEL.get(existing_perms.get(sub), "—")
-                                    choice = st.selectbox(
-                                        sub,
-                                        options=LEVEL_CHOICES,
-                                        index=LEVEL_CHOICES.index(cur_label),
-                                        key=f"dp_{selected_user_id}_{sub}",
-                                    )
-                                    domain_selections[sub] = LABEL_TO_LEVEL[choice]
-
-                    st.markdown(" ")
-                    save_btn = st.button("💾 Sauvegarder et appliquer les accès",
-                                         key=f"save_perms_{selected_user_id}", type="primary")
-
-                if save_btn:
-                    # Source de vérité du filtrage : domain_permissions (par sous-catégorie).
-                    # Pour un rôle à accès total, on n'écrit pas de restriction thématique.
-                    if new_role in (ADMIN, SUPER_ADMIN):
-                        new_domain_permissions = {}
-                    else:
-                        new_domain_permissions = build_domain_permissions_from_form(domain_selections)
-
-                    updated_payload = {
-                        "role": new_role,
-                        "structural_type": new_structural_type,
-                        "scope": {
-                            "services": [new_service] if new_structural_type == "SERVICE" else [],
-                            "instituts": [new_institut] if new_structural_type == "INSTITUT" else []
-                        },
-                        "domain_permissions": new_domain_permissions,
-                        "profile_configured": True
-                    }
-
-                    try:
-                        db.users.update_one({"_id": ObjectId(selected_user_id)}, {"$set": updated_payload})
-                        st.toast("✅ Droits thématiques synchronisés sur Atlas !")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erreur de mise à jour : {e}")
-
-                st.markdown(" ")
-                with st.expander("⚠️ Zone de Danger (Action destructive)"):
-                    st.warning(f"Vous êtes sur le point de supprimer le compte de {target_user.get('full_name')}.")
-                    confirm_delete = st.checkbox("Je confirme la destruction définitive de ce compte dans MongoDB Atlas.", key=f"del_conf_{selected_user_id}")
-                    
-                    if st.button("🗑️ Supprimer définitivement l'utilisateur", type="primary", disabled=not confirm_delete, key=f"del_btn_{selected_user_id}"):
-                        try:
-                            db.users.delete_one({"_id": ObjectId(selected_user_id)})
-                            st.session_state.pop("selected_tester_id", None)
-                            st.toast("💥 Utilisateur supprimé de l'annuaire.")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erreur lors de la suppression : {e}")
 
 
 def _render_users_list_and_creation(user):
