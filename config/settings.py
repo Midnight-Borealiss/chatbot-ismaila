@@ -51,7 +51,9 @@ DB_NAME   = os.getenv("DB_NAME", "ismaila_db")
 
 # --- PLATEFORME ---
 # Lien inclus dans les emails/notifications (invitations à se connecter).
-PLATFORM_URL = os.getenv("PLATFORM_URL", "https://ismaila.streamlit.app")
+# Lu depuis .env (local) OU st.secrets (Cloud) ; à définir avec l'URL réelle
+# de l'app déployée (sinon lien mort).
+PLATFORM_URL = _secret("PLATFORM_URL", section="platform", key="url") or "https://ismaila.streamlit.app"
 
 # --- CONFIGURATION MAIL (RG-03) ---
 # Lu depuis .env (local) OU st.secrets (Streamlit Cloud), à plat ou section [smtp].
