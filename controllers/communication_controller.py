@@ -21,7 +21,7 @@ from datetime import datetime
 from bson import ObjectId
 
 from services.db_connector import db_instance
-from services.mailer import send_campaign_email
+from services.mailer import send_campaign_email_ex
 from services.notification_service import notification_instance
 from config.settings import PLATFORM_URL
 from config.categories import get_parent_category
@@ -177,10 +177,10 @@ class CommunicationController:
         records = []
         for u in recipients:
             personalized = self.personalize(body, u)
-            email_status, notif_id = None, None
+            email_status, email_error, notif_id = None, "", None
 
             if "email" in channels:
-                ok = send_campaign_email(u["email"], subject, personalized)
+                ok, email_error = send_campaign_email_ex(u["email"], subject, personalized)
                 email_status = "sent" if ok else "failed"
 
             if "inapp" in channels:
@@ -196,6 +196,7 @@ class CommunicationController:
                 "email":        u["email"],
                 "full_name":    u["full_name"],
                 "email_status": email_status,
+                "email_error":  email_error,
                 "notif_id":     notif_id,
             })
         return records
@@ -329,6 +330,7 @@ class CommunicationController:
                 "email":        r["email"],
                 "full_name":    r.get("full_name", r["email"]),
                 "email_status": r.get("email_status") or "—",
+                "email_error":  r.get("email_error") or "",
                 "lu":           "✅" if read_at else ("—" if r.get("notif_id") else "n/a"),
             })
         return out

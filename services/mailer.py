@@ -11,7 +11,7 @@ Fonctions disponibles :
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Optional
+from typing import Optional, Tuple
 
 from config.settings import SMTP_SERVER, SMTP_PORT, SMTP_USER, SMTP_PASS, PLATFORM_URL
 
@@ -26,7 +26,16 @@ def send_campaign_email(recipient_email: str, subject: str, body_text: str) -> b
     `body_text` est déjà personnalisé (variables remplacées). On l'habille d'un
     gabarit HTML ISM avec un bouton vers la plateforme.
     """
-    # Corps texte → HTML : on préserve les sauts de ligne.
+    ok, _ = send_campaign_email_ex(recipient_email, subject, body_text)
+    return ok
+
+
+def send_campaign_email_ex(recipient_email: str, subject: str, body_text: str) -> Tuple[bool, str]:
+    """Comme send_campaign_email(), mais retourne (succès, message d'erreur).
+
+    Le message d'erreur ("" si succès) permet à l'appelant de journaliser et
+    d'afficher la cause précise d'un échec d'envoi.
+    """
     safe_html = (
         body_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         .replace("\n", "<br>")
@@ -46,13 +55,13 @@ def send_campaign_email(recipient_email: str, subject: str, body_text: str) -> b
           © 2026 ISM — Direction de l'Innovation Numérique</p>
       </div>
     </div>"""
-    return _send(recipient_email, subject, body_text, html)
+    return _deliver(recipient_email, subject, body_text, html)
 
 
-def _send(to: str, subject: str, body_text: str, body_html: Optional[str] = None) -> bool:
+def _deliver(to: str, subject: str, body_text: str, body_html: Optional[str] = None) -> Tuple[bool, str]:
+    """Envoi SMTP réel. Retourne (succès, message d'erreur clair)."""
     if not SMTP_USER or not SMTP_PASS:
-        print("⚠️  Mailer non configuré (SMTP_USER / SMTP_PASS manquants).")
-        return False
+        return False, "Mailer non configuré : SMTP_USER / SMTP_PASS manquants (.env ou secrets)."
 
     # Anti-injection d'en-têtes : un objet ne doit jamais contenir de CR/LF.
     subject = (subject or "").replace("\r", " ").replace("\n", " ")
@@ -66,14 +75,27 @@ def _send(to: str, subject: str, body_text: str, body_html: Optional[str] = None
         msg.attach(MIMEText(body_html, "html", "utf-8"))
 
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=20) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASS)
             server.send_message(msg)
-        return True
+        return True, ""
+    except smtplib.SMTPRecipientsRefused:
+        return False, f"Adresse refusée par le serveur : {to}"
+    except smtplib.SMTPAuthenticationError as e:
+        return False, f"Authentification SMTP refusée (mot de passe d'application ?) : {e}"
+    except smtplib.SMTPException as e:
+        return False, f"Erreur SMTP : {e}"
     except Exception as e:
-        print(f"❌ Erreur Mail vers {to} : {e}")
-        return False
+        return False, f"{type(e).__name__} : {e}"
+
+
+def _send(to: str, subject: str, body_text: str, body_html: Optional[str] = None) -> bool:
+    """Compatibilité ascendante : renvoie un booléen. Journalise l'erreur éventuelle."""
+    ok, err = _deliver(to, subject, body_text, body_html)
+    if not ok:
+        print(f"❌ Erreur Mail vers {to} : {err}")
+    return ok
 
 
 # ══════════════════════════════════════════════════════════════════════

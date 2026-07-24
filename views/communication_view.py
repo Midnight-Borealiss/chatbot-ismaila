@@ -209,8 +209,15 @@ def _render_history():
             if detail:
                 df = pd.DataFrame(detail).rename(columns={
                     "email": "Email", "full_name": "Nom",
-                    "email_status": "Statut email", "lu": "Lu (in-app)"})
+                    "email_status": "Statut email", "email_error": "Cause de l'échec",
+                    "lu": "Lu (in-app)"})
                 st.dataframe(df, use_container_width=True, hide_index=True)
+
+                # Résumé des causes d'échec pour un diagnostic rapide.
+                erreurs = sorted({d["email_error"] for d in detail if d.get("email_error")})
+                if erreurs:
+                    st.error("**Échec(s) d'envoi email — cause(s) :**\n\n"
+                             + "\n".join(f"- {e}" for e in erreurs))
 
             if reads["inapp_total"] and reads["inapp_read"] < reads["inapp_total"]:
                 if st.button("🔁 Relancer les non-lus", key=f"resend_{cid}"):
