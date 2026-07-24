@@ -3,6 +3,31 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def _secret(name: str, section: str = None, key: str = None, default=None):
+    """Lit un paramètre depuis, dans l'ordre : variable d'environnement / .env,
+    puis st.secrets (clé à plat, puis section [section].key).
+
+    Permet à l'app de fonctionner aussi bien en local (.env) que sur Streamlit
+    Cloud (secrets), sans dépendre d'une seule source. Lecture défensive :
+    st.secrets lève une exception s'il n'existe aucun secrets.toml.
+    """
+    val = os.getenv(name)
+    if val:
+        return val
+    try:
+        import streamlit as st
+        if name in st.secrets:
+            return st.secrets[name]
+        if section and section in st.secrets:
+            sub = st.secrets[section]
+            k = key or name.lower()
+            if k in sub:
+                return sub[k]
+    except Exception:
+        pass
+    return default
+
 # --- CONFIGURATION IA ---
 # Modèle d'embedding multilingue (le contenu est en français).
 # DOIT être identique entre l'indexation (scripts/init_embeddings.py) et la
@@ -29,10 +54,11 @@ DB_NAME   = os.getenv("DB_NAME", "ismaila_db")
 PLATFORM_URL = os.getenv("PLATFORM_URL", "https://ismaila.streamlit.app")
 
 # --- CONFIGURATION MAIL (RG-03) ---
-SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-SMTP_PORT   = int(os.getenv("SMTP_PORT", 587))
-SMTP_USER   = os.getenv("SMTP_USER")
-SMTP_PASS   = os.getenv("SMTP_PASS")
+# Lu depuis .env (local) OU st.secrets (Streamlit Cloud), à plat ou section [smtp].
+SMTP_SERVER = _secret("SMTP_SERVER", section="smtp", key="server") or "smtp.gmail.com"
+SMTP_PORT   = int(_secret("SMTP_PORT", section="smtp", key="port") or 587)
+SMTP_USER   = _secret("SMTP_USER", section="smtp", key="user")
+SMTP_PASS   = _secret("SMTP_PASS", section="smtp", key="pass")
 
 # --- CONFIGURATION SALESFORCE (RG-06) ---
 SF_WEBHOOK_URL = os.getenv("SF_WEBHOOK_URL")   # URL Make/Zapier → Salesforce
