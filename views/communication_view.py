@@ -135,9 +135,20 @@ def _render_compose():
 
     # ── Actions ──────────────────────────────────────────────────────────────
     st.divider()
+    # Garde-fou anti-envoi de masse accidentel : au-delà d'un seuil, exiger une
+    # confirmation explicite (sauf en mode Test, qui ne part qu'à soi-même).
+    MASS_THRESHOLD = 25
+    confirmed = True
+    if send_label != "Test (à moi-même)" and n > MASS_THRESHOLD:
+        confirmed = st.checkbox(
+            f"⚠️ Je confirme l'envoi à **{n} destinataires**.",
+            key="comm_confirm_mass",
+        )
+
     a1, a2 = st.columns([2, 1])
     with a1:
-        if st.button("🚀 Lancer la campagne", type="primary", use_container_width=True):
+        if st.button("🚀 Lancer la campagne", type="primary", use_container_width=True,
+                     disabled=not confirmed):
             send_type = {"Immédiat": "immediate", "Test (à moi-même)": "test",
                          "Programmé": "scheduled"}[send_label]
             result = cc.send_campaign(

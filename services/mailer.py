@@ -54,6 +54,9 @@ def _send(to: str, subject: str, body_text: str, body_html: Optional[str] = None
         print("⚠️  Mailer non configuré (SMTP_USER / SMTP_PASS manquants).")
         return False
 
+    # Anti-injection d'en-têtes : un objet ne doit jamais contenir de CR/LF.
+    subject = (subject or "").replace("\r", " ").replace("\n", " ")
+
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"]    = f"ISMaiLa <{SMTP_USER}>"

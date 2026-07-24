@@ -67,6 +67,26 @@ class CommunicationController:
         self.kb        = db_instance.get_collection("contributions")
         self.campaigns = db_instance.get_collection("campaigns")
         self.templates = db_instance.get_collection("message_templates")
+        self.logs      = db_instance.get_collection("logs_admin")
+
+    # ── Sécurité : audit & assainissement ──────────────────────────────────────
+    def _log_admin(self, admin_email: str, action: str, details: dict) -> None:
+        """Trace une action de communication dans le journal admin (non-répudiation)."""
+        try:
+            self.logs.insert_one({
+                "admin": admin_email or "system",
+                "action": action,
+                "details": details,
+                "timestamp": datetime.now(),
+            })
+        except Exception as e:
+            print(f"⚠️  Log admin communication non enregistré : {e}")
+
+    @staticmethod
+    def _sanitize_subject(subject: str) -> str:
+        """Neutralise les CR/LF (anti-injection d'en-têtes SMTP) et borne la longueur."""
+        clean = (subject or "").replace("\r", " ").replace("\n", " ").strip()
+        return clean[:200]
 
     # ── Ciblage ──────────────────────────────────────────────────────────────
     def resolve_recipients(self, target: dict) -> list:
@@ -186,7 +206,7 @@ class CommunicationController:
         send_type : "immediate" | "test" | "scheduled".
         Retourne {"status", "message", "campaign_id", "stats"}.
         """
-        subject = (subject or "").strip() or "Message ISMaiLa"
+        subject = self._sanitize_subject(subject) or "Message ISMaiLa"
         if not body or not body.strip():
             return {"status": "error", "message": "Le message est vide."}
         if not channels:
@@ -212,6 +232,11 @@ class CommunicationController:
                 return {"status": "error", "message": "Date d'envoi manquante."}
             base_doc.update({"status": "scheduled", "recipients": [], "stats": {}})
             res = self.campaigns.insert_one(base_doc)
+            self._log_admin(sender_email, "campaign_scheduled", {
+                "campaign_id": str(res.inserted_id), "subject": subject,
+                "target": target, "channels": channels,
+                "scheduled_at": scheduled_at.isoformat(),
+            })
             return {
                 "status": "scheduled",
                 "message": f"🗓️ Campagne programmée pour le {scheduled_at:%d/%m/%Y %H:%M}.",
@@ -240,6 +265,10 @@ class CommunicationController:
             "stats":      stats,
         })
         res = self.campaigns.insert_one(base_doc)
+        self._log_admin(sender_email, "campaign_test" if send_type == "test" else "campaign_sent", {
+            "campaign_id": str(res.inserted_id), "subject": subject,
+            "target": target, "channels": channels, "stats": stats,
+        })
 
         label = "Test envoyé à vous-même" if send_type == "test" else f"{stats['total']} destinataire(s)"
         return {
@@ -329,9 +358,9 @@ class CommunicationController:
         if not unread:
             return {"status": "empty", "message": "Aucun destinataire non-lu à relancer."}
 
-        subject = "Rappel : " + campaign.get("subject", "Message ISMaiLa")
+        subject = self._sanitize_subject("Rappel : " + campaign.get("subject", "Message ISMaiLa"))
         records = self._dispatch(subject, campaign.get("body", ""), unread, campaign.get("channels", ["email", "inapp"]))
-        self.campaigns.insert_one({
+        res = self.campaigns.insert_one({
             "created_by": sender.get("email", "admin"),
             "created_at": datetime.now(),
             "subject":    subject,
@@ -342,6 +371,10 @@ class CommunicationController:
             "status":     "sent",
             "recipients": records,
             "stats":      self._compute_stats(records, campaign.get("channels", [])),
+        })
+        self._log_admin(sender.get("email", "admin"), "campaign_resend", {
+            "campaign_id": str(res.inserted_id), "resend_of": campaign_id,
+            "subject": subject, "recipients": len(unread),
         })
         return {"status": "sent", "message": f"🔁 Relance envoyée à {len(unread)} non-lu(s)."}
 
@@ -375,23 +408,39 @@ class CommunicationController:
 
     # ── Envoi programmé (appelé par le cron) ────────────────────────────────────
     def process_scheduled(self, now: datetime = None) -> dict:
-        """Envoie les campagnes programmées dont l'échéance est atteinte."""
+        """Envoie les campagnes programmées dont l'échéance est atteinte.
+
+        Chaque campagne est *réclamée* de façon atomique (scheduled → sending)
+        avant dispatch : deux exécutions concurrentes du cron (ou un relancement
+        après plantage) ne peuvent pas envoyer la même campagne deux fois.
+        """
         now = now or datetime.now()
-        try:
-            due = list(self.campaigns.find({"status": "scheduled", "scheduled_at": {"$lte": now}}))
-        except Exception:
-            due = []
         processed = 0
-        for camp in due:
+        while True:
+            try:
+                camp = self.campaigns.find_one_and_update(
+                    {"status": "scheduled", "scheduled_at": {"$lte": now}},
+                    {"$set": {"status": "sending", "claimed_at": now}},
+                )
+            except Exception as e:
+                print(f"⚠️  process_scheduled : {e}")
+                break
+            if not camp:
+                break  # plus aucune campagne à échéance et non réclamée
+
             recipients = self.resolve_recipients(camp.get("target", {}))
             records = self._dispatch(camp.get("subject", ""), camp.get("body", ""),
                                      recipients, camp.get("channels", ["email", "inapp"]))
+            stats = self._compute_stats(records, camp.get("channels", []))
             self.campaigns.update_one(
                 {"_id": camp["_id"]},
                 {"$set": {"status": "sent", "recipients": records,
-                          "stats": self._compute_stats(records, camp.get("channels", [])),
-                          "sent_at": now}},
+                          "stats": stats, "sent_at": now}},
             )
+            self._log_admin(camp.get("created_by", "system"), "campaign_sent_scheduled", {
+                "campaign_id": str(camp["_id"]), "subject": camp.get("subject", ""),
+                "target": camp.get("target", {}), "stats": stats,
+            })
             processed += 1
         return {"processed": processed}
 
