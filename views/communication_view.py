@@ -100,6 +100,28 @@ def _render_compose():
 
     st.divider()
 
+    # ── Diagnostic SMTP (repliable) ───────────────────────────────────────────
+    with st.expander("🔧 Diagnostic email (SMTP) — que voit l'app ?", expanded=False):
+        diag = cc.smtp_diagnostic()
+        c1, c2 = st.columns(2)
+        c1.metric("SMTP_USER résolu", "✅" if diag["resolu_user_present"] else "❌ absent")
+        c2.metric("SMTP_PASS résolu", "✅" if diag["resolu_pass_present"] else "❌ absent")
+        st.caption(
+            f"Serveur : `{diag['server']}:{diag['port']}` | "
+            f"env → USER={diag['env_SMTP_USER']}, PASS={diag['env_SMTP_PASS']} | "
+            f"st.secrets accessible={diag['st_secrets_accessible']}, "
+            f"USER={diag['st_secrets_SMTP_USER']}, PASS={diag['st_secrets_SMTP_PASS']}"
+        )
+        st.caption("Clés top-level vues dans `st.secrets` (noms uniquement, aucune valeur) :")
+        st.code("\n".join(diag["st_secrets_cles_top_level"]) or "(aucune)")
+        if not (diag["resolu_user_present"] and diag["resolu_pass_present"]):
+            st.warning(
+                "Si `SMTP_USER`/`SMTP_PASS` n'apparaissent pas ci-dessus mais que "
+                "`MONGO_URI` y est, c'est que ces deux clés ne sont pas enregistrées "
+                "**au même niveau (top-level) et au format TOML** que `MONGO_URI` "
+                "dans les secrets Streamlit Cloud."
+            )
+
     # ── 3. CANAUX ────────────────────────────────────────────────────────────
     st.markdown("##### 📡 3. Canaux")
     cch1, cch2 = st.columns(2)

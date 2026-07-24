@@ -83,6 +83,43 @@ class CommunicationController:
             print(f"⚠️  Log admin communication non enregistré : {e}")
 
     @staticmethod
+    def smtp_diagnostic() -> dict:
+        """Diagnostic non sensible de la config SMTP réellement vue par l'app.
+
+        Ne renvoie JAMAIS les valeurs (mots de passe) : seulement leur présence,
+        leur source, et la liste des clés top-level trouvées dans st.secrets.
+        Permet de comprendre un « Mailer non configuré » en production.
+        """
+        import os
+        from config.settings import SMTP_SERVER, SMTP_PORT, SMTP_USER, SMTP_PASS
+
+        env_user = bool(os.getenv("SMTP_USER"))
+        env_pass = bool(os.getenv("SMTP_PASS"))
+
+        secrets_ok, secret_keys, sec_user, sec_pass = False, [], False, False
+        try:
+            import streamlit as st
+            secret_keys = sorted(list(st.secrets.keys()))
+            sec_user = "SMTP_USER" in st.secrets
+            sec_pass = "SMTP_PASS" in st.secrets
+            secrets_ok = True
+        except Exception as e:
+            secret_keys = [f"(st.secrets inaccessible : {e})"]
+
+        return {
+            "resolu_user_present": bool(SMTP_USER),
+            "resolu_pass_present": bool(SMTP_PASS),
+            "server": SMTP_SERVER,
+            "port": SMTP_PORT,
+            "env_SMTP_USER": env_user,
+            "env_SMTP_PASS": env_pass,
+            "st_secrets_accessible": secrets_ok,
+            "st_secrets_SMTP_USER": sec_user,
+            "st_secrets_SMTP_PASS": sec_pass,
+            "st_secrets_cles_top_level": secret_keys,
+        }
+
+    @staticmethod
     def _sanitize_subject(subject: str) -> str:
         """Neutralise les CR/LF (anti-injection d'en-têtes SMTP) et borne la longueur."""
         clean = (subject or "").replace("\r", " ").replace("\n", " ").strip()
