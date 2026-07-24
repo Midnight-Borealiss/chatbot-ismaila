@@ -72,7 +72,8 @@ def _render_compose():
     st.markdown("##### 📝 2. Message")
     subject = st.text_input("Objet", value=st.session_state.get("comm_subject_val", "Pilote ISMaiLa — information"),
                             key="comm_subject")
-    st.caption("Variables disponibles : `{prenom}`, `{nom}`, `{lien}` (remplacées à l'envoi).")
+    st.caption("Variables disponibles : `{prenom}`, `{nom}`, `{email}`, `{lien}`, "
+               "`{motdepasse}` (remplacées à l'envoi).")
 
     defaults = default_blocks()
     parts = []
@@ -90,6 +91,22 @@ def _render_compose():
         parts.append(st.text_area("Bloc — invitation à contribuer",
                                   value=defaults["invitation_contribution"],
                                   key="comm_txt_contrib", height=120))
+
+    # ── Bloc « infos de connexion » (mot de passe temporaire commun) ──────────
+    temp_password = None
+    if st.toggle("🔑 Infos de connexion (identifiant + mot de passe temporaire)", key="comm_b_login"):
+        st.warning(
+            "⚠️ Ce bloc **réinitialise le mot de passe** des destinataires au mot de passe "
+            "temporaire ci-dessous et **force son changement** à la première connexion "
+            "(votre propre compte est exclu). Action tracée. Compatible **envoi immédiat** uniquement."
+        )
+        temp_password = st.text_input(
+            "Mot de passe temporaire commun", value="ISMaiLa2026!",
+            key="comm_temp_pwd",
+            help="Communiqué tel quel dans l'email. Les comptes ciblés devront le changer.",
+        ).strip()
+        parts.append(st.text_area("Bloc — infos de connexion", value=defaults["connexion"],
+                                  key="comm_txt_login", height=140))
 
     if st.toggle("✍️ Message libre", key="comm_b_libre"):
         parts.append(st.text_area("Bloc — message libre",
@@ -151,7 +168,8 @@ def _render_compose():
     with st.expander("👁️ Aperçu (personnalisé avec votre profil)", expanded=False):
         if body.strip():
             st.markdown(f"**Objet :** {subject}")
-            st.text(cc.personalize(body, user))
+            apercu = cc.personalize(body, user).replace("{motdepasse}", temp_password or "{motdepasse}")
+            st.text(apercu)
         else:
             st.info("Activez au moins un bloc et saisissez du contenu.")
 
@@ -167,15 +185,25 @@ def _render_compose():
             key="comm_confirm_mass",
         )
 
+    # Confirmation dédiée : la réinitialisation de mot de passe modifie des identifiants.
+    pwd_confirmed = True
+    if temp_password and send_label == "Immédiat":
+        pwd_confirmed = st.checkbox(
+            f"🔑 Je confirme la **réinitialisation du mot de passe** des destinataires "
+            f"ciblés (hors mon compte) au mot de passe temporaire saisi.",
+            key="comm_confirm_pwd",
+        )
+
     a1, a2 = st.columns([2, 1])
     with a1:
         if st.button("🚀 Lancer la campagne", type="primary", use_container_width=True,
-                     disabled=not confirmed):
+                     disabled=not (confirmed and pwd_confirmed)):
             send_type = {"Immédiat": "immediate", "Test (à moi-même)": "test",
                          "Programmé": "scheduled"}[send_label]
             result = cc.send_campaign(
                 sender=user, subject=subject, body=body, target=target,
                 channels=channels, send_type=send_type, scheduled_at=scheduled_at,
+                temp_password=(temp_password or None),
             )
             if result["status"] in ("sent", "scheduled"):
                 st.success(result["message"])

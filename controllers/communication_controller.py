@@ -57,6 +57,14 @@ def default_blocks() -> dict:
             "des réponses dans vos domaines, et enrichir la base commune.\n\n"
             "Merci pour votre engagement."
         ),
+        "connexion": (
+            "Voici vos accès à la plateforme ISMaiLa :\n"
+            "  • Identifiant : {email}\n"
+            "  • Mot de passe temporaire : {motdepasse}\n"
+            "  • Lien de connexion : {lien}\n\n"
+            "Pour votre sécurité, il vous sera demandé de changer ce mot de passe "
+            "dès votre première connexion."
+        ),
         "libre": "",
     }
 
@@ -208,16 +216,52 @@ class CommunicationController:
                             .replace("{email}", user.get("email", "")) \
                             .replace("{lien}", PLATFORM_URL)
 
+    # ── Réinitialisation de mot de passe (mode « mot de passe temporaire commun ») ──
+    def _reset_passwords(self, recipients: list, temp_password: str, exclude_email: str = "") -> int:
+        """(Ré)initialise le mot de passe des destinataires à `temp_password` et force
+        le changement à la première connexion. Exclut `exclude_email` (l'expéditeur,
+        pour éviter de se verrouiller soi-même). Retourne le nombre de comptes modifiés.
+
+        Le mot de passe n'est stocké QUE sous forme de hachage bcrypt ; jamais en clair.
+        """
+        if not temp_password:
+            return 0
+        from controllers.auth_controller import AuthController
+        hashed = AuthController.hash_password(temp_password)
+        exclude = (exclude_email or "").strip().lower()
+        count = 0
+        for u in recipients:
+            email = (u.get("email") or "").strip().lower()
+            if not email or email == exclude:
+                continue
+            try:
+                res = self.users.update_one(
+                    {"email": email},
+                    {"$set": {"password_hash": hashed, "must_change_password": True}},
+                )
+                count += res.modified_count
+            except Exception as e:
+                print(f"⚠️  Réinitialisation mot de passe échouée pour {email} : {e}")
+        return count
+
     # ── Envoi ───────────────────────────────────────────────────────────────────
-    def _dispatch(self, subject: str, body: str, recipients: list, channels: list) -> list:
-        """Envoie à chaque destinataire ; retourne les enregistrements par destinataire."""
+    def _dispatch(self, subject: str, body: str, recipients: list, channels: list,
+                  temp_password: str = None) -> list:
+        """Envoie à chaque destinataire ; retourne les enregistrements par destinataire.
+
+        `{motdepasse}` est remplacé par `temp_password` dans l'email, mais **rédigé**
+        dans la notification in-app (persistée en base) pour ne pas y stocker le mot
+        de passe en clair.
+        """
         records = []
         for u in recipients:
             personalized = self.personalize(body, u)
+            email_body = personalized.replace("{motdepasse}", temp_password or "")
+            notif_body = personalized.replace("{motdepasse}", "(voir votre email)")
             email_status, email_error, notif_id = None, "", None
 
             if "email" in channels:
-                ok, email_error = send_campaign_email_ex(u["email"], subject, personalized)
+                ok, email_error = send_campaign_email_ex(u["email"], subject, email_body)
                 email_status = "sent" if ok else "failed"
 
             if "inapp" in channels:
@@ -225,7 +269,7 @@ class CommunicationController:
                     recipient_email=u["email"],
                     notif_type="info",
                     title=subject,
-                    message=personalized,
+                    message=notif_body,
                     action_url="/",
                 )
 
@@ -239,9 +283,12 @@ class CommunicationController:
         return records
 
     def send_campaign(self, *, sender: dict, subject: str, body: str, target: dict,
-                      channels: list, send_type: str, scheduled_at: datetime = None) -> dict:
+                      channels: list, send_type: str, scheduled_at: datetime = None,
+                      temp_password: str = None) -> dict:
         """
         send_type : "immediate" | "test" | "scheduled".
+        temp_password : si fourni (mode « infos de connexion »), (ré)initialise le
+        mot de passe des destinataires en mode immédiat et remplace {motdepasse}.
         Retourne {"status", "message", "campaign_id", "stats"}.
         """
         subject = self._sanitize_subject(subject) or "Message ISMaiLa"
@@ -249,6 +296,14 @@ class CommunicationController:
             return {"status": "error", "message": "Le message est vide."}
         if not channels:
             return {"status": "error", "message": "Choisissez au moins un canal (email / in-app)."}
+
+        # Le mot de passe temporaire n'est jamais persisté : les campagnes qui
+        # l'utilisent sont donc interdites en mode programmé (on ne stockerait pas
+        # le mot de passe en base, et le reset doit être synchrone de l'envoi).
+        if temp_password and send_type == "scheduled":
+            return {"status": "error",
+                    "message": "Le bloc « infos de connexion » (mot de passe temporaire) "
+                               "n'est pas compatible avec l'envoi programmé. Choisissez « Immédiat »."}
 
         sender_email = sender.get("email", "admin")
         now = datetime.now()
@@ -294,13 +349,23 @@ class CommunicationController:
         if not recipients:
             return {"status": "error", "message": "Aucun destinataire pour cette cible."}
 
-        records = self._dispatch(subject, body, recipients, channels)
+        # Réinitialisation des mots de passe (mode immédiat uniquement ; on n'altère
+        # jamais son propre compte pour éviter de se verrouiller).
+        pw_reset = 0
+        if temp_password and send_type == "immediate":
+            pw_reset = self._reset_passwords(recipients, temp_password, exclude_email=sender_email)
+            self._log_admin(sender_email, "campaign_password_reset", {
+                "subject": subject, "target": target, "comptes_reinitialises": pw_reset,
+            })
+
+        records = self._dispatch(subject, body, recipients, channels, temp_password=temp_password)
         stats = self._compute_stats(records, channels)
 
         base_doc.update({
             "status":     "test" if send_type == "test" else "sent",
             "recipients": records,
             "stats":      stats,
+            "password_reset_count": pw_reset,
         })
         res = self.campaigns.insert_one(base_doc)
         self._log_admin(sender_email, "campaign_test" if send_type == "test" else "campaign_sent", {
@@ -309,9 +374,10 @@ class CommunicationController:
         })
 
         label = "Test envoyé à vous-même" if send_type == "test" else f"{stats['total']} destinataire(s)"
+        pw_note = f" 🔑 {pw_reset} mot(s) de passe réinitialisé(s)." if pw_reset else ""
         return {
             "status": "sent",
-            "message": f"✅ {label}. Email envoyés : {stats['email_sent']}, échecs : {stats['email_failed']}.",
+            "message": f"✅ {label}. Email envoyés : {stats['email_sent']}, échecs : {stats['email_failed']}.{pw_note}",
             "campaign_id": str(res.inserted_id),
             "stats": stats,
         }
