@@ -18,6 +18,38 @@ PERMISSIONS = {
 ADMIN_ROLES = [ADMIN, SUPER_ADMIN]
 MODERATOR_ROLES = [VALIDATOR, ADMIN, SUPER_ADMIN]
 
+# --- Alignement des rôles (rétrocompatibilité) ---------------------------------
+# Anciennes étiquettes (anglaises ou variantes) encore susceptibles d'exister en
+# base → constante canonique. Source unique pour toute normalisation de rôle.
+ROLE_ALIASES = {
+    "USER": STUDENT, "ETUDIANT": STUDENT, "STUDENT": STUDENT,
+    "CONTRIBUTOR": CONTRIBUTOR, "CONTRIBUTEUR": CONTRIBUTOR,
+    "VALIDATOR": VALIDATOR, "VALIDATEUR": VALIDATOR,
+    "ADMIN": ADMIN, "ADMINISTRATION": ADMIN,
+    "SUPER_ADMIN": SUPER_ADMIN, "SUPERADMIN": SUPER_ADMIN,
+}
+
+
+def normalize_role(raw):
+    """Ramène une valeur de rôle (quelle que soit sa casse/langue) à sa constante canonique.
+
+    Retourne la valeur d'origine si aucun alias ne correspond (rôle déjà canonique
+    ou inconnu), afin de ne jamais perdre d'information.
+    """
+    if not raw:
+        return raw
+    return ROLE_ALIASES.get(str(raw).strip().upper(), raw)
+
+
+def role_query_values(canonical):
+    """Toutes les orthographes stockables correspondant à un rôle canonique.
+
+    Utile pour cibler en base des comptes créés avec d'anciennes étiquettes :
+        {"role": {"$in": role_query_values(CONTRIBUTOR)}}
+    """
+    return sorted({alias for alias, canon in ROLE_ALIASES.items() if canon == canonical}
+                  | {canonical})
+
 
 def is_admin_or_higher(role):
     """Vérifie si un rôle est admin ou super_admin."""

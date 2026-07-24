@@ -13,12 +13,41 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
 
-from config.settings import SMTP_SERVER, SMTP_PORT, SMTP_USER, SMTP_PASS
+from config.settings import SMTP_SERVER, SMTP_PORT, SMTP_USER, SMTP_PASS, PLATFORM_URL
 
 
 # ══════════════════════════════════════════════════════════════════════
 #  Utilitaire interne
 # ══════════════════════════════════════════════════════════════════════
+
+def send_campaign_email(recipient_email: str, subject: str, body_text: str) -> bool:
+    """
+    Email générique de campagne (Centre de Communication).
+    `body_text` est déjà personnalisé (variables remplacées). On l'habille d'un
+    gabarit HTML ISM avec un bouton vers la plateforme.
+    """
+    # Corps texte → HTML : on préserve les sauts de ligne.
+    safe_html = (
+        body_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        .replace("\n", "<br>")
+    )
+    html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
+      <div style="background:#1a3c5e;padding:20px;border-radius:8px 8px 0 0;">
+        <h2 style="color:white;margin:0;">🎓 ISMaiLa</h2>
+      </div>
+      <div style="border:1px solid #e0e0e0;padding:24px;border-radius:0 0 8px 8px;color:#333;">
+        <div style="line-height:1.6;">{safe_html}</div>
+        <div style="text-align:center;margin:24px 0 8px;">
+          <a href="{PLATFORM_URL}" style="background:#1a3c5e;color:white;text-decoration:none;
+             padding:12px 24px;border-radius:6px;display:inline-block;">Accéder à ISMaiLa</a>
+        </div>
+        <p style="color:#999;font-size:12px;text-align:center;margin-top:16px;">
+          © 2026 ISM — Direction de l'Innovation Numérique</p>
+      </div>
+    </div>"""
+    return _send(recipient_email, subject, body_text, html)
+
 
 def _send(to: str, subject: str, body_text: str, body_html: Optional[str] = None) -> bool:
     if not SMTP_USER or not SMTP_PASS:
@@ -137,7 +166,8 @@ def send_pending_digest(
 ) -> bool:
     """
     Résumé du nombre de questions en attente avec aperçu des 5 premières.
-    Déclenché par admin_controller.send_digest_to_all() ou un cron.
+    Fonction bas niveau conservée (tests + usages ponctuels). L'envoi groupé de
+    digests est désormais assuré par le Centre de Communication.
     """
     action = "certifier" if role == "VALIDATEUR" else "proposer une réponse à"
     subject = f"📋 ISMaiLa : {pending_count} question(s) en attente de traitement"

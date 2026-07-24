@@ -24,6 +24,10 @@ NLP_THRESHOLD = float(os.getenv("NLP_THRESHOLD", 0.75))
 MONGO_URI = os.getenv("MONGO_URI")
 DB_NAME   = os.getenv("DB_NAME", "ismaila_db")
 
+# --- PLATEFORME ---
+# Lien inclus dans les emails/notifications (invitations à se connecter).
+PLATFORM_URL = os.getenv("PLATFORM_URL", "https://ismaila.streamlit.app")
+
 # --- CONFIGURATION MAIL (RG-03) ---
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT   = int(os.getenv("SMTP_PORT", 587))

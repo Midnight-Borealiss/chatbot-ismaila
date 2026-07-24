@@ -12,19 +12,11 @@ from controllers.rating_controller import rating_controller
 from services.db_connector import db_instance
 from config.roles import (
     ADMIN, SUPER_ADMIN, VALIDATOR, CONTRIBUTOR, STUDENT,
-    is_admin_or_higher, is_super_admin,
+    is_admin_or_higher, is_super_admin, normalize_role,
 )
 
 # Vocabulaire canonique des rôles (constantes = valeurs réellement stockées/testées)
 ROLE_OPTIONS = [STUDENT, CONTRIBUTOR, VALIDATOR, ADMIN, SUPER_ADMIN]
-# Anciennes étiquettes anglaises → constantes canoniques (rétrocompatibilité)
-LEGACY_ROLE_MAP = {
-    "USER": STUDENT, "ETUDIANT": STUDENT,
-    "CONTRIBUTOR": CONTRIBUTOR, "CONTRIBUTEUR": CONTRIBUTOR,
-    "VALIDATOR": VALIDATOR, "VALIDATEUR": VALIDATOR,
-    "ADMIN": ADMIN, "ADMINISTRATION": ADMIN,
-    "SUPER_ADMIN": SUPER_ADMIN,
-}
 from config.categories import (
     get_categories_for_select, add_category_safe,
     get_top_categories, get_parent_category,
@@ -34,6 +26,7 @@ from config.response_helpers import has_real_response
 from config.permissions import build_domain_permissions_from_form
 from views.ai_categorization_view import render_ai_categorization_view
 from views.shared_components import render_comments_and_delete
+from views.communication_view import render_communication_view
 # Source unique des types de feedback (identique à la saisie utilisateur)
 from views.feedback_view import FEEDBACK_TYPES
 
@@ -71,10 +64,10 @@ def render_admin_view():
         elif sous_onglet_questions == "🗄️ Santé de la Base de Données": _render_db_health_subtab()
     with tabs[2]:
         st.header("👥 Équipes, Thématiques & Flux")
-        sous_onglet_profils = st.radio("Config :", ["👥 Gestion Globale des Membres & Droits", "📬 Paramètres des Digests"], horizontal=True, key="profils_notifs_subtab")
+        sous_onglet_profils = st.radio("Config :", ["👥 Gestion Globale des Membres & Droits", "📣 Communication"], horizontal=True, key="profils_notifs_subtab")
         st.divider()
         if sous_onglet_profils == "👥 Gestion Globale des Membres & Droits": _render_master_detail_user_management(user)
-        elif sous_onglet_profils == "📬 Paramètres des Digests": _render_digests_and_logs_subtab(user)
+        elif sous_onglet_profils == "📣 Communication": _render_communication_subtab(user)
     with tabs[3]:
         _render_feedback_moderation_tab()
     with tabs[4]:
@@ -343,7 +336,7 @@ def _render_master_detail_user_management(current_user):
             st.caption(f"{len(filtered_users)} membre(s) — cliquez sur « Gérer » pour configurer les droits.")
             for u in filtered_users:
                 uid = str(u["_id"])
-                norm_role = LEGACY_ROLE_MAP.get(str(u.get("role", "")).upper(), u.get("role"))
+                norm_role = normalize_role(u.get("role", ""))
                 badge = ROLE_BADGE.get(norm_role, f"⚪ {u.get('role', '—')}")
                 scope = u.get("scope", {}) or {}
                 struct = (scope.get("services") or scope.get("instituts")
@@ -429,7 +422,7 @@ def _render_user_rights(target_user, db):
     liste_services = ["Call Center / Orientation", "Scolarité", "Admission & Recrutement", "Marketing & Communication", "Soft Skills Academy (Vie estudiantine)"]
     liste_instituts = ["Institut Ingénieur", "Institut Management", "Institut Droit", "Madiba Leadership Institute"]
 
-    raw_role = LEGACY_ROLE_MAP.get(str(target_user.get("role", "")).upper(), STUDENT)
+    raw_role = normalize_role(target_user.get("role", "")) or STUDENT
     default_role_index = ROLE_OPTIONS.index(raw_role) if raw_role in ROLE_OPTIONS else 0
 
     # Conteneur (et non st.form) pour que les menus dépendants réagissent en direct.
@@ -561,41 +554,12 @@ def _render_permissions_subtab():
     pass
 
 
-def _render_digests_and_logs_subtab(user):
-    st.subheader("📬 Configuration du Résumé d'Activité (Digest)")
-    db = db_instance.db
-    
-    settings = admin_controller.get_digest_settings(user["email"])
-    
-    inc_new = st.checkbox("Inclure les nouvelles contributions de la période", value=settings.get("include_new_contributions", True), key="digest_new")
-    inc_status = st.checkbox("Inclure les changements de statuts (Validé, Rejeté)", value=settings.get("include_status_changes", True), key="digest_status")
-    inc_cleanup = st.checkbox("Inclure le rapport d'exécution du script de nettoyage automatique", value=settings.get("include_cleanup_report", False), key="digest_cleanup")
-    
-    freq_display = ["Quotidien", "Hebdomadaire", "Mensuel"]
-    freq_map = {"Quotidien": "daily", "Hebdomadaire": "weekly", "Mensuel": "monthly"}
-    default_freq = {v: k for k, v in freq_map.items()}.get(settings.get("frequency", "daily"), "Quotidien")
-    freq_selected = st.selectbox("Fréquence planifiée pour l'envoi automatique", options=freq_display, index=freq_display.index(default_freq), key="digest_freq")
-    
-    c_save, c_send = st.columns([1, 1])
-    with c_save:
-        if st.button("💾 Enregistrer la configuration", type="primary", use_container_width=True):
-            new_settings = {
-                "include_new_contributions": inc_new,
-                "include_status_changes": inc_status,
-                "include_cleanup_report": inc_cleanup,
-                "frequency": freq_map[freq_selected],
-            }
-            if admin_controller.set_digest_settings(user["email"], new_settings):
-                st.success("✅ Préférences de notification enregistrées sur Atlas !")
-                st.rerun()
+def _render_communication_subtab(user):
+    # Centre de Communication (remplace l'ancien digest)
+    render_communication_view()
 
-    with c_send:
-        if st.button("📤 Déclencher un envoi manuel immédiat", type="secondary", use_container_width=True):
-            with st.spinner("Génération et envoi du digest aux équipes..."):
-                result = admin_controller.send_digest_to_all(user["email"])
-                st.success(result["message"]) if result.get("sent", 0) > 0 else st.info(result["message"])
-    
     st.divider()
+    db = db_instance.db
     st.subheader("📜 Journal de Sécurité & Actions Admin")
     try:
         logs_admin = list(db.get_collection("logs_admin").find().sort("timestamp", -1).limit(15))

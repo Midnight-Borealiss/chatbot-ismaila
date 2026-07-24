@@ -15,9 +15,9 @@ import secrets
 import string
 
 from services.db_connector import db_instance
-from services.mailer import send_pending_digest, send_new_question_alert, _send
+from services.mailer import send_new_question_alert, _send
 from services.nlp_engine import nlp_engine
-from config.roles import CONTRIBUTOR, VALIDATOR, ADMIN
+from config.roles import VALIDATOR, ADMIN
 from config.response_helpers import has_real_response, has_no_real_response
 
 
@@ -116,40 +116,9 @@ class AdminController:
     #  3. NOTIFICATIONS                                                    #
     # ------------------------------------------------------------------ #
 
-    def send_digest_to_all(self, admin_email: str, contributor_template: str = None, 
-                          validator_template: str = None) -> dict:
-        """
-        Envoie digest à tous les contributeurs et validateurs.
-        
-        Args:
-            admin_email: Email de l'admin qui déclenche l'envoi
-            contributor_template: Template personnalisé pour contributeurs (optionnel)
-            validator_template: Template personnalisé pour validateurs (optionnel)
-        """
-        pending_all  = list(self.kb.find({"status": "en_attente"}))
-        if not pending_all:
-            return {"sent": 0, "failed": 0, "skipped": 0, "message": "Aucune question en attente."}
-
-        to_contribute = [q for q in pending_all if has_no_real_response(q.get("response", ""))]
-        to_validate   = [q for q in pending_all if has_real_response(q.get("response", ""))]
-
-        recipients = list(self.users.find({"role": {"$in": [CONTRIBUTOR, VALIDATOR]}}))
-        sent = failed = skipped = 0
-
-        for user in recipients:
-            role, email, name = user["role"], user["email"], user.get("full_name", user["email"])
-            if role == CONTRIBUTOR and to_contribute:
-                ok = send_pending_digest(email, name, len(to_contribute), to_contribute, role,
-                                        custom_template=contributor_template)
-            elif role == VALIDATOR and to_validate:
-                ok = send_pending_digest(email, name, len(to_validate), to_validate, role,
-                                        custom_template=validator_template)
-            else:
-                skipped += 1; continue
-            sent += ok; failed += (not ok)
-
-        self._log_admin_action(admin_email, "send_digest", {"sent": sent, "failed": failed})
-        return {"sent": sent, "failed": failed, "skipped": skipped, "message": f"✅ {sent} digest(s) envoyé(s)."}
+    # NOTE : l'ancien send_digest_to_all() a été retiré (v7.35). L'envoi de digests
+    # est remplacé par le Centre de Communication (controllers/communication_controller.py),
+    # qui gère ciblage, blocs éditables, canaux email + in-app et accusés de réception.
 
     def notify_experts_for_question(self, question_id: str, admin_email: str) -> dict:
         from bson import ObjectId
@@ -293,28 +262,5 @@ class AdminController:
             })
         except Exception as e:
             print(f"Log admin non enregistré : {e}")
-
-    def get_digest_settings(self, admin_email: str) -> dict:
-        """Retrieve digest configuration for an admin, creating defaults if absent."""
-        col = db_instance.get_collection("admin_settings")
-        doc = col.find_one({"admin_email": admin_email})
-        if not doc:
-            default = {
-                "admin_email": admin_email,
-                "include_new_contributions": True,
-                "include_status_changes": True,
-                "include_cleanup_report": False,
-                "frequency": "daily",
-            }
-            col.insert_one(default)
-            return default
-        return doc
-
-    def set_digest_settings(self, admin_email: str, settings: dict) -> bool:
-        """Update or create digest settings for an admin."""
-        col = db_instance.get_collection("admin_settings")
-        result = col.update_one({"admin_email": admin_email}, {"$set": settings}, upsert=True)
-        # update_one returns upserted_id when a new doc is inserted
-        return result.modified_count > 0 or getattr(result, "upserted_id", None) is not None
 
 admin_controller = AdminController()
