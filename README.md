@@ -79,7 +79,7 @@ Lues depuis `.env` en local **ou** depuis `st.secrets` sur Streamlit Cloud
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `PLATFORM_URL` | `https://ismaila.streamlit.app` | Lien inclus dans les emails |
+| `PLATFORM_URL` | `https://ismaila.streamlit.app` | Lien inclus dans les emails. Valeur de repli : modifiable en cours d'exécution depuis l'onglet Communication → « 📝 Textes & lien » |
 | `EMBEDDING_MODEL_NAME` | `paraphrase-multilingual-MiniLM-L12-v2` | Modèle d'embedding |
 | `EMBEDDING_DIM` | `384` | Dimensions du modèle ci-dessus |
 | `VECTOR_INDEX_NAME` | `autoembed_index` | Index Atlas Vector Search |

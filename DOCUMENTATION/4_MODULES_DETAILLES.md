@@ -28,7 +28,9 @@ chatbot-ismaila/
   une exception s'il n'existe aucun `secrets.toml`.
 - NLP : `EMBEDDING_MODEL_NAME`, `EMBEDDING_DIM`, `VECTOR_INDEX_NAME`, `NLP_THRESHOLD`
 - Base : `MONGO_URI`, `DB_NAME`
-- Plateforme : `PLATFORM_URL` (lien inclus dans les emails — depuis v7.35)
+- Plateforme : `PLATFORM_URL` (lien inclus dans les emails — depuis v7.35).
+  Sert de **valeur de repli** : le lien effectif est désormais modifiable depuis
+  l'interface via `services/app_settings.py` (voir ci-dessous)
 - SMTP : `SMTP_SERVER`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`,
   `SMTP_FROM_NAME`, `SMTP_REPLY_TO`, `SMTP_SSL`
 - Salesforce : `SF_WEBHOOK_URL`, `SF_TIMEOUT`, `SF_CAMPAIGN_MAPPING`
@@ -105,12 +107,36 @@ chatbot-ismaila/
 - `update_status(feedback_id, new_status, admin_notes, priority)` → Changement de statut, notes admin et priorité
 - Instance singleton : `feedback_controller`
 
+### `app_settings.py`
+**Responsabilité** : réglages modifiables depuis l'interface, sans redéploiement
+(collection `app_settings`)
+
+**Résolution** : valeur enregistrée en base → `.env` / `st.secrets` → défaut du code.
+Un incident MongoDB retombe silencieusement sur les niveaux suivants.
+
+- `get_platform_url()` → lien effectif. **À appeler au moment de l'usage**, jamais au
+  chargement d'un module : sinon la modification n'est prise en compte qu'au redémarrage
+- `set_platform_url(raw, author)`, `reset_platform_url(author)`, `platform_url_detail()`
+- `normalize_platform_url(raw)` → validation : http/https uniquement, ni espace ni
+  guillemet ni chevron (le lien est injecté dans un attribut `href` d'email), schéma
+  `https://` ajouté s'il manque
+- Cache de 60 s invalidé à l'écriture : `_dispatch` personnalise le message par
+  destinataire et interrogerait sinon la base une fois par personne
+
 ### `communication_controller.py` *(depuis v7.35)*
 **Responsabilité** : Centre de Communication — remplace l'ancien « digest »
 
 **Fonctions principales** :
-- `default_blocks()` → textes pré-remplis et éditables des blocs de contenu
-  (invitation à tester, invitation à contribuer, infos de connexion, texte libre)
+- `BLOCK_DEFINITIONS` → définition des blocs de contenu (objet par défaut, invitation
+  à tester, invitation à contribuer, infos de connexion, texte libre) avec leur
+  **texte d'usine**, qui sert de référence et de point de retour arrière
+- `default_blocks()` → textes d'usine des blocs de corps (objet exclu), sans lecture base
+- `get_block_texts()` → textes réellement utilisés à l'envoi : usine surchargé par la
+  version enregistrée en base (`message_blocks`). Retombe sur l'usine si MongoDB tombe
+- `get_blocks_detail()`, `save_block(key, text, author)`, `reset_block(key, author)` →
+  édition des textes depuis l'onglet « 📝 Textes des blocs », sans modification du code
+- `unknown_variables(text)` → variables entre accolades qui ne seront pas remplacées
+  à l'envoi (garde-fou contre `{prenoms}` au lieu de `{prenom}`)
 - `resolve_recipients(target)` → liste dédupliquée d'utilisateurs selon le mode de
   ciblage : `all` | `person` | `services` | `instituts` | `roles`. Le mode `roles`
   étend chaque rôle canonique à ses anciennes orthographes (`role_query_values`)
