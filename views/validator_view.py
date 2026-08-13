@@ -1,3 +1,18 @@
+"""
+Vue « Espace Validateur » — certification des connaissances ISMaiLa.
+
+Accessible aux rôles VALIDATEUR, ADMINISTRATION et SUPER_ADMIN. Permet de
+parcourir les questions en attente, de rédiger ou corriger une réponse, de
+recatégoriser, puis de certifier.
+
+Le droit de certifier est de plus **par domaine** : `can_validate()` vérifie que
+l'utilisateur est expert de la catégorie concernée. Un validateur ne peut pas
+certifier hors de son périmètre — il peut seulement proposer (`can_answer`).
+
+Certifier déclenche, via `kb_controller.update_contribution()`, la génération de
+l'embedding de la question et la notification de l'étudiant.
+"""
+
 import streamlit as st
 
 from controllers.kb_controller import kb_controller
@@ -13,6 +28,7 @@ from views.shared_components import render_comments_and_delete
 
 
 def render_validator_view():
+    """Point d'entrée appelé par `app.py` pour la page « ✅ Valider »."""
     user = st.session_state.get("user")
     if not user or user.get("role") not in (VALIDATOR, ADMIN, SUPER_ADMIN):
         st.error("⛔ Accès refusé. Réservé aux validateurs.")

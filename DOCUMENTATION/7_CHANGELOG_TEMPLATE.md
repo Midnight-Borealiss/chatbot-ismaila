@@ -38,6 +38,335 @@ Brève description du changement
 
 ## Historique des Versions
 
+### Version 7.38 — 2026-08-06
+
+#### 🎯 Objectif
+Étape 0 du plan d'intégration LLM : poser un socle **local et souverain**,
+réparer les scripts qui l'attendaient, sans toucher au chemin de réponse à
+l'étudiant.
+
+#### 📋 Modifications
+- **services/ollama_service.py** *(nouveau)* : client du LLM local
+  (Ollama / Mistral). `is_available()`, `generate()`, `categorize()`.
+  Répare `scripts/auto_categorize.py` et `scripts/audit_categories.py`, qui
+  l'importaient alors qu'il **n'existait pas** — ces deux scripts étaient
+  inopérants.
+- **services/llm_engine.py** : nettoyé. Suppression de la seconde docstring
+  (code mort — Python ignore tout bloc après le premier) et **bascule de
+  `llm_service` (Hugging Face, cloud) vers `ollama_service` (local)**. Le module
+  contredisait le principe de souveraineté du projet.
+- **.env.example** : `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT`.
+- **DOCUMENTATION/10_PLAN_SECURITE.md** *(nouveau)* : travaux de sécurité
+  détaillés, avec répartition des rôles.
+- **DOCUMENTATION/11_PLAN_INTEGRATION_LLM.md** *(nouveau)* : plan d'intégration
+  en 5 étapes, du risque nul au risque élevé.
+
+#### 🔧 Détails Techniques
+- `categorize()` contraint la sortie aux sous-catégories canoniques de
+  `config/categories.py` : une catégorie inventée par le modèle est **rejetée**
+  et remplacée par le défaut, plutôt que de créer une catégorie fantôme en base.
+- Extraction JSON tolérante : les modèles encadrent souvent leur réponse de
+  texte ou de balises ```json malgré la consigne.
+- `is_available()` distingue « serveur injoignable » de « modèle non téléchargé »
+  — deux causes fréquentes qu'un booléen unique rendait indiscernables.
+- Dégradation gracieuse conforme au pattern du projet : sans Ollama, aucune
+  exception ne remonte et `low_confidence = True` interdit toute décision
+  automatique.
+
+#### ⚠️ Notes
+- **`llm_engine` reste débranché volontairement.** Le chat sert la réponse
+  certifiée **verbatim** ; brancher la génération romprait la chaîne de
+  certification tant que les garde-fous de l'étape 3 ne sont pas en place.
+- ⚠️ **Ollama ne tourne pas sur Streamlit Cloud** (~4 Go en mémoire). L'usage
+  reste back-office jusqu'à l'arbitrage d'hébergement avec la DSI.
+- Prérequis poste : installer Ollama puis
+  `ollama pull mistral:7b-instruct-q4_0`.
+- Constat de cadrage : **65 réponses certifiées contre 224 en attente**. Le
+  corpus, et non le modèle, est la limite actuelle du système.
+
+#### ✅ Tests
+- ✅ `tests/test_ollama_service.py` *(nouveau)* : 29 tests — disponibilité,
+  génération, extraction JSON, contrat de `categorize()`.
+- ✅ `tests/test_llm_engine.py` *(nouveau)* : 9 tests — prompt, garde-fous, repli.
+- ✅ Tous conçus pour passer **sans Ollama installé**, cas prioritaire.
+- ✅ Suite complète : 144 tests, aucune régression.
+
+---
+
+### Version 7.37 — 2026-08-06
+
+#### 🎯 Objectif
+Documenter l'ensemble du code et corriger les anomalies mises au jour par cette
+revue : identifiants exposés, code mort, défauts de schéma.
+
+#### 📋 Modifications — Documentation
+- **README.md** *(nouveau)* : installation, configuration, architecture, rôles,
+  règles de gestion, scripts.
+- **CONVENTION.md** *(nouveau)* : conventions de code et patterns du projet
+  (MVC, singletons, « non bloquant », docstrings, sécurité, MongoDB, Git).
+- **.env.example** *(nouveau)* : modèle de configuration commenté.
+- **DOCUMENTATION/** : architecture, modules et technologies remis à jour ;
+  changelog complété de v7.25 à v7.36.
+- **Docstrings** : couverture portée de 50 % à 97 % (450/466) ; plus aucun
+  module sans docstring.
+
+#### 🔧 Modifications — Sécurité
+- **`tests/test_collection.py` → `scripts/explore_collections.py`** : l'URI Atlas
+  avec **identifiant et mot de passe en clair** est remplacée par
+  `config.settings.MONGO_URI`. Le fichier n'était pas un test (aucune assertion)
+  mais ouvrait une connexion à la base de production à chaque `pytest`.
+- **`tests/test_system.py` → `scripts/diagnostic_smtp.py`** : l'affichage de
+  `SMTP_PASS` en clair est supprimé ; seule la *présence* des valeurs est
+  indiquée. N'est plus collecté par pytest (il ouvrait une vraie connexion SMTP
+  et ne faisait aucune assertion).
+- **scripts/seed_users.py** : réécrit. Plus de mot de passe en clair dans le
+  code (variable `SEED_PASSWORD` ou génération aléatoire affichée une fois) ;
+  schéma courant (`full_name`, emails normalisés, `must_change_password`) ;
+  comptes existants protégés par `$setOnInsert` ; mode à blanc par défaut.
+
+#### 🔧 Modifications — Correctifs
+- **models/user.py** : le motif de `role` n'acceptait pas `SUPER_ADMIN`. Il est
+  désormais **dérivé des constantes de `config/roles.py`**, ce qui interdit la
+  divergence à l'origine du défaut.
+- **models/contribution.py**, **models/lead.py** : `created_at = datetime.now()`
+  était évalué **à l'import** — toutes les instances partageaient le même
+  horodatage. Remplacé par `Field(default_factory=datetime.now)`. Idem pour
+  `chat_history`, dont la liste par défaut était partagée entre instances.
+- **views/admin_view.py** : suppression de `_render_users_list_and_creation()`
+  et `_render_permissions_subtab()`, stubs `pass` sans appelant depuis v7.33.
+- **views/shared_components.py** : suppression de `render_header()` (URL de logo
+  jamais renseignée) et `render_footer()`, sans appelant.
+- **Suppression de `clean_db.py`** (doublon non exécutable de
+  `scripts/cleanup_placeholders.py`) et **`test_import.py`** (chemin absolu lié
+  à une machine).
+
+#### ⚠️ Notes
+- 🔴 **Action requise** : les identifiants Atlas exposés restent présents dans
+  l'historique Git. **Faire tourner le mot de passe de l'utilisateur
+  `admin_ismaila`** — les retirer du code ne suffit pas.
+- `scripts/seed_users.py --apply` ne touche aucun compte existant ; utiliser
+  `--update-roles` pour réaligner explicitement rôles et domaines.
+
+#### ✅ Tests
+- ✅ 107 tests passent, aucune régression.
+- ✅ `seed_users` vérifié à blanc sur la base réelle : 40 comptes existants
+  préservés, 15 manquants détectés.
+
+---
+
+### Version 7.36 — 2026-07-27 *(en cours, non commité)*
+
+#### 🎯 Objectif
+Fiabiliser la remise des emails et l'accès aux comptes : en-têtes conformes,
+diagnostic d'adresse, connexion insensible à la casse.
+
+#### 📋 Modifications
+- **services/mailer.py** : ajout systématique des en-têtes `Date` et `Message-ID`
+  (leur absence est lourdement pénalisée par les filtres anti-spam Microsoft 365) ;
+  `Reply-To` ; support SSL implicite (port 465) ; expéditeur d'enveloppe forcé au
+  compte authentifié (alignement SPF) ; nouvelle fonction `check_recipient()`.
+- **config/settings.py** : `SMTP_FROM`, `SMTP_FROM_NAME`, `SMTP_REPLY_TO`, `SMTP_SSL`.
+- **controllers/auth_controller.py** : `_find_by_email()` — recherche insensible à
+  la casse avec normalisation en base à la volée (auto-réparation).
+- **scripts/normalize_user_emails.py** *(nouveau)* : passe tous les emails de la
+  collection `users` en minuscules.
+- **views/communication_view.py** : outil de vérification d'adresse destinataire.
+- **requirements.txt** : `dnspython>=2.6.0` (résolution MX du diagnostic).
+
+#### 🔧 Détails Techniques
+- `check_recipient(email)` interroge le MX du domaine et interrompt le dialogue
+  SMTP après `RCPT TO` : aucun message n'est envoyé. Distingue « adresse
+  inexistante » (550) de « adresse acceptée mais filtrée côté destinataire ».
+- ⚠️ Le port 25 sortant est généralement bloqué en hébergement Cloud : ce
+  diagnostic ne fonctionne de façon fiable qu'en local.
+
+#### ⚠️ Notes
+- Action manuelle recommandée : `python -m scripts.normalize_user_emails` une fois,
+  pour rattraper les comptes historiques créés avec une majuscule.
+
+#### ✅ Tests
+- `tests/test_mailer.py` et `tests/test_auth.py` étendus (en-têtes, casse email).
+
+---
+
+### Version 7.35 — 2026-07-24
+
+#### 🎯 Objectif
+Remplacer l'ancien « digest » par un **Centre de Communication** complet :
+ciblage, composition par blocs, multicanal, programmation, accusés de réception.
+
+#### 📋 Modifications
+- **controllers/communication_controller.py** *(nouveau)* : ciblage
+  (`resolve_recipients`), récap automatique des questions en attente,
+  personnalisation, envoi (`send_campaign`), relance des non-lus, modèles
+  réutilisables, traitement des campagnes programmées.
+- **views/communication_view.py** *(nouveau)* : onglet « Communication » de
+  l'espace Administration.
+- **scripts/send_scheduled_campaigns.py** *(nouveau)* : job cron d'envoi différé.
+- **config/roles.py** : `ROLE_ALIASES`, `normalize_role()`, `role_query_values()` —
+  alignement des rôles créés avec d'anciennes étiquettes anglaises.
+- **config/settings.py** : `PLATFORM_URL` configurable ; lecture des identifiants
+  SMTP depuis `.env` **ou** `st.secrets` via `_secret()`.
+- **services/mailer.py** : `send_campaign_email()` et `send_campaign_email_ex()`
+  (cette dernière retourne la cause exacte d'un échec).
+- **Retraits** : `config/digest_templates.py` et le code de digest de
+  `admin_controller.py` / `admin_view.py` (remplacés par le Centre).
+
+#### 🔧 Détails Techniques
+- Nouvelles collections : `campaigns` (contenu, cible, destinataires, stats) et
+  `message_templates`.
+- Bloc « infos de connexion » : `{motdepasse}` est un mot de passe temporaire
+  **commun**, appliqué en base sous forme de hachage bcrypt avec
+  `must_change_password = True`. Il n'est jamais persisté en clair — la
+  notification in-app affiche « (voir votre email) ».
+- `process_scheduled()` réclame chaque campagne de façon atomique
+  (`scheduled → sending`) : un double lancement du cron ne peut pas envoyer deux fois.
+
+#### ⚠️ Notes
+- **Breaking** : `config/digest_templates.py` supprimé.
+- Le mode « infos de connexion » est **incompatible** avec l'envoi programmé
+  (le mot de passe n'étant pas stocké, la réinitialisation doit être synchrone).
+- L'expéditeur (`sender_email`) est exclu de la réinitialisation de mot de passe,
+  pour éviter de verrouiller l'administrateur qui envoie la campagne.
+- Un **diagnostic SMTP** dans l'interface affiche la configuration réellement vue
+  par l'application sans jamais révéler les valeurs sensibles.
+
+---
+
+### Version 7.34 — 2026-07-20
+
+#### 🎯 Objectif
+Gestion des utilisateurs : afficher les droits dépliés sous le profil.
+
+#### 📋 Modifications
+- **views/admin_view.py** : fin de la mise en page à deux colonnes ; les
+  permissions par domaine se déroulent sous la fiche du profil.
+
+---
+
+### Version 7.33 — 2026-07-20
+
+#### 🎯 Objectif
+Gestion des utilisateurs : passer du tableau à une liste de cartes.
+
+#### 📋 Modifications
+- **views/admin_view.py** : la liste des testeurs du pilote est rendue en cartes
+  (lisibilité des rôles et permissions).
+
+---
+
+### Version 7.32 — 2026-07-20
+
+#### 🎯 Objectif
+Robustesse au démarrage.
+
+#### 📋 Modifications
+- **app.py** : le préchargement des catégories persistées et des ancres apprises
+  devient **non bloquant**.
+
+#### ⚠️ Notes
+- L'application démarre désormais même si la base est momentanément indisponible
+  au moment du préchargement — elle dégrade sans préchargement au lieu de planter.
+
+---
+
+### Version 7.31 — 2026-07-20
+
+#### 🎯 Objectif
+Phase 3, étape 3a — boucle d'apprentissage : les ancres apprises.
+
+#### 📋 Modifications
+- **config/categories.py** : `load_learned_anchors()` et persistance des ancres.
+- **controllers/kb_controller.py** : enregistrement d'une ancre à la certification.
+- **services/db_connector.py** : collection `learned_anchors` + index unique
+  `(category, phrase)` pour la déduplication.
+- **app.py** : chargement des ancres au démarrage.
+
+#### 🔧 Détails Techniques
+- Nouvelle collection `learned_anchors` : chaque validation enrichit le référentiel
+  sémantique utilisé par le classifieur, sans réentraîner de modèle.
+
+#### ✅ Tests
+- `tests/test_learned_anchors.py` *(nouveau)*.
+
+---
+
+### Version 7.30 — 2026-07-20
+
+#### 🎯 Objectif
+Phase 3, étape 2 — suggérer une catégorie dans le formulaire contributeur.
+
+#### 📋 Modifications
+- **views/contributor_view.py** : la catégorie détectée est proposée par défaut,
+  le contributeur peut la corriger.
+
+---
+
+### Version 7.29 — 2026-07-20
+
+#### 🎯 Objectif
+Phase 3, étape 1 — classifier à la source et signaler les cas incertains.
+
+#### 📋 Modifications
+- **services/nlp_engine.py** : score de confiance exposé par la classification.
+- **controllers/search_controller.py** : les tickets créés portent un flag
+  `needs_review` quand la confiance est insuffisante.
+- **views/contributor_view.py** : affichage du flag.
+
+#### ✅ Tests
+- `tests/test_nlp_confidence.py` *(nouveau)*, `tests/test_search_controller.py` étendu.
+
+---
+
+### Version 7.28 — 2026-07-20
+
+#### 🎯 Objectif
+Phase 2, étape 2 — revue interactive des reclassements proposés.
+
+#### 📋 Modifications
+- **scripts/review_recategorizations.py** *(nouveau)* : passe en revue les
+  propositions de recatégorisation avant application.
+
+---
+
+### Version 7.27 — 2026-07-20
+
+#### 🎯 Objectif
+Phase 2, étape 1 — migrer un libellé hérité vers la taxonomie hiérarchique.
+
+#### 📋 Modifications
+- **scripts/migrate_legacy_categories.py** *(nouveau)* : « Plaquette
+  d'enseignement - UE » → « Formations ». Mode à blanc par défaut.
+
+---
+
+### Version 7.26 — 2026-07-20
+
+#### 🎯 Objectif
+Audit de classification : ne plus confondre un accord réel et un accord par défaut.
+
+#### 📋 Modifications
+- **scripts/audit_categories.py** : distingue l'accord positif du repli sur la
+  catégorie par défaut, qui gonflait artificiellement le taux de concordance.
+
+---
+
+### Version 7.25 — 2026-07-20
+
+#### 🎯 Objectif
+Chantier classification P0 + P1 : correctifs du classifieur et audit en lecture seule.
+
+#### 📋 Modifications
+- **services/nlp_engine.py** : correctifs du fast path mots-clés (frontières de
+  mots, accents, pluriels).
+- **config/categories.py** et **services/llm_service.py** : alignement sur la
+  hiérarchie.
+- **scripts/audit_categories.py** *(nouveau)* : audit read-only de la
+  classification existante.
+- **views/ai_categorization_view.py** : ajustements d'affichage.
+
+---
+
 ### Version 7.24 — 2026-07-20
 
 #### 🎯 Objectif
@@ -494,5 +823,5 @@ Résultat : **6/6 TESTS PASSED** - Prêt pour production ✅
 
 ---
 
-**Dernière mise à jour** : 2026-06-22 (v7.16 — module Feedback)
+**Dernière mise à jour** : 2026-08-06 (v7.38 — socle LLM local souverain)
 **Mainteneur** : Équipe ISMaiLa

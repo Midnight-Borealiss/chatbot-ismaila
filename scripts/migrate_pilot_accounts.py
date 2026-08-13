@@ -49,6 +49,7 @@ CANONICAL_ROLES = {STUDENT, CONTRIBUTOR, VALIDATOR, ADMIN, SUPER_ADMIN}
 
 
 def get_collection():
+    """Ouvre `users` après ping. Sort en erreur si la base est injoignable."""
     from pymongo import MongoClient
     from config.settings import MONGO_URI, DB_NAME
     try:
@@ -61,6 +62,11 @@ def get_collection():
 
 
 def _is_bcrypt_hash(value: str) -> bool:
+    """Détecte un hachage bcrypt à son préfixe de version ($2a/$2b/$2y).
+
+    Permet de distinguer un mot de passe déjà haché — à simplement déplacer —
+    d'un mot de passe en clair, qu'il faut hacher avant écriture.
+    """
     return isinstance(value, str) and value.startswith(("$2a$", "$2b$", "$2y$"))
 
 
@@ -76,6 +82,12 @@ def _canonical_role(raw) -> str | None:
 
 
 def audit(col) -> dict:
+    """Analyse l'annuaire — **lecture seule** — et classe les anomalies.
+
+    Retourne un rapport listant, par catégorie : mots de passe à déplacer de
+    `password` vers `password_hash`, doublons de ces deux champs, et rôles non
+    canoniques. C'est ce rapport que `apply_migration()` consomme.
+    """
     users = list(col.find({}))
     pwd_field_to_move = []   # password présent, password_hash absent
     pwd_dup           = []   # les deux présents → nettoyer password
@@ -105,6 +117,7 @@ def audit(col) -> dict:
 
 
 def print_audit(report: dict) -> int:
+    """Affiche le rapport d'audit. Retourne le nombre d'anomalies à corriger."""
     print(f"\n{'═'*64}")
     print(f"  AUDIT COMPTES PILOTE — {report['total']} document(s)")
     print(f"{'═'*64}")
@@ -130,6 +143,11 @@ def print_audit(report: dict) -> int:
 
 
 def apply_migration(col, report: dict):
+    """⚠️ **Écrit en base** : applique les corrections listées par `audit()`.
+
+    Un mot de passe trouvé en clair est haché, jamais recopié tel quel, et le
+    compte est forcé à changer de mot de passe à la prochaine connexion.
+    """
     moved = cleaned = roled = 0
 
     # 1. Déplacer password → password_hash (+ forcer reset)
@@ -197,6 +215,7 @@ def force_reset_all(col, exclude_emails, apply_changes: bool, assume_yes: bool):
 
 
 def main():
+    """Point d'entrée en ligne de commande : analyse les options et lance `run()`."""
     parser = argparse.ArgumentParser(description="Migration des comptes pilote ISMaiLa")
     parser.add_argument("--apply", action="store_true", help="Appliquer la migration")
     parser.add_argument("--yes", action="store_true", help="Confirmer sans prompt")

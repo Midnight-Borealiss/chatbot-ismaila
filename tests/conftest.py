@@ -49,6 +49,7 @@ def mock_smtp(monkeypatch):
 
 @pytest.fixture
 def sample_contribution():
+    """Contribution certifiée type, prête à être servie par la recherche."""
     from bson import ObjectId
     return {
         "_id":        ObjectId(),
@@ -63,6 +64,7 @@ def sample_contribution():
 
 @pytest.fixture
 def sample_pending():
+    """Contribution en attente, avec une réponse encore à l'état de placeholder."""
     from bson import ObjectId
     return {
         "_id":        ObjectId(),
@@ -77,6 +79,8 @@ def sample_pending():
 
 @pytest.fixture
 def sample_user():
+    """Validateur type. Le `password_hash` est factice : aucun mot de passe
+    réel ne figure dans les fixtures."""
     return {
         "email":         "validator@ism.sn",
         "full_name":     "Fatou Diallo",

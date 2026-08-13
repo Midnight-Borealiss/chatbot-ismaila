@@ -1,3 +1,20 @@
+"""
+AuthController — Authentification et sessions ISMaiLa.
+
+Responsabilités :
+  - vérification des identifiants (bcrypt) et ouverture de session Streamlit ;
+  - changement de mot de passe et levée du verrou `must_change_password` ;
+  - migrations silencieuses des documents créés par d'anciennes versions
+    (`name` → `full_name`, `expert_topics` → `domain_permissions`, email en
+    minuscules).
+
+Collection MongoDB : `users`.
+Chaque connexion, déconnexion et changement de mot de passe est tracé dans le
+journal d'audit — en mode non bloquant : un échec d'audit n'empêche jamais
+l'utilisateur de se connecter.
+"""
+
+import re
 from datetime import datetime
 
 import bcrypt
@@ -19,18 +36,55 @@ class AuthController:
 
     @staticmethod
     def hash_password(password: str) -> str:
+        """Hache un mot de passe en bcrypt (salt unique à chaque appel).
+
+        Seule forme sous laquelle un mot de passe est stocké, dans le champ
+        canonique `password_hash`.
+        """
         return bcrypt.hashpw(
             password.encode("utf-8"), bcrypt.gensalt()
         ).decode("utf-8")
 
     @staticmethod
     def verify_password(plain: str, hashed: str) -> bool:
+        """Compare un mot de passe en clair au hachage bcrypt stocké."""
         return bcrypt.checkpw(
             plain.encode("utf-8"), hashed.encode("utf-8")
         )
 
+    def _find_by_email(self, email: str) -> dict | None:
+        """Retrouve un compte par email, insensible à la casse.
+
+        Les emails sont censés être stockés en minuscules, mais un import ou un
+        script a pu en laisser passer avec une majuscule : la recherche exacte
+        échouait alors et le compte devenait inaccessible. On normalise en base
+        dès qu'un tel document est rencontré (auto-réparation).
+        """
+        normalized = (email or "").strip().lower()
+        if not normalized:
+            return None
+        user = self.users.find_one({"email": normalized})
+        if user:
+            return user
+        # Repli insensible à la casse — ancre l'expression sur toute la valeur.
+        user = self.users.find_one({
+            "email": {"$regex": f"^{re.escape(normalized)}$", "$options": "i"}
+        })
+        if user:
+            try:
+                self.users.update_one({"_id": user["_id"]}, {"$set": {"email": normalized}})
+                user["email"] = normalized
+            except Exception:
+                pass   # Non bloquant : la connexion reste possible
+        return user
+
     def check_login(self, email: str, password: str) -> dict | None:
-        user = self.users.find_one({"email": email.lower().strip()})
+        """Valide un couple email / mot de passe. Retourne le document ou None.
+
+        Ne touche pas à la session : `login()` s'en charge. Un compte sans
+        `password_hash` (import incomplet) est refusé, jamais accepté par défaut.
+        """
+        user = self._find_by_email(email)
         if not user:
             return None
         password_hash = user.get("password_hash", "")
@@ -61,6 +115,12 @@ class AuthController:
         )
 
     def login(self, email: str, password: str) -> bool:
+        """Ouvre la session Streamlit si les identifiants sont valides.
+
+        Peuple `st.session_state.user` avec les seuls champs dont l'interface a
+        besoin, journalise la connexion, et normalise au passage un document
+        d'ancien schéma (`name` → `full_name`).
+        """
         user = self.check_login(email, password)
         if user:
             raw_email  = user.get("email", email)
@@ -149,9 +209,15 @@ class AuthController:
         return bool(result.modified_count)
 
     def is_authenticated(self) -> bool:
+        """Indique si une session utilisateur est ouverte."""
         return st.session_state.get("user") is not None
 
     def require_role(self, *roles: str) -> bool:
+        """Vérifie que l'utilisateur connecté porte l'un des rôles attendus.
+
+        Comparaison stricte sur les constantes canoniques de `config.roles` :
+        passer une étiquette ancienne (« VALIDATOR ») ne correspondra pas.
+        """
         user = st.session_state.get("user")
         return user is not None and user.get("role") in roles
 

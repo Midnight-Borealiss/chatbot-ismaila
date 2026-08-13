@@ -1,3 +1,18 @@
+"""
+Nettoyage des réponses « placeholder », puis contrôle de ce qui subsiste.
+
+⚠️ **Ce script ÉCRIT en base** : il appelle
+`kb_controller.clear_placeholder_responses()`, qui vide la réponse et remet le
+statut à `en_attente` pour toute contribution commençant par « En attente de
+réponse admin ». Il liste ensuite les occurrences restantes, non couvertes par
+ce motif exact et à traiter à la main.
+
+Pour un simple état des lieux sans écriture, utiliser
+`analyze_placeholders.py`.
+
+    python -m scripts.check_placeholders
+"""
+
 import sys, os
 from datetime import datetime
 
@@ -12,6 +27,7 @@ except Exception as e:
     sys.exit(1)
 
 def main():
+    """Nettoie les placeholders connus puis signale ceux qui restent."""
     # 1️⃣ Nettoyage des placeholders existants
     modified = kb_controller.clear_placeholder_responses()
     print(f"🧹 Nettoyage effectué – {modified} document(s) mis à jour (placeholder retiré).")

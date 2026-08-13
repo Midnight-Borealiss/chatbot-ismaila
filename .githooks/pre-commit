@@ -1,0 +1,41 @@
+#!/bin/sh
+#
+# Refuse un commit contenant un secret (identifiants MongoDB, clés API, mots de
+# passe en dur). Voir SECURITY.md — un identifiant Atlas est resté public
+# 77 jours faute d'un tel garde-fou.
+#
+# Versionné dans le dépôt : chacun l'active une fois avec
+#     git config core.hooksPath .githooks
+#
+# Contournement ponctuel et assumé :
+#     git commit --no-verify
+
+# 1. Aucun fichier d'environnement ne doit être indexé, quel que soit son contenu.
+FICHIERS_ENV=$(git diff --cached --name-only --diff-filter=ACM \
+    | grep -E '(^|/)\.env($|\.)|secrets\.toml$' \
+    | grep -v '\.env\.example$')
+
+if [ -n "$FICHIERS_ENV" ]; then
+    echo ""
+    echo "🔴 Commit refusé : fichier de configuration sensible indexé."
+    echo "$FICHIERS_ENV" | sed 's/^/     /'
+    echo ""
+    echo "  Retirez-le de l'index :  git restore --staged <fichier>"
+    echo "  Les secrets se déclarent dans .env (ignoré par Git) ou st.secrets."
+    echo ""
+    exit 1
+fi
+
+# 2. Analyse du contenu réellement indexé.
+if command -v python >/dev/null 2>&1; then
+    PY=python
+elif command -v python3 >/dev/null 2>&1; then
+    PY=python3
+else
+    echo "⚠️  Python introuvable — analyse des secrets ignorée."
+    exit 0
+fi
+
+"$PY" -m scripts.check_secrets || exit 1
+
+exit 0

@@ -1,3 +1,14 @@
+"""
+Vue « Assistant » — chat ISMaiLa, **accessible avec ou sans connexion**.
+
+Enchaînement d'un échange :
+  question → `search_controller.seek_answer()` → affichage de la réponse
+  → vote 👍/👎 facultatif → capture de lead si `trigger_capture` (RG-05).
+
+L'historique n'est persisté que pour un utilisateur connecté ; un visiteur
+anonyme ne laisse aucune trace nominative.
+"""
+
 import streamlit as st
 
 from controllers.search_controller import search_controller
@@ -29,6 +40,8 @@ def _render_response_rating(idx: int, question: str, msg: dict, user_email: str)
 
 
 def render_student_view():
+    """Point d'entrée du chat, appelé par `app.py` (page « 💬 Assistant » et
+    onglet public d'accueil)."""
     st.title("🎓 Assistant Virtuel ISMaiLa")
     st.markdown("Posez vos questions sur les formations, les inscriptions ou la vie à l'ISM.")
 

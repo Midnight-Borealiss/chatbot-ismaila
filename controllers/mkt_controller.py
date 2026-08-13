@@ -1,3 +1,17 @@
+"""
+MarketingController — Capture et synchronisation des leads ISMaiLa.
+
+RG-05 : au-delà de `LEAD_HOT_THRESHOLD` questions chaudes dans une même session,
+un visiteur non connecté se voit proposer un formulaire de contact.
+
+RG-06 : double écriture « store then forward ». MongoDB est écrit **d'abord** et
+fait autorité ; le webhook Salesforce est tenté ensuite, avec un timeout strict.
+Un échec de synchronisation ne perd jamais le lead : il reste en base avec
+`is_synced_sf = False` et sera repris par `resync_failed()`.
+
+Collection MongoDB : `leads`.
+"""
+
 from datetime import datetime
 
 from services.db_connector import db_instance
@@ -74,6 +88,7 @@ class MarketingController:
         return retry_failed_leads()
 
     def get_recent_leads(self, limit: int = 10) -> list:
+        """Derniers leads capturés, les plus récents d'abord."""
         return list(
             self.col.find().sort("created_at", -1).limit(limit)
         )

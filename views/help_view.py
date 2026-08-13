@@ -8,6 +8,12 @@ from config.roles import ADMIN, SUPER_ADMIN, VALIDATOR, CONTRIBUTOR, is_admin_or
 
 
 def render_help_view():
+    """Point d'entrée du centre d'aide, appelé par `app.py`.
+
+    Rendue à la fois pour les utilisateurs connectés (page « ❓ Aide ») et pour
+    les visiteurs anonymes (onglet d'accueil) : le contenu s'adapte au rôle
+    présent en session, et retombe sur le profil public s'il n'y en a pas.
+    """
     st.title("❓ Centre d'aide ISMaiLa")
     
     # Tabs principaux

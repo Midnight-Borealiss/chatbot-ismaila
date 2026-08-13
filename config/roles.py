@@ -1,3 +1,16 @@
+"""
+Rôles utilisateur ISMaiLa — constantes canoniques et normalisation.
+
+Les valeurs définies ici sont celles réellement stockées en base. Ne jamais
+écrire un rôle sous forme de chaîne littérale ailleurs dans le code : importer
+la constante.
+
+La base contient encore des comptes créés avec d'anciennes étiquettes
+(anglaises, ou en casse différente). `ROLE_ALIASES` est la **source unique** de
+correspondance : `normalize_role()` pour lire, `role_query_values()` pour
+interroger.
+"""
+
 # Définition des constantes de rôles pour éviter les fautes de frappe
 ADMIN = "ADMINISTRATION"
 SUPER_ADMIN = "SUPER_ADMIN"

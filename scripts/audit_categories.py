@@ -83,6 +83,13 @@ def classify_voies(question: str, use_semantic: bool) -> dict:
 
 
 def run(limit: int = 0, use_semantic: bool = True, top: int = 25, report_path: str = None):
+    """Audite la classification existante — **aucune écriture en base**.
+
+    Compare la catégorie stockée aux décisions de chaque voie (mots-clés,
+    sémantique) et produit une matrice de confusion pôle→pôle. Un accord n'est
+    compté comme tel que s'il est positif : un repli commun sur la catégorie
+    par défaut ne vaut pas concordance (v7.26).
+    """
     if not MONGO_URI:
         print("❌ MONGO_URI non défini (.env).")
         sys.exit(1)
@@ -270,6 +277,7 @@ def run(limit: int = 0, use_semantic: bool = True, top: int = 25, report_path: s
 
 
 def _bar(n: int, total: int, width: int = 24) -> str:
+    """Barre de proportion en caractères pleins, pour la sortie console."""
     if not total:
         return ""
     filled = round(width * n / total)
@@ -288,6 +296,7 @@ def _print_confusion(confusion: dict, labels: list):
 
 
 def main():
+    """Point d'entrée en ligne de commande : analyse les options et lance `run()`."""
     parser = argparse.ArgumentParser(description="Audit READ-ONLY de la catégorisation ISMaiLa (Phase 1)")
     parser.add_argument("--limit", type=int, default=0, help="Nb max de contributions (0 = toutes)")
     parser.add_argument("--no-semantic", action="store_true", help="Mots-clés seuls (rapide, sans modèle)")

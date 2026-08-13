@@ -1,3 +1,11 @@
+"""
+Briques d'interface transverses ISMaiLa.
+
+Regroupe ce qui est rendu à l'identique dans plusieurs vues, pour éviter la
+divergence. Aujourd'hui : le fil de commentaires internes, monté par les vues
+admin, validateur et contributeur.
+"""
+
 from datetime import datetime
 
 import streamlit as st
@@ -82,13 +90,3 @@ def render_comments_and_delete(collection, doc, user, *, key_prefix,
                     collection.delete_one({"_id": ObjectId(doc_id)})
                 st.toast("Élément supprimé.")
                 st.rerun()
-
-
-def render_header():
-    st.image("https://votre-logo-ism.png", width=100) # Remplace par ton URL
-    st.title("Système ISMaiLa v2")
-    st.divider()
-
-def render_footer():
-    st.divider()
-    st.caption("© 2026 ISM - Direction de l'Innovation")

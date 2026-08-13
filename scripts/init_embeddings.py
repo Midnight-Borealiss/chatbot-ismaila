@@ -35,6 +35,13 @@ from config.settings import MONGO_URI, DB_NAME, EMBEDDING_MODEL_NAME
 
 
 def run(regen_all: bool = False, limit: int = 0):
+    """Génère les embeddings manquants des questions de la base.
+
+    Idempotent : par défaut, seules les contributions sans
+    `question_embedding` sont traitées. `regen_all` régénère tout — nécessaire
+    après un changement de `EMBEDDING_MODEL_NAME`, sous peine de mélanger des
+    vecteurs incomparables dans le même index.
+    """
     if not MONGO_URI:
         print("❌ MONGO_URI non défini (vérifiez votre .env).")
         sys.exit(1)
@@ -75,6 +82,7 @@ def run(regen_all: bool = False, limit: int = 0):
 
 
 def main():
+    """Point d'entrée en ligne de commande : analyse les options et lance `run()`."""
     parser = argparse.ArgumentParser(description="Génération des embeddings ISMaiLa")
     parser.add_argument("--all", action="store_true",
                         help="Régénère TOUS les vecteurs (sinon : seulement les manquants)")

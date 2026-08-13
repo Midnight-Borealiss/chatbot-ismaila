@@ -32,10 +32,13 @@ RATINGS_COLLECTION = "response_ratings"
 
 
 class RatingController:
+    """Enregistrement et agrégation des votes sur les réponses du chat."""
+
     def __init__(self):
         self.collection_name = RATINGS_COLLECTION
 
     def _get_collection(self):
+        """Résout la collection à chaque appel (voir FeedbackController)."""
         return db_instance.get_collection(self.collection_name)
 
     def save_rating(self, user_email: str, question: str, response: str,

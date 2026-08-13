@@ -16,6 +16,12 @@ from views.feedback_view import render_feedback_sidebar
 
 
 def render_login_form():
+    """Formulaire de connexion de l'onglet public.
+
+    En cas d'échec, le message reste volontairement générique (« Email ou mot
+    de passe incorrect ») : distinguer les deux cas révélerait quels comptes
+    existent.
+    """
     st.subheader("🔐 Connexion")
     with st.form("login_form"):
         email    = st.text_input("Email")
@@ -58,6 +64,18 @@ def render_forced_password_change(user):
 
 
 def main():
+    """Point d'entrée Streamlit : garde-fous, puis routage selon le rôle.
+
+    Séquence de démarrage, dans l'ordre :
+      1. mode survie si MongoDB est injoignable — l'exécution s'arrête là ;
+      2. préchargement des catégories et ancres apprises (non bloquant) ;
+      3. verrou `must_change_password` : tant qu'il est levé, seule la
+         déconnexion reste possible ;
+      4. construction du menu selon le rôle, puis rendu de la page choisie.
+
+    Les vues sont importées **à l'intérieur** des branches : cela évite de
+    charger toutes les pages (et leurs dépendances lourdes) à chaque rerun.
+    """
     st.set_page_config(
         page_title="ISMaiLa — KMS Souverain",
         page_icon="🎓",

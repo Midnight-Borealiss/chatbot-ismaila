@@ -1,3 +1,18 @@
+"""
+SearchController — Moteur de recherche et aiguillage des questions ISMaiLa.
+
+Chemin d'une question :
+  1. classification à la source (`nlp_engine.assess_confidence`) ;
+  2. recherche sémantique Atlas Vector Search, repli sur le token-overlap ;
+  3. RG-01 — au-dessus de `NLP_THRESHOLD`, la réponse certifiée est servie ;
+     en dessous, la question est escaladée ;
+  4. RG-03 — l'escalade crée un ticket `en_attente` et alerte les experts ;
+  5. RG-05 — au-delà de `LEAD_HOT_THRESHOLD` questions chaudes, un formulaire
+     de capture de lead est déclenché (visiteurs non connectés uniquement).
+
+Collections : `contributions` (KB), `logs_interactions`, `users`, `chat_sessions`.
+"""
+
 from datetime import datetime
 import logging
 import re
@@ -148,6 +163,23 @@ class SearchController:
 
     def seek_answer(self, user_query: str, user_info: dict,
                     session_history: list = None) -> dict:
+        """Point d'entrée du chat : traite une question et décide de la suite.
+
+        Retourne {"response", "score", "status", "intent", "trigger_capture",
+        "category"} — voir `_build_result`.
+
+        `status` résume la décision prise :
+          - `SUCCÈS`            : réponse certifiée servie (RG-01) ;
+          - `ATTENTE`           : ticket créé, experts alertés (RG-03) ;
+          - `FUSION_DOUBLON`    : question rattachée à un ticket déjà ouvert ;
+          - `SUGGESTION_EXPERT` : l'auteur est expert du domaine — sa question
+            est enregistrée comme suggestion d'enrichissement, pas comme demande ;
+          - `VIDE`              : base de connaissances vide.
+
+        `user_info` porte le contexte matriciel (institutions, service,
+        public_target) qui restreint la recherche. Un expert ou la Direction n'est
+        pas filtré : ils voient toute la base.
+        """
         session_history = session_history or []
         user_info = user_info or {}
 
@@ -229,6 +261,14 @@ class SearchController:
 
     def _handle_expert_question(self, query: str, user: dict, category: str,
                                 parent_category: str = "", clf: dict = None) -> tuple:
+        """Enregistre la question d'un expert comme suggestion d'enrichissement.
+
+        Un expert qui interroge son propre domaine ne cherche pas de l'aide : il
+        signale une lacune. On n'alerte donc pas ses pairs — le ticket est marqué
+        `source = "expert_suggestion"`.
+
+        Retourne (message affiché, statut).
+        """
         clf = clf or {}
         self.kb.insert_one({
             "question":         query,
@@ -256,6 +296,11 @@ class SearchController:
         return response, "SUGGESTION_EXPERT"
 
     def get_session_history(self, user_email: str, limit: int = 50) -> list:
+        """Derniers échanges de l'utilisateur (les `limit` plus récents).
+
+        Retourne une liste vide pour un visiteur anonyme : rien n'est persisté
+        pour lui.
+        """
         if not user_email or user_email in ("anonyme", "public"):
             return []
         session = self.sessions.find_one({"user_email": user_email})
@@ -265,6 +310,11 @@ class SearchController:
 
     def _persist_exchange(self, user: dict, question: str, response: str,
                           score: float, intent: str, category: str):
+        """Ajoute l'échange à la session de l'utilisateur (upsert).
+
+        Rien n'est écrit pour un visiteur anonyme. `last_activity` alimente
+        l'index TTL qui purge les sessions inactives depuis 90 jours.
+        """
         email = user.get("email", "anonyme") if isinstance(user, dict) else "anonyme"
         if email in ("anonyme", "public", ""):
             return
@@ -286,6 +336,7 @@ class SearchController:
         )
 
     def clear_session_history(self, user_email: str):
+        """Vide l'historique de conversation sans supprimer la session."""
         self.sessions.update_one(
             {"user_email": user_email},
             {"$set": {"exchanges": []}}
@@ -293,6 +344,14 @@ class SearchController:
 
     def _create_ticket(self, query: str, user: dict, category: str = "",
                        parent_category: str = "", clf: dict = None) -> dict:
+        """Crée une contribution `en_attente` à partir d'une question sans réponse.
+
+        Stocke la sous-catégorie ET le pôle parent, ainsi que la trace de
+        classification (`ai_confidence`, `ai_source`, `needs_review`) qui permet
+        au validateur de repérer les catégorisations douteuses.
+
+        Retourne le document inséré, `_id` compris.
+        """
         clf = clf or {}
         doc = {
             "question":   query,
@@ -317,6 +376,14 @@ class SearchController:
         return doc
 
     def _alert_experts_by_topic(self, query: str, category: str, user: dict, ticket: dict):
+        """Alerte les experts concernés par une question escaladée (RG-03).
+
+        Ciblage en deux temps : d'abord le service du ticket, puis, à défaut,
+        les validateurs et admins dont `expert_topics` contient la catégorie.
+
+        Non bloquant : un échec d'envoi ne doit pas empêcher l'utilisateur de
+        recevoir son message d'attente — le ticket est déjà en base.
+        """
         asked_by = user.get("email", "un utilisateur") if isinstance(user, dict) else "un utilisateur"
         try:
             experts = list(self.users.find({
@@ -334,6 +401,11 @@ class SearchController:
             print(f"⚠️ Alerte expert non envoyée : {e}")
 
     def _log_query(self, q, r, sc, st_val, intent, category, u):
+        """Journalise l'échange dans `logs_interactions` (statistiques, RG-01).
+
+        Question et réponse sont tronquées (500 / 200 caractères) : ces logs
+        servent à mesurer, pas à archiver le contenu. Non bloquant.
+        """
         try:
             self.logs.insert_one({
                 "timestamp": datetime.now(),
@@ -350,6 +422,11 @@ class SearchController:
 
     @staticmethod
     def _build_result(response, score, status, intent, trigger_capture, category) -> dict:
+        """Contrat de sortie de `seek_answer`, unique point de construction.
+
+        Toute évolution de ce dictionnaire doit passer par ici pour que les
+        appelants (student_view, tests) restent alignés.
+        """
         return {
             "response":        response,
             "score":           score,

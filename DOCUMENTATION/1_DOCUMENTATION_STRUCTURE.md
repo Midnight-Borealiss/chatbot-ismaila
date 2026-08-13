@@ -46,6 +46,18 @@ Ce dossier contient la documentation complète du projet **ISMaiLa** - Système 
 - Guide de versioning
 - Historique des mises à jour
 
+### 10. **PLAN_SECURITE.md**
+- Travaux de sécurité détaillés, suite à la revue du 6 août 2026
+- Répartition explicite : ce qui est fait, ce qui vous revient (accès Atlas /
+  GitHub), ce que je peux prendre en charge
+- Contexte factuel de l'incident : [../SECURITY.md](../SECURITY.md)
+
+### 11. **PLAN_INTEGRATION_LLM.md**
+- Plan d'intégration d'un LLM en 5 étapes, du risque nul au risque élevé
+- Les deux contraintes qui commandent tout : taille du corpus certifié,
+  incompatibilité d'Ollama avec Streamlit Cloud
+- Principe directeur : ne pas rompre la chaîne de certification
+
 ---
 
 ## 🎯 Guide de Mise à Jour
@@ -70,18 +82,31 @@ Ce dossier contient la documentation complète du projet **ISMaiLa** - Système 
 
 ```
 chatbot-ismaila/
+├── README.md           → Installation, configuration, lancement
+├── CONVENTION.md       → Conventions de code et patterns du projet
+├── .env.example        → Modèle de configuration
 ├── DOCUMENTATION/      → Cette documentation
 ├── config/             → Configuration et constantes
 ├── controllers/        → Logique métier
-├── models/            → Structures de données (Pydantic)
-├── services/          → Services externes et utilitaires
-├── views/             → Interfaces utilisateur (Streamlit)
-├── scripts/           → Utilitaires et scripts d'administration
-├── tests/             → Tests unitaires
-├── data/              → Données et ressources
-├── docs/              → Documentation existante
-└── app.py             → Point d'entrée principal
+├── models/             → Structures de données (Pydantic)
+├── services/           → Services externes et utilitaires
+├── views/              → Interfaces utilisateur (Streamlit)
+├── scripts/            → Utilitaires et scripts d'administration
+├── tests/              → Tests unitaires
+├── data/               → Données et ressources
+└── app.py              → Point d'entrée principal
 ```
+
+### Où chercher quoi
+
+| Question | Fichier |
+|---|---|
+| Comment installer et lancer ? | [../README.md](../README.md) |
+| Quelle variable d'environnement ? | [../README.md](../README.md), [../.env.example](../.env.example) |
+| Comment écrit-on le code ici ? | [../CONVENTION.md](../CONVENTION.md) |
+| Que fait tel module ? | [4_MODULES_DETAILLES.md](4_MODULES_DETAILLES.md) |
+| Pourquoi cette règle métier ? | [5_LOGIQUE_METIER.md](5_LOGIQUE_METIER.md) |
+| Qu'a-t-on livré et quand ? | [7_CHANGELOG_TEMPLATE.md](7_CHANGELOG_TEMPLATE.md) |
 
 ---
 
@@ -96,7 +121,7 @@ chatbot-ismaila/
 
 ### Technologies Clés
 - **Backend** : Python (Streamlit)
-- **NLP** : Sentence-Transformers (all-MiniLM-L6-v2)
+- **NLP** : Sentence-Transformers (paraphrase-multilingual-MiniLM-L12-v2, 384 dim)
 - **Base de données** : MongoDB
 - **Email** : SMTP
 - **CRM** : Salesforce (webhook)
@@ -120,6 +145,7 @@ chatbot-ismaila/
 | Date | Auteur | Type | Description |
 |------|--------|------|-------------|
 | 2026-05-23 | Copilot | Création | Initialisation structure documentation |
+| 2026-08-06 | Claude | Rattrapage | README + CONVENTION + `.env.example` ; architecture, modules et changelog remis à jour (v7.25 → v7.36) |
 
 ---
 
@@ -132,5 +158,5 @@ chatbot-ismaila/
 
 ---
 
-**Dernière mise à jour** : 2026-05-23
-**Statut** : ✅ Structure initiale
+**Dernière mise à jour** : 2026-08-06
+**Statut** : ✅ À jour (v7.36)

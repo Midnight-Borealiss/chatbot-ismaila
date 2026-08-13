@@ -1,3 +1,17 @@
+"""
+Connecteur Salesforce — synchronisation des leads (RG-06).
+
+Stratégie « store then forward » : MongoDB fait autorité et est écrit en premier
+par `mkt_controller` ; ce module ne fait que pousser vers un webhook
+(Make/Zapier) avec un timeout strict, pour ne jamais bloquer l'interface.
+
+Un échec de synchronisation n'est jamais fatal : le lead reste en base avec
+`is_synced_sf = False` et sera repris par `retry_failed_leads()` depuis le
+dashboard admin.
+
+Sans `SF_WEBHOOK_URL` configurée, la synchronisation est simplement désactivée.
+"""
+
 import hashlib
 from datetime import datetime
 
@@ -104,10 +118,20 @@ def retry_failed_leads() -> str:
 
 
 def _map_temperature(intent: str) -> str:
+    """Traduit le score d'intention ISMaiLa en `Rating` Salesforce.
+
+    Valeur inconnue → « Warm » : on ne veut ni surestimer un prospect, ni le
+    perdre en le classant froid par défaut.
+    """
     return {"HOT": "Hot", "WARM": "Warm", "COLD": "Cold"}.get(intent, "Warm")
 
 
 def _log_sf_error(lead_doc: dict, error_msg: str):
+    """Journalise un échec de synchronisation dans `logs_interactions`.
+
+    Dernier recours en `print` si même la base est indisponible : perdre la
+    trace serait pire que l'afficher en console.
+    """
     try:
         db_instance.get_collection("logs_interactions").insert_one({
             "type":      "sf_webhook_error",

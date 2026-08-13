@@ -40,6 +40,17 @@ _NEEDS_REVIEW_CONFIDENCE = 0.55
 
 
 class NLPEngine:
+    """Moteur sémantique souverain : embeddings et classification, en local.
+
+    Chargement paresseux du modèle et mise en cache des embeddings d'ancres :
+    la première requête paie le coût, les suivantes non. Un échec de chargement
+    est mémorisé (`_model_failed`) pour ne pas retenter à chaque appel.
+
+    Dégradation gracieuse : sans `sentence-transformers` ni `torch`, la
+    classification retombe sur la voie mots-clés, et `embed()` retourne None —
+    la recherche bascule alors sur son repli textuel.
+    """
+
     def __init__(self):
         self._model = None              # SentenceTransformer (chargé à la demande)
         self._model_failed = False      # évite de retenter un chargement qui a échoué
@@ -66,6 +77,8 @@ class NLPEngine:
         return self._model
 
     def is_semantic_available(self) -> bool:
+        """Indique si la voie sémantique est utilisable. Déclenche le chargement
+        du modèle au premier appel."""
         return self.get_model() is not None
 
     def embed(self, text: str):

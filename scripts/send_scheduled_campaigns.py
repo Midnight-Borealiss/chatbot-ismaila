@@ -24,6 +24,7 @@ from controllers.communication_controller import communication_controller
 
 
 def main():
+    """Point d'entrée en ligne de commande."""
     result = communication_controller.process_scheduled()
     print(f"✅ Campagnes programmées traitées : {result.get('processed', 0)}")
 

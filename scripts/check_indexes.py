@@ -24,6 +24,7 @@ from services.db_connector import INDEX_DEFINITIONS
 
 
 def get_db():
+    """Ouvre la base après ping. Sort en erreur si elle est injoignable."""
     try:
         client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
         client.admin.command("ping")
@@ -169,6 +170,7 @@ def stats(db):
 
 
 def main():
+    """Point d'entrée en ligne de commande : analyse les options et lance `run()`."""
     parser = argparse.ArgumentParser(
         description="Gestion des index MongoDB ISMaiLa"
     )

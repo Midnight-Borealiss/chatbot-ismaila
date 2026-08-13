@@ -1,3 +1,15 @@
+"""
+Inventaire des réponses « placeholder » restées en base — LECTURE SEULE.
+
+Compte et classe les contributions dont la réponse contient « en attente ».
+Ces textes ne sont pas de vraies réponses : ils bloquent la file de traitement
+et peuvent être servis à un étudiant.
+
+N'écrit rien. Pour nettoyer, voir `cleanup_placeholders.py`.
+
+    python -m scripts.analyze_placeholders
+"""
+
 import sys
 import os
 from collections import Counter
@@ -14,6 +26,7 @@ except Exception as e:
     sys.exit(1)
 
 def main():
+    """Affiche le nombre de placeholders et leurs libellés les plus fréquents."""
     col = db_instance.get_collection("contributions")
     # Recherche de toutes les réponses contenant le motif "en attente" (insensible à la casse)
     cursor = col.find({"response": {"$regex": "en attente", "$options": "i"}}, {"response": 1, "_id": 0})

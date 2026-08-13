@@ -3,6 +3,8 @@ streamlit>=1.35.0
 
 # ── Base de données ────────────────────────────────────────────────────
 pymongo>=4.7.0
+# Requis par mongodb+srv:// (résolution SRV) et par le diagnostic MX du mailer.
+dnspython>=2.6.0
 
 # ── NLP souverain (Phase 1) ────────────────────────────────────────────
 sentence-transformers>=3.0.0

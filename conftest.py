@@ -1,3 +1,12 @@
+"""
+Configuration pytest à la racine : rend le projet importable depuis les tests.
+
+Chargé avant toute collecte, il ajoute la racine au `sys.path` pour que
+`from controllers... import ...` fonctionne sans installer le projet.
+
+Les fixtures partagées sont dans `tests/conftest.py`, pas ici.
+"""
+
 import sys
 import os
 

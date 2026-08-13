@@ -10,6 +10,11 @@ from config.roles import ADMIN, SUPER_ADMIN
 
 
 def create_test_accounts():
+    """Crée les comptes QA, tous avec le même mot de passe par défaut.
+
+    ⚠️ Réservé aux environnements de test : le mot de passe est en clair dans
+    le code source. Ne jamais exécuter sur la base du pilote.
+    """
     print("⏳ Connexion à MongoDB Atlas et initialisation des comptes de test...")
     
     if not db_instance.is_alive():

@@ -33,6 +33,8 @@ from config.settings import MONGO_URI, DB_NAME, EMBEDDING_DIM, VECTOR_INDEX_NAME
 
 
 def _get_collection():
+    """Ouvre `contributions` après un ping de vérification. Sort si la base est
+    injoignable — un script d'administration doit échouer bruyamment."""
     if not MONGO_URI:
         print("❌ MONGO_URI non défini (vérifiez votre .env).")
         sys.exit(1)
@@ -42,6 +44,11 @@ def _get_collection():
 
 
 def list_indexes(collection):
+    """Affiche les index de recherche Atlas et leur état (`queryable`).
+
+    Un index peut exister sans être encore interrogeable : la construction est
+    asynchrone côté Atlas.
+    """
     try:
         indexes = list(collection.list_search_indexes())
     except Exception as e:
@@ -57,6 +64,11 @@ def list_indexes(collection):
 
 
 def create_index(collection):
+    """Crée l'index Vector Search s'il n'existe pas déjà (sans écraser).
+
+    Sa dimension doit correspondre à `EMBEDDING_DIM` : un index créé pour un
+    autre modèle rejette les requêtes.
+    """
     existing = []
     try:
         existing = [i.get("name") for i in collection.list_search_indexes()]
@@ -94,6 +106,7 @@ def create_index(collection):
 
 
 def main():
+    """Point d'entrée en ligne de commande : analyse les options et lance `run()`."""
     parser = argparse.ArgumentParser(description="Index Atlas Vector Search ISMaiLa")
     parser.add_argument("--list", action="store_true", help="Lister les index existants")
     args = parser.parse_args()

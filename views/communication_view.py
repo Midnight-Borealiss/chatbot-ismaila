@@ -20,6 +20,7 @@ from controllers.communication_controller import (
 
 
 def render_communication_view():
+    """Point d'entrée du Centre de Communication, monté par `admin_view`."""
     st.subheader("📣 Centre de Communication")
     st.caption("Informer, relancer et animer le pilote : ciblage fin, messages éditables, "
                "envoi email + notification in-app, accusés de réception.")
@@ -38,6 +39,15 @@ def render_communication_view():
 # ═══════════════════════════════════════════════════════════════════════════
 
 def _render_compose():
+    """Sous-onglet « Nouvelle campagne » : cibler, composer, envoyer.
+
+    Déroulé de l'écran : destinataires → blocs de contenu (éditables) → canaux
+    → mode d'envoi (immédiat / test à soi-même / programmé).
+
+    Le bloc « infos de connexion » réinitialise le mot de passe des
+    destinataires : il n'est proposé qu'en envoi immédiat, le contrôleur
+    refusant la combinaison avec un envoi programmé.
+    """
     user = st.session_state.get("user", {})
 
     # ── 1. CIBLE ─────────────────────────────────────────────────────────────
@@ -139,6 +149,21 @@ def _render_compose():
                 "dans les secrets Streamlit Cloud."
             )
 
+        st.markdown("**Expéditeur**")
+        st.caption(
+            f"Affiché aux destinataires : `{diag['expediteur_affiche']}` | "
+            f"Compte authentifié : `{diag['compte_authentifie']}` | "
+            f"Reply-To : `{diag['reply_to']}`"
+        )
+        if not diag["from_aligne"]:
+            st.warning(
+                "`SMTP_FROM` diffère du compte authentifié : l'envoi n'aboutira que si "
+                "cette adresse est un **alias vérifié** du compte (Gmail « Envoyer des "
+                "e-mails en tant que ») ou une boîte du même tenant Microsoft 365."
+            )
+
+        _render_deliverability_test()
+
     # ── 3. CANAUX ────────────────────────────────────────────────────────────
     st.markdown("##### 📡 3. Canaux")
     cch1, cch2 = st.columns(2)
@@ -219,11 +244,64 @@ def _render_compose():
                     st.error("Nom de modèle invalide.")
 
 
+def _render_deliverability_test():
+    """Teste une adresse précise : le domaine l'accepte-t-il, et un vrai message
+    arrive-t-il ? Répond à la question « le mail est-il parti au bon endroit ? »."""
+    st.markdown("**Tester une adresse**")
+    st.caption(
+        "Un envoi marqué « sent » signifie seulement que le serveur a **accepté** le "
+        "message. S'il n'apparaît pas en boîte de réception, il est presque toujours "
+        "en **indésirables / quarantaine** chez le destinataire."
+    )
+    addr = st.text_input("Adresse à tester", key="comm_diag_addr",
+                         placeholder="prenom.nom@groupeism.sn")
+
+    t1, t2 = st.columns(2)
+    if t1.button("🔍 Vérifier l'adresse (sans envoi)", key="comm_diag_check",
+                 use_container_width=True, disabled=not addr.strip()):
+        from services.mailer import check_recipient
+        with st.spinner("Interrogation du serveur de messagerie du domaine…"):
+            r = check_recipient(addr.strip())
+        if r["erreur"]:
+            st.warning(r["erreur"])
+        elif r["accepte"]:
+            st.success(
+                f"✅ Adresse **acceptée** par `{r['mx']}` (code {r['code']}). "
+                f"Les messages lui sont bien remis : s'ils ne sont pas vus, "
+                f"cherchez dans les indésirables ou la quarantaine."
+            )
+        else:
+            st.error(f"❌ Adresse **refusée** par `{r['mx']}` — code {r['code']} : {r['message']}")
+
+    if t2.button("✉️ Envoyer un message de test", key="comm_diag_send",
+                 use_container_width=True, disabled=not addr.strip()):
+        from services.mailer import send_campaign_email_ex
+        with st.spinner("Envoi en cours…"):
+            ok, err = send_campaign_email_ex(
+                addr.strip(),
+                "Test de délivrabilité ISMaiLa",
+                "Ceci est un message de test envoyé depuis le Centre de Communication "
+                "ISMaiLa pour vérifier la bonne réception des emails.\n\n"
+                "Si vous le trouvez dans vos indésirables, marquez-le comme légitime.",
+            )
+        if ok:
+            st.success(f"✅ Message accepté par le serveur pour **{addr.strip()}**. "
+                       f"Vérifiez la boîte de réception **et les indésirables**.")
+        else:
+            st.error(f"❌ Échec : {err}")
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 #  2. HISTORIQUE & ACCUSÉS DE RÉCEPTION
 # ═══════════════════════════════════════════════════════════════════════════
 
 def _render_history():
+    """Sous-onglet « Historique & accusés » : suivi par campagne et relance.
+
+    « Lu » ne concerne que la notification in-app (champ `read_at`) : un email
+    remis n'est pas traçable en lecture. Un destinataire `email_status = "sent"`
+    a donc été servi par le serveur, sans garantie qu'il ait ouvert le message.
+    """
     user = st.session_state.get("user", {})
     campaigns = cc.get_campaigns(limit=30)
     if not campaigns:
@@ -281,6 +359,11 @@ def _render_history():
 # ═══════════════════════════════════════════════════════════════════════════
 
 def _render_templates():
+    """Sous-onglet « Modèles » : charger ou supprimer un message enregistré.
+
+    « Charger » pré-remplit l'objet et le bloc libre du composeur via la
+    session ; l'envoi reste à déclencher depuis « Nouvelle campagne ».
+    """
     templates = cc.get_templates()
     if not templates:
         st.info("Aucun modèle enregistré. Créez-en un depuis l'onglet « Nouvelle campagne ».")

@@ -1,15 +1,36 @@
-# Dossiers de configuration de l'IDE
+# ─── SÉCURITÉ — ne jamais committer ────────────────────────────────────
+# Voir SECURITY.md. Un identifiant Atlas est resté public 77 jours ; le
+# hook .githooks/pre-commit refuse désormais ces fichiers, mais la première
+# ligne de défense reste cette liste.
+.env
+.env.*
+!.env.example
+*.env
+.streamlit/secrets.toml
+secrets.toml
+*.pem
+*.key
+credentials.json
+service-account*.json
+
+# ─── Dossiers de configuration de l'IDE ────────────────────────────────
 .vs/
+.idea/
 *.sln.ide/
 
-# Environnements Virtuels Python
+# ─── Environnements virtuels Python ────────────────────────────────────
 env/
 venv/
+.venv/
 __pycache__/
+*.py[cod]
 
-# --- SÉCURITÉ (À AJOUTER) ---
-.env
+# ─── Caches d'outillage ────────────────────────────────────────────────
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Fichiers de données ou logs générés localement
+# ─── Fichiers générés localement ───────────────────────────────────────
 *.log
-*.toml
+rapport_*.json
+rapport_*.txt

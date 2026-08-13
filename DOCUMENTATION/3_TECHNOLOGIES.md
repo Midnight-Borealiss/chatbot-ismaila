@@ -43,8 +43,11 @@ ISMaiLa est construite avec un stack **Python moderne** centré sur la productiv
 ### Intégrations
 | Technologie | Version | Usage |
 |-------------|---------|-------|
-| **requests** | Latest | HTTP requests |
-| **pymongo** | 4.0+ | Driver MongoDB |
+| **requests** | 2.32+ | Webhook Salesforce, HF Inference |
+| **pymongo** | 4.7+ | Driver MongoDB |
+| **dnspython** | 2.6+ | Résolution SRV (`mongodb+srv://`) et MX (diagnostic mailer) |
+| **pydantic[email]** | 2.7+ | Validation des modèles |
+| **pandas** | 2.2+ | Tableaux du dashboard admin |
 
 ---
 
@@ -64,34 +67,22 @@ ISMaiLa est construite avec un stack **Python moderne** centré sur la productiv
 
 ## 🔐 Variables d'Environnement
 
-```env
-# Database
-MONGO_URI=mongodb+srv://user:pass@cluster.mongodb.net
-DB_NAME=ismaila_db
+**Source de vérité** : [../.env.example](../.env.example) — modèle complet et
+commenté. Description de chaque variable dans [../README.md](../README.md).
 
-# Email
-SMTP_SERVER=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
+Toutes les clés sont lisibles depuis `.env` (local) **ou** `st.secrets`
+(Streamlit Cloud), via `config.settings._secret()`.
 
-# Salesforce
-SF_WEBHOOK_URL=https://hook.make.com/webhooks/...
-
-# NLP / Recherche sémantique
-NLP_THRESHOLD=0.75
-EMBEDDING_MODEL_NAME=paraphrase-multilingual-MiniLM-L12-v2
-EMBEDDING_DIM=384
-VECTOR_INDEX_NAME=autoembed_index
-
-# LLM (catégorisation HF — optionnel, via st.secrets["llm"]["api_token"])
-
-# App
-ADMIN_EMAIL=admin@ism.edu.sn
-APP_ENV=production|development
-```
+| Groupe | Clés |
+|---|---|
+| Base | `MONGO_URI`, `DB_NAME` |
+| Plateforme | `PLATFORM_URL` |
+| Email | `SMTP_SERVER`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_FROM_NAME`, `SMTP_REPLY_TO`, `SMTP_SSL` |
+| NLP | `EMBEDDING_MODEL_NAME`, `EMBEDDING_DIM`, `VECTOR_INDEX_NAME`, `NLP_THRESHOLD` |
+| Salesforce | `SF_WEBHOOK_URL`, `SF_TIMEOUT` |
+| LLM (optionnel) | `st.secrets["llm"]["api_token"]` pour HF Inference |
 
 ---
 
-**Dernière mise à jour** : 2026-06-08 (v7.15 — recherche sémantique Atlas Vector Search)
+**Dernière mise à jour** : 2026-08-06 (v7.36)
 **Status** : ✅ Stack validée pour MVP

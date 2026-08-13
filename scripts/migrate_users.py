@@ -30,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 def get_collection():
+    """Ouvre `users` après ping. Sort en erreur si la base est injoignable."""
     from pymongo import MongoClient
     from config.settings import MONGO_URI, DB_NAME
     try:
@@ -86,6 +87,7 @@ def audit(col) -> dict:
 
 
 def print_audit(report: dict):
+    """Affiche le rapport d'incohérences produit par `audit()`."""
     total = report["total"]
     print(f"\n{'═'*60}")
     print(f"  AUDIT SCHÉMA UTILISATEURS — {total} document(s)")
@@ -193,6 +195,7 @@ def apply_migration(col, report: dict):
 
 
 def main():
+    """Point d'entrée en ligne de commande : analyse les options et lance `run()`."""
     parser = argparse.ArgumentParser(
         description="Migration du schéma utilisateurs ISMaiLa"
     )

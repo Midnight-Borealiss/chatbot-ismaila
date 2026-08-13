@@ -70,6 +70,8 @@ def default_blocks() -> dict:
 
 
 class CommunicationController:
+    """Composition, ciblage, envoi et suivi des campagnes de communication."""
+
     def __init__(self):
         self.users     = db_instance.get_collection("users")
         self.kb        = db_instance.get_collection("contributions")
@@ -99,7 +101,10 @@ class CommunicationController:
         Permet de comprendre un « Mailer non configuré » en production.
         """
         import os
-        from config.settings import SMTP_SERVER, SMTP_PORT, SMTP_USER, SMTP_PASS
+        from config.settings import (
+            SMTP_SERVER, SMTP_PORT, SMTP_USER, SMTP_PASS,
+            SMTP_FROM, SMTP_FROM_NAME, SMTP_REPLY_TO,
+        )
 
         env_user = bool(os.getenv("SMTP_USER"))
         env_pass = bool(os.getenv("SMTP_PASS"))
@@ -119,6 +124,10 @@ class CommunicationController:
             "resolu_pass_present": bool(SMTP_PASS),
             "server": SMTP_SERVER,
             "port": SMTP_PORT,
+            "expediteur_affiche": f"{SMTP_FROM_NAME} <{SMTP_FROM or SMTP_USER}>",
+            "compte_authentifie": SMTP_USER or "(aucun)",
+            "reply_to": SMTP_REPLY_TO or "(aucun)",
+            "from_aligne": (SMTP_FROM or SMTP_USER) == SMTP_USER,
             "env_SMTP_USER": env_user,
             "env_SMTP_PASS": env_pass,
             "st_secrets_accessible": secrets_ok,
@@ -179,10 +188,16 @@ class CommunicationController:
         return out
 
     def count_recipients(self, target: dict) -> int:
+        """Nombre de destinataires uniques pour une cible — aperçu avant envoi."""
         return len(self.resolve_recipients(target))
 
     # ── Récap automatique des questions en attente ─────────────────────────────
     def build_pending_recap(self) -> str:
+        """Texte du bloc « récap » : questions en attente regroupées par pôle.
+
+        Le regroupement retombe sur `get_parent_category()` quand un document
+        ancien ne porte pas encore `parent_category`.
+        """
         try:
             pending = list(self.kb.find(
                 {"status": "en_attente"},
@@ -209,6 +224,11 @@ class CommunicationController:
     # ── Personnalisation ───────────────────────────────────────────────────────
     @staticmethod
     def personalize(text: str, user: dict) -> str:
+        """Remplace les variables du message : {prenom}, {nom}, {email}, {lien}.
+
+        {motdepasse} n'est PAS traité ici : sa substitution dépend du canal
+        (voir `_dispatch`), le mot de passe ne devant pas être écrit en base.
+        """
         name = user.get("full_name") or user.get("email", "")
         prenom = name.split()[0] if name else "à tous"
         return (text or "").replace("{prenom}", prenom) \
@@ -384,6 +404,8 @@ class CommunicationController:
 
     @staticmethod
     def _compute_stats(records: list, channels: list) -> dict:
+        """Agrège les enregistrements de `_dispatch` en
+        {"total", "email_sent", "email_failed", "inapp"}."""
         return {
             "total":        len(records),
             "email_sent":   sum(1 for r in records if r.get("email_status") == "sent"),
@@ -393,6 +415,7 @@ class CommunicationController:
 
     # ── Historique & accusés de réception ──────────────────────────────────────
     def get_campaigns(self, limit: int = 30) -> list:
+        """Dernières campagnes, les plus récentes d'abord (historique admin)."""
         try:
             return list(self.campaigns.find().sort("created_at", -1).limit(limit))
         except Exception:
@@ -485,6 +508,7 @@ class CommunicationController:
 
     # ── Modèles réutilisables ───────────────────────────────────────────────────
     def save_template(self, name: str, subject: str, body: str, author: str) -> bool:
+        """Crée ou écrase un modèle réutilisable (clé = son nom). True si écrit."""
         if not name or not name.strip():
             return False
         try:
@@ -499,12 +523,14 @@ class CommunicationController:
             return False
 
     def get_templates(self) -> list:
+        """Modèles enregistrés, triés par nom."""
         try:
             return list(self.templates.find().sort("name", 1))
         except Exception:
             return []
 
     def delete_template(self, name: str) -> bool:
+        """Supprime un modèle par son nom. False si la base est indisponible."""
         try:
             self.templates.delete_one({"name": name})
             return True

@@ -11,9 +11,13 @@ Fonctions disponibles :
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formataddr, formatdate, make_msgid
 from typing import Optional, Tuple
 
-from config.settings import SMTP_SERVER, SMTP_PORT, SMTP_USER, SMTP_PASS, PLATFORM_URL
+from config.settings import (
+    SMTP_SERVER, SMTP_PORT, SMTP_USER, SMTP_PASS, PLATFORM_URL,
+    SMTP_FROM, SMTP_FROM_NAME, SMTP_REPLY_TO, SMTP_SSL,
+)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -66,28 +70,99 @@ def _deliver(to: str, subject: str, body_text: str, body_html: Optional[str] = N
     # Anti-injection d'en-têtes : un objet ne doit jamais contenir de CR/LF.
     subject = (subject or "").replace("\r", " ").replace("\n", " ")
 
+    from_addr = (SMTP_FROM or SMTP_USER).strip()
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"]    = f"ISMaiLa <{SMTP_USER}>"
+    msg["From"]    = formataddr((SMTP_FROM_NAME, from_addr))
     msg["To"]      = to
+    # Date et Message-ID : absents, les filtres anti-spam (Microsoft 365 en
+    # particulier) pénalisent lourdement le message. Certains serveurs les
+    # ajoutent, d'autres non — on ne dépend pas de ce comportement.
+    msg["Date"]       = formatdate(localtime=True)
+    msg["Message-ID"] = make_msgid(domain=(from_addr.split("@")[-1] or None))
+    reply_to = (SMTP_REPLY_TO or "").strip()
+    if reply_to:
+        msg["Reply-To"] = reply_to
     msg.attach(MIMEText(body_text, "plain", "utf-8"))
     if body_html:
         msg.attach(MIMEText(body_html, "html", "utf-8"))
 
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=20) as server:
-            server.starttls()
+        connect = smtplib.SMTP_SSL if SMTP_SSL else smtplib.SMTP
+        with connect(SMTP_SERVER, SMTP_PORT, timeout=20) as server:
+            if not SMTP_SSL:
+                server.starttls()
             server.login(SMTP_USER, SMTP_PASS)
-            server.send_message(msg)
+            # Expéditeur d'enveloppe = compte authentifié : c'est lui que le
+            # serveur autorise (SPF) et qui reçoit les rapports de non-remise.
+            server.send_message(msg, from_addr=SMTP_USER)
         return True, ""
     except smtplib.SMTPRecipientsRefused:
         return False, f"Adresse refusée par le serveur : {to}"
     except smtplib.SMTPAuthenticationError as e:
         return False, f"Authentification SMTP refusée (mot de passe d'application ?) : {e}"
+    except smtplib.SMTPSenderRefused as e:
+        return False, (f"Expéditeur refusé ({from_addr}) : SMTP_FROM doit être un alias "
+                       f"vérifié du compte {SMTP_USER}. Détail : {e}")
     except smtplib.SMTPException as e:
         return False, f"Erreur SMTP : {e}"
     except Exception as e:
         return False, f"{type(e).__name__} : {e}"
+
+
+def check_recipient(email: str, timeout: int = 20) -> dict:
+    """Vérifie qu'une adresse est *acceptée* par le serveur de messagerie de son
+    domaine, sans envoyer de message (dialogue SMTP interrompu après RCPT TO).
+
+    Sert à distinguer les deux causes d'un « mail jamais reçu » :
+      - l'adresse n'existe pas / est refusée  → `accepte` = False, code 550
+      - l'adresse est acceptée                → le message est remis au domaine,
+        et une absence en boîte de réception relève du filtrage anti-spam
+        (indésirables, quarantaine) côté destinataire.
+
+    Retourne {"email", "domaine", "mx", "accepte", "code", "message", "erreur"}.
+    """
+    out = {"email": email, "domaine": "", "mx": "", "accepte": None,
+           "code": None, "message": "", "erreur": ""}
+    addr = (email or "").strip()
+    if "@" not in addr:
+        out["erreur"] = "Adresse invalide (pas de @)."
+        return out
+    domain = addr.rsplit("@", 1)[1].lower()
+    out["domaine"] = domain
+
+    try:
+        import dns.resolver
+        answers = dns.resolver.resolve(domain, "MX")
+        mx = sorted(((r.preference, str(r.exchange).rstrip(".")) for r in answers))[0][1]
+        out["mx"] = mx
+    except Exception as e:
+        out["erreur"] = f"Aucun serveur de messagerie (MX) trouvé pour {domain} : {e}"
+        return out
+
+    try:
+        with smtplib.SMTP(mx, 25, timeout=timeout) as s:
+            s.ehlo(_helo_name())
+            s.mail(SMTP_USER or "postmaster@localhost")
+            code, msg = s.rcpt(addr)
+            out["code"] = code
+            out["message"] = msg.decode("utf-8", "replace") if isinstance(msg, bytes) else str(msg)
+            out["accepte"] = 200 <= code < 300
+            try:
+                s.rset()
+            except Exception:
+                pass
+    except Exception as e:
+        out["erreur"] = (f"Impossible de joindre {mx} sur le port 25 ({type(e).__name__} : {e}). "
+                         f"Le port 25 sortant est souvent bloqué en hébergement Cloud — "
+                         f"ce test ne fonctionne alors qu'en local.")
+    return out
+
+
+def _helo_name() -> str:
+    """Nom annoncé au HELO/EHLO : le domaine de l'expéditeur si disponible."""
+    addr = (SMTP_FROM or SMTP_USER or "").strip()
+    return addr.rsplit("@", 1)[1] if "@" in addr else "ismaila.local"
 
 
 def _send(to: str, subject: str, body_text: str, body_html: Optional[str] = None) -> bool:

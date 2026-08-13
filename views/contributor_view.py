@@ -1,3 +1,18 @@
+"""
+Vue « Contribuer » — proposition et enrichissement de la base ISMaiLa.
+
+Deux usages :
+  - répondre à une question en attente relevant de son domaine ;
+  - déposer une nouvelle paire question / réponse.
+
+La catégorie est **suggérée** par le moteur NLP (Phase 3, étape 2) et reste
+modifiable : une correction humaine enrichit les ancres sémantiques via
+`kb_controller`, ce qui améliore les classifications suivantes.
+
+Le droit d'écrire est vérifié par domaine (`can_answer`) : hors de son périmètre,
+la contribution est enregistrée mais signalée comme telle.
+"""
+
 import streamlit as st
 from datetime import datetime
 
@@ -40,6 +55,7 @@ def _insert_contribution(kb_col, question: str, response: str, canonical_cat: st
 
 
 def render_contributor_view():
+    """Point d'entrée appelé par `app.py` pour la page « ✍️ Contribuer »."""
     user = st.session_state.get("user")
     if not user or user.get("role") not in (CONTRIBUTOR, VALIDATOR, ADMIN, SUPER_ADMIN):
         st.error("⛔ Accès refusé. Cette page est réservée aux contributeurs.")

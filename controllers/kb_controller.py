@@ -1,3 +1,21 @@
+"""
+KBController — Cycle de vie des contributions (base de connaissances ISMaiLa).
+
+Statuts d'une contribution, dans la collection `contributions` :
+    en_attente ──(certification)──▶ valide ──(invalidation)──▶ en_attente
+         │                             │
+         │                             └──(archivage)──▶ archive
+         └──(hors sujet)──▶ test
+
+Deux effets de bord importants à la certification :
+  - l'embedding de la question est généré, ce qui la rend interrogeable par la
+    recherche sémantique ;
+  - l'étudiant à l'origine de la question est notifié par email.
+
+Toute recatégorisation **humaine** enrichit les ancres sémantiques
+(`add_learned_anchor`) : c'est la boucle d'apprentissage de la Phase 3.
+"""
+
 from datetime import datetime
 
 from bson import ObjectId
@@ -41,9 +59,11 @@ class KBController:
         return result.modified_count
 
     def get_pending(self) -> list:
+        """File d'attente : contributions à traiter, les plus récentes d'abord."""
         return list(self.col.find({"status": "en_attente"}).sort("created_at", -1))
 
     def get_validated(self) -> list:
+        """Contributions certifiées, les dernières mises à jour d'abord."""
         return list(self.col.find({"status": "valide"}).sort("updated_at", -1))
 
     def _ensure_question_embedding(self, c_id: str, question: str):
@@ -132,12 +152,17 @@ class KBController:
             add_learned_anchor(canonical, doc["question"], source_id=str(c_id), added_by=author_email)
 
     def invalidate(self, c_id: str):
+        """Retire la certification : la contribution retourne en file d'attente.
+
+        La réponse est conservée — elle sert de point de départ à la correction.
+        """
         self.col.update_one(
             {"_id": ObjectId(c_id)},
             {"$set": {"status": "en_attente", "updated_at": datetime.now()}}
         )
 
     def archive(self, c_id: str):
+        """Sort la contribution du service actif sans la supprimer (traçabilité)."""
         self.col.update_one(
             {"_id": ObjectId(c_id)},
             {"$set": {"status": "archive", "archived_at": datetime.now()}}
@@ -160,6 +185,8 @@ class KBController:
         )
 
     def delete(self, c_id: str):
+        """Suppression définitive. Préférer `archive()` ou `move_to_test()`,
+        qui préservent la traçabilité."""
         self.col.delete_one({"_id": ObjectId(c_id)})
 
     def add_comment(self, c_id: str, author_email: str, text: str):
@@ -241,6 +268,7 @@ class KBController:
         return out[:limit]
 
     def get_stats(self) -> dict:
+        """Compte des contributions par statut : en_attente, valide, archive, test."""
         return {
             "en_attente": self.col.count_documents({"status": "en_attente"}),
             "valide":     self.col.count_documents({"status": "valide"}),

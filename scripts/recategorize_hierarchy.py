@@ -32,6 +32,11 @@ from services.nlp_engine import nlp_engine
 
 
 def run(apply: bool = False, limit: int = 0):
+    """Reclasse les contributions selon la hiérarchie courante.
+
+    **Mode à blanc par défaut** : sans `apply`, les changements sont seulement
+    affichés. Écrit `category` (sous-catégorie) et `parent_category` (pôle).
+    """
     if not MONGO_URI:
         print("❌ MONGO_URI non défini (.env).")
         sys.exit(1)
@@ -78,6 +83,7 @@ def run(apply: bool = False, limit: int = 0):
 
 
 def main():
+    """Point d'entrée en ligne de commande : analyse les options et lance `run()`."""
     parser = argparse.ArgumentParser(description="Re-catégorisation hiérarchique ISMaiLa")
     parser.add_argument("--apply", action="store_true", help="Écrit les changements (sinon dry-run)")
     parser.add_argument("--limit", type=int, default=0, help="Nombre max de docs (0 = tous)")

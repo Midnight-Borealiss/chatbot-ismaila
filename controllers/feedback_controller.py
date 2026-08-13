@@ -1,20 +1,45 @@
+"""
+FeedbackController — Modération des retours utilisateurs ISMaiLa.
+
+Alimente l'onglet de modération de l'espace Administration. Les feedbacks sont
+créés par `views/feedback_view.py` (bouton « 💬 Signaler / Avis », accessible à
+tous, y compris hors connexion) et traités ici.
+
+Collection MongoDB : `feedbacks`. Les index sont créés de façon centralisée par
+`db_instance._ensure_indexes()` — ne pas les recréer ici.
+
+Statuts : « Ouvert » → « En cours » → « Résolu ».
+"""
+
 from datetime import datetime
 from bson.objectid import ObjectId
 import streamlit as st
 from services.db_connector import db_instance
 
 class FeedbackController:
+    """Lecture filtrée et changement de statut des feedbacks."""
+
     def __init__(self):
         self.collection_name = "feedbacks"
 
     def _get_collection(self):
+        """Résout la collection à chaque appel plutôt qu'à l'instanciation.
+
+        Le singleton est construit à l'import : si MongoDB était injoignable à ce
+        moment-là, une référence figée resterait un mock pour toute la session.
+        """
         return db_instance.get_collection(self.collection_name)
 
     # Note : les index de la collection `feedbacks` sont créés de façon
     # centralisée par db_instance._ensure_indexes() (config déclarative).
 
     def get_filtered_feedbacks(self, status=None, feedback_type=None):
-        """Récupère les feedbacks filtrés à l'aide de l'index composé."""
+        """Feedbacks filtrés, les plus récents d'abord (index composé
+        `status + type`).
+
+        La valeur « Tous » vaut absence de filtre — c'est le libellé du
+        sélecteur de l'interface, passé tel quel.
+        """
         try:
             coll = self._get_collection()
             query = {}

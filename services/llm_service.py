@@ -1,3 +1,15 @@
+"""
+LLMService — Catégorisation assistée par LLM distant (Hugging Face Inference).
+
+**Service optionnel et non souverain** : contrairement à `nlp_engine` (calcul
+local), il envoie le texte à une API tierce. Il n'est donc utilisé que pour des
+tâches d'outillage (auto-catégorisation en back-office), jamais dans le chemin
+de réponse à l'étudiant.
+
+Sans jeton (`st.secrets["llm"]["api_token"]`), `is_available()` retourne False et
+toutes les méthodes dégradent proprement — l'application fonctionne sans.
+"""
+
 import requests
 import logging
 import streamlit as st
@@ -21,6 +33,8 @@ VALID_CATEGORIES = get_all_canonical()
 CONFIDENCE_MIN = 0.6
 
 class LLMService:
+    """Client minimal de l'API HF Inference (Mistral-7B-Instruct)."""
+
     def __init__(self):
         self.headers = {"Authorization": f"Bearer {HF_TOKEN}"}
         self.model = "Mistral-7B-Instruct-v0.3"
@@ -36,6 +50,12 @@ class LLMService:
             return False
 
     def get_categorization_prompt(self):
+        """Construit le prompt de catégorisation à partir du référentiel courant.
+
+        Lit `get_all_categories_config()` à l'appel (et non le constant
+        `VALID_CATEGORIES`, figé à l'import) : le référentiel peut être enrichi
+        après le démarrage.
+        """
         cats = get_all_categories_config()
         cat_list = "\n".join([f"- {c}" for c in cats.keys()])
         return f"""Analyse cette question posée à l'ISM et détermine sa catégorie.
@@ -48,6 +68,11 @@ RÈGLES :
 2. N'utilise pas de catégorie en dehors de la liste ci-dessus."""
 
     def generate_response(self, prompt: str) -> dict:
+        """Interroge le modèle. Retourne {"text", "status"} — "success" ou "error".
+
+        Ne lève jamais : toute panne (jeton absent, HTTP, réseau) se traduit par
+        un statut "error", à l'appelant de décider quoi en faire.
+        """
         if not HF_TOKEN:
             return self._fallback_error("Token manquant.")
         payload = {"inputs": prompt, "parameters": {"max_new_tokens": 300, "temperature": 0.3}}
@@ -60,6 +85,8 @@ RÈGLES :
             return self._fallback_error(str(e))
 
     def _fallback_error(self, reason: str) -> dict:
+        """Réponse d'échec uniforme. `reason` n'est pas exposé à l'utilisateur :
+        un message d'API tierce pourrait révéler des détails d'infrastructure."""
         return {"text": "Service indisponible.", "status": "error"}
 
 llm_service = LLMService()

@@ -1,3 +1,20 @@
+"""
+Vue « Administration » — tableau de bord et pilotage ISMaiLa.
+
+Réservée aux rôles ADMINISTRATION et SUPER_ADMIN (`_require_admin`).
+Organisée en onglets, chacun délégué à une fonction `_render_*` :
+
+  📊 Statistiques      → indicateurs, répartition par pôle
+  📝 Contributions     → file à traiter, validées, hors-contexte, santé de la base
+  👥 Équipes & Flux    → gestion des membres et de leurs droits, Communication
+  🤖 IA & Catégories   → auto-catégorisation
+  💬 Retours           → modération des feedbacks
+
+Le Centre de Communication et l'auto-catégorisation vivent dans leurs propres
+modules (`communication_view`, `ai_categorization_view`) et sont simplement
+montés ici.
+"""
+
 from datetime import datetime
 import pandas as pd
 import streamlit as st
@@ -144,6 +161,11 @@ def _render_feedback_dashboard():
 
 
 def _render_feedback_moderation_tab():
+    """Onglet « Retours » : synthèse visuelle puis modération pièce par pièce.
+
+    Chaque retour peut changer de statut, de priorité et recevoir des notes
+    internes (non visibles de l'auteur).
+    """
     st.header("💬 Retours Utilisateurs & Alertes Qualité")
 
     _render_feedback_dashboard()
@@ -177,6 +199,11 @@ def _render_feedback_moderation_tab():
                     st.rerun()
 
 def _render_stats_tab():
+    """Onglet « Statistiques » : indicateurs clés et répartition par pôle.
+
+    Le comptage par pôle retombe sur `get_parent_category()` pour les documents
+    anciens qui ne portent pas encore `parent_category`.
+    """
     stats = admin_controller.get_full_stats()
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total requêtes", stats["logs"]["total"])
@@ -199,6 +226,8 @@ def _render_stats_tab():
         st.bar_chart(pd.Series(dict(pole_counts)).sort_values(ascending=False))
 
 def _render_pending_questions(user):
+    """Sous-onglet « À traiter » : file d'attente filtrable (pôle, thématique,
+    présence d'une proposition), avec réponse et certification en ligne."""
     f1, f2, f3 = st.columns(3)
     with f1: f_pole = st.selectbox("Pôle", ["Tous"] + get_top_categories())
     with f2:
@@ -234,6 +263,11 @@ def _render_pending_questions(user):
             )
 
 def _render_validated_questions():
+    """Sous-onglet « Validées récemment » : relire et, si besoin, invalider.
+
+    Invalider ne détruit rien : la contribution retourne en file d'attente avec
+    sa réponse, qui sert de base à la correction.
+    """
     user = st.session_state.get("user", {})
     kb_col = db_instance.get_collection("contributions")
     for item in admin_controller.get_recent_validated(limit=10):
@@ -275,6 +309,11 @@ def _render_test_questions(user):
             )
 
 def _render_db_health_subtab():
+    """Sous-onglet « Santé de la base » : état de la connexion et des index.
+
+    La recréation des index est idempotente (`create_index` ne fait rien si
+    l'index existe) : le bouton peut être actionné sans risque.
+    """
     if db_instance.is_alive(): st.success("✅ MongoDB Atlas connecté")
     if st.button("🛠️ Forcer recréation index"):
         db_instance._ensure_indexes()
@@ -282,8 +321,14 @@ def _render_db_health_subtab():
 
 
 def _render_master_detail_user_management(current_user):
+    """Annuaire des testeurs en cartes ; les droits se déroulent sous la carte
+    sélectionnée (v7.34).
+
+    L'administrateur courant est exclu de la liste : on ne modifie pas ses
+    propres droits depuis cet écran, pour éviter de se verrouiller.
+    """
     db = db_instance.db
-    
+
     try:
         users_list = list(db.users.find({"email": {"$ne": current_user.get("email")}}))
     except Exception as e:
@@ -547,14 +592,12 @@ def _render_user_rights(target_user, db):
 
 
 
-def _render_users_list_and_creation(user):
-    pass
-
-def _render_permissions_subtab():
-    pass
-
-
 def _render_communication_subtab(user):
+    """Sous-onglet « Communication » : Centre de Communication puis journal admin.
+
+    Le journal `logs_admin` est affiché ici car les campagnes y sont tracées —
+    l'administrateur voit immédiatement l'effet de ses envois.
+    """
     # Centre de Communication (remplace l'ancien digest)
     render_communication_view()
 

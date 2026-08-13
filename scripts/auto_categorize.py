@@ -38,7 +38,11 @@ from sentence_transformers import SentenceTransformer
 print("Chargement du modèle de similarité sémantique (MiniLM)...")
 embed_model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
 
-def process_tickets(tickets, db, args): # <--- AJOUTE 'args' ICI
+def process_tickets(tickets, db, args):
+    """Soumet chaque ticket au LLM et applique la décision si `args` l'autorise.
+
+    Retourne la liste des décisions, pour le rapport final.
+    """
     results = []
 
 # Ajout du répertoire racine au path Python
@@ -316,6 +320,7 @@ def run(
 # ── Point d'entrée CLI ────────────────────────────────────────────────────────
 
 def main():
+    """Point d'entrée en ligne de commande : analyse les options et lance `run()`."""
     parser = argparse.ArgumentParser(
         description="Auto-catégorisation des tickets ISMaiLa avec Mistral/Ollama"
     )

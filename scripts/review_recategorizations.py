@@ -68,6 +68,12 @@ def _choose_category(current_proposed: str) -> str:
 
 
 def run(dry_run: bool = False, consensus_only: bool = False):
+    """Revue interactive : propose un reclassement, l'opérateur tranche.
+
+    `consensus_only` ne présente que les cas où toutes les voies de
+    classification s'accordent — utile pour traiter d'abord les évidences.
+    Chaque décision humaine acceptée enrichit les ancres apprises.
+    """
     if not MONGO_URI:
         print("❌ MONGO_URI non défini (.env).")
         sys.exit(1)
@@ -183,6 +189,7 @@ def run(dry_run: bool = False, consensus_only: bool = False):
 
 
 def main():
+    """Point d'entrée en ligne de commande : analyse les options et lance `run()`."""
     parser = argparse.ArgumentParser(description="Revue interactive des reclassements ISMaiLa (Phase 2)")
     parser.add_argument("--dry-run", action="store_true", help="Revue sans aucune écriture")
     parser.add_argument("--consensus-only", action="store_true", help="Ne montrer que les consensus 2 voies")

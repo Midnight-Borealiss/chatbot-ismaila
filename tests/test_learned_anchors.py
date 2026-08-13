@@ -26,6 +26,8 @@ def restore_anchors():
 
 
 def test_add_anchor_appends_in_memory():
+    """Une correction humaine enrichit immédiatement les ancres de la catégorie —
+    sans redémarrage ni réentraînement de modèle."""
     cat = get_subcategories()[0]
     before = len(cats.CATEGORY_ANCHORS.get(cat, []))
     ok = add_learned_anchor(cat, "Une question corrigée par un humain", added_by="u@ism.sn")
@@ -35,6 +37,8 @@ def test_add_anchor_appends_in_memory():
 
 
 def test_dedup_second_add_is_noop():
+    """Recatégoriser deux fois la même question ne duplique pas l'ancre :
+    sinon une phrase répétée pèserait indûment sur la classification."""
     cat = get_subcategories()[0]
     add_learned_anchor(cat, "Phrase répétée pour dédup")
     before = len(cats.CATEGORY_ANCHORS[cat])
@@ -44,15 +48,21 @@ def test_dedup_second_add_is_noop():
 
 
 def test_reject_unknown_category():
+    """Une catégorie hors référentiel est refusée : la boucle d'apprentissage ne
+    doit pas créer de catégories fantômes."""
     assert add_learned_anchor("CatégorieQuiNexistePas", "question suffisamment longue") is False
 
 
 def test_reject_too_short_phrase():
+    """Une phrase trop courte n'a pas de valeur discriminante et bruiterait la
+    classification sémantique."""
     cat = get_subcategories()[0]
     assert add_learned_anchor(cat, "court") is False
 
 
 def test_whitespace_normalized_before_dedup():
+    """La déduplication ignore les espaces superflus : deux saisies équivalentes
+    ne créent qu'une ancre."""
     cat = get_subcategories()[1]
     assert add_learned_anchor(cat, "question   avec   espaces multiples") is True
     # Même phrase après normalisation des espaces → doublon rejeté.

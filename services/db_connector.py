@@ -1,3 +1,18 @@
+"""
+Connecteur MongoDB ISMaiLa — accès unique à la base pour toute l'application.
+
+Trois responsabilités :
+  1. **Connexion** : singleton `db_instance`, une seule connexion par processus.
+  2. **Index déclaratifs** : `INDEX_DEFINITIONS` décrit chaque index avec sa
+     raison d'être ; ils sont créés au démarrage (opération idempotente).
+  3. **Mode survie** : si la base est injoignable, l'application ne plante pas.
+     `get_collection()` retourne un mock et le contenu d'urgence de
+     `survival_kit.json` est servi à la place des données.
+
+Règle : toute nouvelle requête filtrée ou triée s'accompagne de son entrée dans
+`INDEX_DEFINITIONS`, avec le champ `reason` renseigné.
+"""
+
 import json
 import logging
 import sys
@@ -285,6 +300,11 @@ class DatabaseConnector:
     # ── Connexion ─────────────────────────────────────────────────────────────
 
     def _connect(self):
+        """Établit la connexion Atlas, ou bascule en mode survie.
+
+        Aucune exception n'est propagée : `self.db` reste None et l'application
+        démarre malgré tout. Timeout court (5 s) pour ne pas figer le démarrage.
+        """
         # If pymongo isn't installed in the environment, avoid raising
         # ModuleNotFoundError and fall back to survival mode.
         if not _PYMONGO_AVAILABLE:
@@ -391,6 +411,12 @@ class DatabaseConnector:
     # ── API publique ──────────────────────────────────────────────────────────
 
     def get_collection(self, name: str):
+        """Retourne une collection MongoDB, ou un `MagicMock` en mode survie.
+
+        Le mock évite d'avoir à tester `db is None` dans chaque contrôleur : les
+        appels aboutissent sans effet plutôt que de lever. C'est aussi ce qui
+        permet aux tests de tourner sans base réelle.
+        """
         if self.db is None:
             logger.warning(
                 f"Base de données indisponible lors de l'accès à la collection '{name}'. Retour d'un mock."
@@ -400,6 +426,7 @@ class DatabaseConnector:
         return self.db[name]
 
     def is_alive(self) -> bool:
+        """Teste la base par un ping. Pilote l'affichage du mode survie dans `app.py`."""
         try:
             self.client.admin.command("ping")
             return True
@@ -407,13 +434,16 @@ class DatabaseConnector:
             return False
 
     def get_survival_faq(self) -> list:
+        """FAQ critique affichée quand la base est indisponible."""
         return self._survival_data.get("faq_critique", [])
 
     def get_survival_links(self) -> dict:
+        """Liens utiles affichés quand la base est indisponible."""
         return self._survival_data.get("liens_utiles", {})
 
     @staticmethod
     def _load_survival_kit() -> dict:
+        """Charge `survival_kit.json`. Fichier absent → dict vide, jamais d'erreur."""
         try:
             with open(SURVIVAL_KIT_PATH, encoding="utf-8") as f:
                 return json.load(f)

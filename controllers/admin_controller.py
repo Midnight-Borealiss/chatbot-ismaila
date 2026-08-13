@@ -22,6 +22,11 @@ from config.response_helpers import has_real_response, has_no_real_response
 
 
 class AdminController:
+    """Statistiques, gestion des comptes et notifications de l'espace admin.
+
+    Collections lues : `users`, `contributions`, `logs_interactions`, `leads`.
+    Écritures d'audit : `logs_admin` via `_log_admin_action()`.
+    """
 
     def __init__(self):
         self.users    = db_instance.get_collection("users")
@@ -121,6 +126,14 @@ class AdminController:
     # qui gère ciblage, blocs éditables, canaux email + in-app et accusés de réception.
 
     def notify_experts_for_question(self, question_id: str, admin_email: str) -> dict:
+        """Relance manuelle des experts sur une question en attente.
+
+        Cible d'abord les validateurs et admins dont `expert_topics` contient la
+        catégorie du ticket ; à défaut, TOUS les validateurs — une question sans
+        expert déclaré ne doit pas rester sans destinataire.
+
+        Retourne {"sent", "message"}.
+        """
         from bson import ObjectId
         ticket = self.kb.find_one({"_id": ObjectId(question_id)})
         if not ticket:
@@ -188,6 +201,15 @@ class AdminController:
     # ------------------------------------------------------------------ #
 
     def get_full_stats(self) -> dict:
+        """Indicateurs du dashboard admin.
+
+        Retourne {"logs", "kb", "leads", "gaps", "intent_counts"} :
+          - logs  : volume, succès et taux d'automatisation ;
+          - kb    : questions en attente / certifiées ;
+          - leads : total, chauds (RG-05), non synchronisés Salesforce (RG-06) ;
+          - gaps  : 5 catégories concentrant le plus de questions sans réponse ;
+          - intent_counts : répartition HOT / WARM / COLD.
+        """
         total_logs   = self.logs.count_documents({})
         success_logs = self.logs.count_documents({"status": "SUCCÈS"})
         return {
@@ -218,6 +240,13 @@ class AdminController:
         }
 
     def get_filtered_pending(self, category=None, has_proposal=None, keyword=None, status=None) -> list:
+        """File de traitement filtrée, les plus récentes d'abord.
+
+        `status` et `category` sont filtrés côté MongoDB (indexés) ;
+        `has_proposal` et `keyword` le sont côté Python, car « avoir une vraie
+        proposition » suppose d'écarter les placeholders (`has_real_response`),
+        ce qu'une requête ne sait pas exprimer.
+        """
         query = {}
         if status:
             query["status"] = status
@@ -235,16 +264,29 @@ class AdminController:
         return results
 
     def get_categories(self) -> list:
+        """Sous-catégories canoniques, lues au moment de l'appel.
+
+        Import local volontaire : le référentiel peut être enrichi après le
+        démarrage (catégories persistées), un snapshot figé à l'import serait
+        périmé dans les listes déroulantes.
+        """
         from config.categories import get_all_canonical
         return get_all_canonical()
 
     def get_recent_validated(self, limit=10) -> list:
+        """Dernières contributions certifiées, les plus récentes d'abord."""
         return list(self.kb.find({"status": "valide"}).sort("updated_at", -1).limit(limit))
 
     def get_all_users(self) -> list:
+        """Tous les comptes, `password_hash` exclu de la projection."""
         return list(self.users.find({}, {"password_hash": 0}))
 
     def deactivate_user(self, user_id: str, admin_email: str) -> bool:
+        """Désactive un compte (`active = False`) sans le supprimer.
+
+        La suppression ferait perdre la traçabilité de ses contributions ;
+        on préfère la désactivation. True si le document a bien été modifié.
+        """
         from bson import ObjectId
         result = self.users.update_one(
             {"_id": ObjectId(user_id)},
@@ -255,6 +297,11 @@ class AdminController:
         return bool(result.modified_count)
 
     def _log_admin_action(self, admin_email: str, action: str, details: dict):
+        """Trace une action d'administration dans `logs_admin` (non-répudiation).
+
+        Non bloquant : un échec d'écriture ne doit pas annuler l'action déjà
+        réalisée.
+        """
         try:
             db_instance.get_collection("logs_admin").insert_one({
                 "admin": admin_email, "action": action,

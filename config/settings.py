@@ -1,3 +1,13 @@
+"""
+Configuration centralisée ISMaiLa — source unique de tous les réglages.
+
+Chaque paramètre est lu depuis `.env` (local) **ou** `st.secrets` (Streamlit
+Cloud) via `_secret()`, avec une valeur par défaut raisonnable quand c'est
+possible. Aucun autre module ne doit lire `os.getenv` directement.
+
+Liste complète et commentée des variables : voir `../.env.example` et le README.
+"""
+
 import os
 from dotenv import load_dotenv
 
@@ -61,6 +71,19 @@ SMTP_SERVER = _secret("SMTP_SERVER", section="smtp", key="server") or "smtp.gmai
 SMTP_PORT   = int(_secret("SMTP_PORT", section="smtp", key="port") or 587)
 SMTP_USER   = _secret("SMTP_USER", section="smtp", key="user")
 SMTP_PASS   = _secret("SMTP_PASS", section="smtp", key="pass")
+
+# Adresse affichée aux destinataires. Par défaut = compte authentifié.
+# ⚠️ Délivrabilité : un serveur n'accepte un From différent du compte
+# authentifié que si l'adresse est un alias vérifié (Gmail « Envoyer des
+# e-mails en tant que ») ou une boîte du même tenant (Microsoft 365).
+# Sinon le serveur réécrit le From — ou rejette l'envoi.
+SMTP_FROM      = _secret("SMTP_FROM", section="smtp", key="from") or SMTP_USER
+SMTP_FROM_NAME = _secret("SMTP_FROM_NAME", section="smtp", key="from_name") or "ISMaiLa"
+# Adresse de réponse : permet de répondre à une boîte ISM même si l'envoi
+# technique passe par un compte de service externe.
+SMTP_REPLY_TO  = _secret("SMTP_REPLY_TO", section="smtp", key="reply_to") or ""
+# True → connexion SSL implicite (port 465) au lieu de STARTTLS (587).
+SMTP_SSL       = str(_secret("SMTP_SSL", section="smtp", key="ssl") or "").strip().lower() in ("1", "true", "yes", "oui")
 
 # --- CONFIGURATION SALESFORCE (RG-06) ---
 SF_WEBHOOK_URL = os.getenv("SF_WEBHOOK_URL")   # URL Make/Zapier → Salesforce

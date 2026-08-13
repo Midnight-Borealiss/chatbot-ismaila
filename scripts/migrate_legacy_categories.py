@@ -43,6 +43,13 @@ LEGACY_MAP = {
 
 
 def run(apply: bool = False):
+    """Remplace les libellés hérités par leur équivalent canonique.
+
+    **Mode à blanc par défaut** : sans `apply`, rien n'est écrit. Les cibles de
+    la table de correspondance sont validées d'abord — une cible qui ne serait
+    pas une sous-catégorie canonique ferait échouer la migration plutôt que de
+    créer une catégorie fantôme.
+    """
     if not MONGO_URI:
         print("❌ MONGO_URI non défini (.env).")
         sys.exit(1)
@@ -125,6 +132,7 @@ def run(apply: bool = False):
 
 
 def main():
+    """Point d'entrée en ligne de commande : analyse les options et lance `run()`."""
     parser = argparse.ArgumentParser(description="Migration des libellés legacy de catégorie (ISMaiLa)")
     parser.add_argument("--apply", action="store_true", help="Écrit les changements (sinon dry-run)")
     args = parser.parse_args()

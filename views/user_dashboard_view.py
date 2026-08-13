@@ -38,6 +38,12 @@ def render_user_dashboard_view():
 
 
 def render_user_dashboard(user):
+    """Rend le dashboard d'un utilisateur donné.
+
+    Recharge le document complet depuis MongoDB : la session ne porte qu'un
+    sous-ensemble de champs (id, email, full_name, role, domain_permissions),
+    insuffisant pour afficher le rattachement et l'activité.
+    """
     st.title("👤 Mon Espace Co-pilote — ISMaiLa")
     db = db_instance.db
 
