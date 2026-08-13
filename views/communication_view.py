@@ -92,6 +92,8 @@ def _render_compose():
     st.caption("Variables disponibles : `{prenom}`, `{nom}`, `{email}`, `{lien}`, "
                "`{motdepasse}` (remplacées à l'envoi).")
 
+    _render_platform_url_field(user.get("email", "admin"))
+
     parts = []
 
     if st.toggle("✉️ Invitation à se connecter & tester", value=True, key="comm_b_test"):
@@ -259,6 +261,62 @@ def _render_compose():
                     st.error("Nom de modèle invalide.")
 
 
+# ── Lien de la plateforme, éditable sur place ────────────────────────────────
+# Deux champs pointent sur le même réglage : celui du composeur (immédiat, à
+# côté du mot de passe temporaire) et celui de l'onglet « Textes & lien »
+# (avec provenance et retour à la valeur .env).
+_URL_WIDGETS = ("comm_platform_url", "setting_platform_url")
+_URL_FEEDBACK = "_comm_url_feedback"
+
+
+def _save_platform_url(widget_key: str, author: str):
+    """Enregistre le lien saisi. Appelé à la validation du champ (`on_change`)."""
+    from services.app_settings import set_platform_url
+
+    ok, err = set_platform_url(st.session_state.get(widget_key, ""), author)
+    st.session_state[_URL_FEEDBACK] = (
+        ("ok", "🔗 Lien enregistré — il s'applique dès le prochain envoi.")
+        if ok else ("err", err)
+    )
+    # L'autre champ doit relire la nouvelle valeur : Streamlit ignore le
+    # paramètre `value` d'un widget dont la clé existe déjà en session.
+    # En cas d'échec, on garde la saisie fautive pour que l'admin la corrige.
+    if ok:
+        for autre in _URL_WIDGETS:
+            if autre != widget_key:
+                st.session_state.pop(autre, None)
+
+
+def _render_url_feedback():
+    """Affiche le résultat du dernier enregistrement, puis l'oublie."""
+    retour = st.session_state.pop(_URL_FEEDBACK, None)
+    if not retour:
+        return
+    niveau, message = retour
+    (st.success if niveau == "ok" else st.error)(message)
+
+
+def _render_platform_url_field(author: str):
+    """Champ « lien de la plateforme » dans le composeur.
+
+    Édité sur place, comme le mot de passe temporaire : la valeur est
+    enregistrée dès la validation du champ, sans passer par un autre onglet.
+    """
+    from services.app_settings import get_platform_url
+
+    st.text_input(
+        "🔗 Lien de la plateforme",
+        value=get_platform_url(),
+        key="comm_platform_url",
+        on_change=_save_platform_url,
+        args=("comm_platform_url", author),
+        help=("Remplace `{lien}` et alimente le bouton « Accéder à ISMaiLa » de "
+              "l'email. Enregistré dès la validation (Entrée ou clic à côté) et "
+              "conservé pour les campagnes suivantes. https:// est ajouté si absent."),
+    )
+    _render_url_feedback()
+
+
 def _render_deliverability_test():
     """Teste une adresse précise : le domaine l'accepte-t-il, et un vrai message
     arrive-t-il ? Répond à la question « le mail est-il parti au bon endroit ? »."""
@@ -404,9 +462,7 @@ def _render_templates():
 
 def _render_platform_url_setting(author: str):
     """Lien inséré dans les emails via `{lien}` et le bouton du gabarit HTML."""
-    from services.app_settings import (
-        platform_url_detail, set_platform_url, reset_platform_url,
-    )
+    from services.app_settings import platform_url_detail, reset_platform_url
 
     detail = platform_url_detail()
     st.markdown("##### 🔗 Lien de la plateforme")
@@ -421,32 +477,26 @@ def _render_platform_url_setting(author: str):
     if detail["personnalise"] and detail["env"] != detail["effectif"]:
         st.caption(f"Valeur de `.env` / secrets, ignorée : `{detail['env']}`")
 
-    nouveau = st.text_input(
+    st.text_input(
         "Lien de la plateforme", value=detail["effectif"], key="setting_platform_url",
-        help="https:// est ajouté automatiquement si vous l'omettez.",
+        on_change=_save_platform_url, args=("setting_platform_url", author),
+        help="Enregistré dès la validation. https:// est ajouté si vous l'omettez.",
     )
+    _render_url_feedback()
 
     u1, u2 = st.columns([1, 1])
-    if u1.button("💾 Enregistrer le lien", key="setting_url_save", type="primary",
-                 use_container_width=True, disabled=(nouveau.strip() == detail["effectif"])):
-        ok, err = set_platform_url(nouveau, author)
-        if ok:
-            st.success("✅ Lien enregistré — il s'applique aux prochains envois.")
-            st.rerun()
-        else:
-            st.error(err)
-
-    if u2.button("↩️ Revenir à la valeur de .env", key="setting_url_reset",
+    if u1.button("↩️ Revenir à la valeur de .env", key="setting_url_reset",
                  use_container_width=True, disabled=not detail["personnalise"]):
         ok, err = reset_platform_url(author)
         if ok:
-            st.session_state.pop("setting_platform_url", None)
+            # Les deux champs doivent relire la valeur issue de .env.
+            for widget in _URL_WIDGETS:
+                st.session_state.pop(widget, None)
             st.success("↩️ Lien restauré depuis `.env` / secrets.")
             st.rerun()
         else:
             st.error(err)
-
-    st.link_button("🔎 Tester le lien", detail["effectif"], use_container_width=False)
+    u2.link_button("🔎 Tester le lien", detail["effectif"], use_container_width=True)
     st.divider()
 
 
