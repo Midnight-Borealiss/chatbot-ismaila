@@ -23,7 +23,7 @@ from bson import ObjectId
 from services.db_connector import db_instance
 from services.mailer import send_campaign_email_ex
 from services.notification_service import notification_instance
-from config.settings import PLATFORM_URL
+from services.app_settings import get_platform_url
 from config.categories import get_parent_category
 from config.roles import (
     ADMIN, SUPER_ADMIN, VALIDATOR, CONTRIBUTOR, STUDENT, role_query_values,
@@ -41,23 +41,54 @@ INSTITUTS = [
 ROLES = [CONTRIBUTOR, VALIDATOR, ADMIN, SUPER_ADMIN, STUDENT]
 
 
-def default_blocks() -> dict:
-    """Textes pré-remplis (éditables) des blocs de contenu."""
-    return {
-        "invitation_test": (
+# Variables remplacées à l'envoi (voir `personalize` et `_dispatch`).
+# Toute autre accolade dans un bloc resterait telle quelle dans l'email.
+VARIABLES_CONNUES = ("{prenom}", "{nom}", "{email}", "{lien}", "{motdepasse}")
+
+# Définition des blocs de contenu. `text` est le **texte d'usine** : il reste
+# dans le code comme référence et comme point de retour arrière, mais
+# l'administrateur peut le surcharger depuis l'interface (collection
+# `message_blocks`). L'ordre des clés est celui affiché à l'écran.
+BLOCK_DEFINITIONS = {
+    "objet": {
+        "label": "Objet par défaut",
+        "kind": "subject",
+        "widget_key": "comm_subject",
+        "help": "Pré-remplit le champ « Objet » d'une nouvelle campagne.",
+        "text": "Pilote ISMaiLa — information",
+    },
+    "invitation_test": {
+        "label": "Invitation à se connecter & tester",
+        "kind": "body",
+        "widget_key": "comm_txt_test",
+        "help": "Bloc d'ouverture du pilote, activé par défaut.",
+        "text": (
             "Bonjour {prenom},\n\n"
             "Le pilote ISMaiLa est ouvert ! Nous vous invitons à vous connecter pour "
             "tester l'assistant et explorer la base de connaissances.\n"
             "Votre retour d'expérience est essentiel pour nous.\n\n"
             "À très vite sur la plateforme."
         ),
-        "invitation_contribution": (
+    },
+    "invitation_contribution": {
+        "label": "Invitation à contribuer / donner un avis",
+        "kind": "body",
+        "widget_key": "comm_txt_contrib",
+        "help": "Adressé aux contributeurs et validateurs.",
+        "text": (
             "Bonjour {prenom},\n\n"
             "Votre expertise est précieuse : connectez-vous pour proposer ou certifier "
             "des réponses dans vos domaines, et enrichir la base commune.\n\n"
             "Merci pour votre engagement."
         ),
-        "connexion": (
+    },
+    "connexion": {
+        "label": "Infos de connexion (identifiant + mot de passe temporaire)",
+        "kind": "body",
+        "widget_key": "comm_txt_login",
+        "help": ("Doit contenir {motdepasse} : sans cette variable, le mot de passe "
+                 "est quand même réinitialisé mais n'est communiqué à personne."),
+        "text": (
             "Voici vos accès à la plateforme ISMaiLa :\n"
             "  • Identifiant : {email}\n"
             "  • Mot de passe temporaire : {motdepasse}\n"
@@ -65,8 +96,39 @@ def default_blocks() -> dict:
             "Pour votre sécurité, il vous sera demandé de changer ce mot de passe "
             "dès votre première connexion."
         ),
-        "libre": "",
+    },
+    "libre": {
+        "label": "Message libre",
+        "kind": "body",
+        "widget_key": "comm_txt_libre",
+        "help": "Vide par défaut : sert à rédiger un message ponctuel.",
+        "text": "",
+    },
+}
+
+
+def default_blocks() -> dict:
+    """Textes d'usine des blocs de corps (objet exclu), reconstruits à chaque appel.
+
+    Ne lit pas la base : c'est la référence figée du code. Pour les textes
+    réellement utilisés à l'envoi, voir `CommunicationController.get_block_texts()`.
+    """
+    return {
+        key: meta["text"]
+        for key, meta in BLOCK_DEFINITIONS.items()
+        if meta["kind"] == "body"
     }
+
+
+def unknown_variables(text: str) -> list:
+    """Variables entre accolades qui ne seront pas remplacées à l'envoi.
+
+    Sert à prévenir l'administrateur d'une faute de frappe ({prenoms} au lieu
+    de {prenom}) avant qu'elle ne parte à 49 personnes.
+    """
+    import re
+    trouvees = re.findall(r"\{[^{}\n]*\}", text or "")
+    return sorted({v for v in trouvees if v not in VARIABLES_CONNUES})
 
 
 class CommunicationController:
@@ -77,7 +139,92 @@ class CommunicationController:
         self.kb        = db_instance.get_collection("contributions")
         self.campaigns = db_instance.get_collection("campaigns")
         self.templates = db_instance.get_collection("message_templates")
+        self.blocks    = db_instance.get_collection("message_blocks")
         self.logs      = db_instance.get_collection("logs_admin")
+
+    # ── Blocs de contenu éditables depuis l'interface ──────────────────────────
+    def get_block_texts(self) -> dict:
+        """{clé: texte} réellement utilisé à l'envoi.
+
+        Texte d'usine surchargé par la version enregistrée en base. En cas
+        d'incident MongoDB, on retombe silencieusement sur le texte d'usine :
+        l'administrateur garde un composeur fonctionnel.
+        """
+        textes = {key: meta["text"] for key, meta in BLOCK_DEFINITIONS.items()}
+        try:
+            for doc in self.blocks.find({}, {"key": 1, "text": 1}):
+                if doc.get("key") in textes and isinstance(doc.get("text"), str):
+                    textes[doc["key"]] = doc["text"]
+        except Exception as e:
+            print(f"⚠️  Blocs personnalisés illisibles, textes d'usine utilisés : {e}")
+        return textes
+
+    def get_blocks_detail(self) -> list:
+        """Un dict par bloc pour l'écran d'édition (texte courant + texte d'usine)."""
+        surcharges = {}
+        try:
+            surcharges = {d["key"]: d for d in self.blocks.find() if d.get("key")}
+        except Exception as e:
+            print(f"⚠️  Blocs personnalisés illisibles : {e}")
+
+        detail = []
+        for key, meta in BLOCK_DEFINITIONS.items():
+            sur = surcharges.get(key) or {}
+            texte = sur.get("text") if isinstance(sur.get("text"), str) else meta["text"]
+            detail.append({
+                "key":           key,
+                "label":         meta["label"],
+                "kind":          meta["kind"],
+                "help":          meta["help"],
+                "widget_key":    meta["widget_key"],
+                "text":          texte,
+                "texte_usine":   meta["text"],
+                "personnalise":  texte != meta["text"],
+                "updated_at":    sur.get("updated_at"),
+                "updated_by":    sur.get("updated_by"),
+            })
+        return detail
+
+    def save_block(self, key: str, text: str, author: str) -> tuple:
+        """Enregistre le texte d'un bloc. Retourne (succès, message d'erreur)."""
+        meta = BLOCK_DEFINITIONS.get(key)
+        if not meta:
+            return False, f"Bloc inconnu : {key}."
+        if not isinstance(text, str):
+            return False, "Texte invalide."
+
+        if meta["kind"] == "subject":
+            text = self._sanitize_subject(text)
+            if not text:
+                return False, "L'objet ne peut pas être vide."
+
+        try:
+            self.blocks.update_one(
+                {"key": key},
+                {"$set": {"key": key, "text": text,
+                          "updated_by": author or "admin",
+                          "updated_at": datetime.now()}},
+                upsert=True,
+            )
+        except Exception as e:
+            return False, f"Enregistrement impossible : {e}"
+
+        # On journalise la longueur, pas le texte : un bloc « infos de connexion »
+        # mal rédigé pourrait contenir un mot de passe en clair.
+        self._log_admin(author, "message_block_saved",
+                        {"bloc": key, "longueur": len(text)})
+        return True, ""
+
+    def reset_block(self, key: str, author: str) -> tuple:
+        """Supprime la personnalisation : le bloc repart du texte d'usine."""
+        if key not in BLOCK_DEFINITIONS:
+            return False, f"Bloc inconnu : {key}."
+        try:
+            self.blocks.delete_one({"key": key})
+        except Exception as e:
+            return False, f"Réinitialisation impossible : {e}"
+        self._log_admin(author, "message_block_reset", {"bloc": key})
+        return True, ""
 
     # ── Sécurité : audit & assainissement ──────────────────────────────────────
     def _log_admin(self, admin_email: str, action: str, details: dict) -> None:
@@ -234,7 +381,7 @@ class CommunicationController:
         return (text or "").replace("{prenom}", prenom) \
                             .replace("{nom}", name) \
                             .replace("{email}", user.get("email", "")) \
-                            .replace("{lien}", PLATFORM_URL)
+                            .replace("{lien}", get_platform_url())
 
     # ── Réinitialisation de mot de passe (mode « mot de passe temporaire commun ») ──
     def _reset_passwords(self, recipients: list, temp_password: str, exclude_email: str = "") -> int:

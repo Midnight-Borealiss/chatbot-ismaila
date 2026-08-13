@@ -15,7 +15,7 @@ import streamlit as st
 from services.db_connector import db_instance
 from controllers.communication_controller import (
     communication_controller as cc,
-    default_blocks, SERVICES, INSTITUTS, ROLES,
+    unknown_variables, VARIABLES_CONNUES, SERVICES, INSTITUTS, ROLES,
 )
 
 
@@ -25,13 +25,16 @@ def render_communication_view():
     st.caption("Informer, relancer et animer le pilote : ciblage fin, messages éditables, "
                "envoi email + notification in-app, accusés de réception.")
 
-    tabs = st.tabs(["✉️ Nouvelle campagne", "📊 Historique & accusés", "📁 Modèles"])
+    tabs = st.tabs(["✉️ Nouvelle campagne", "📊 Historique & accusés",
+                    "📁 Modèles", "📝 Textes & lien"])
     with tabs[0]:
         _render_compose()
     with tabs[1]:
         _render_history()
     with tabs[2]:
         _render_templates()
+    with tabs[3]:
+        _render_blocks_editor()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -80,16 +83,19 @@ def _render_compose():
 
     # ── 2. CONTENU (blocs éditables) ─────────────────────────────────────────
     st.markdown("##### 📝 2. Message")
-    subject = st.text_input("Objet", value=st.session_state.get("comm_subject_val", "Pilote ISMaiLa — information"),
+    # Textes des blocs : version personnalisée en base, sinon texte d'usine.
+    # Modifiables sans toucher au code depuis l'onglet « 📝 Textes des blocs ».
+    blocs = cc.get_block_texts()
+
+    subject = st.text_input("Objet", value=st.session_state.get("comm_subject_val", blocs["objet"]),
                             key="comm_subject")
     st.caption("Variables disponibles : `{prenom}`, `{nom}`, `{email}`, `{lien}`, "
                "`{motdepasse}` (remplacées à l'envoi).")
 
-    defaults = default_blocks()
     parts = []
 
     if st.toggle("✉️ Invitation à se connecter & tester", value=True, key="comm_b_test"):
-        parts.append(st.text_area("Bloc — invitation à tester", value=defaults["invitation_test"],
+        parts.append(st.text_area("Bloc — invitation à tester", value=blocs["invitation_test"],
                                   key="comm_txt_test", height=120))
 
     if st.toggle("📊 Récapitulatif des questions en attente (auto)", key="comm_b_recap"):
@@ -99,7 +105,7 @@ def _render_compose():
 
     if st.toggle("🙋 Invitation à contribuer / donner un avis", key="comm_b_contrib"):
         parts.append(st.text_area("Bloc — invitation à contribuer",
-                                  value=defaults["invitation_contribution"],
+                                  value=blocs["invitation_contribution"],
                                   key="comm_txt_contrib", height=120))
 
     # ── Bloc « infos de connexion » (mot de passe temporaire commun) ──────────
@@ -115,15 +121,24 @@ def _render_compose():
             key="comm_temp_pwd",
             help="Communiqué tel quel dans l'email. Les comptes ciblés devront le changer.",
         ).strip()
-        parts.append(st.text_area("Bloc — infos de connexion", value=defaults["connexion"],
+        parts.append(st.text_area("Bloc — infos de connexion", value=blocs["connexion"],
                                   key="comm_txt_login", height=140))
 
     if st.toggle("✍️ Message libre", key="comm_b_libre"):
         parts.append(st.text_area("Bloc — message libre",
-                                  value=st.session_state.get("comm_libre_val", ""),
+                                  value=st.session_state.get("comm_libre_val", blocs["libre"]),
                                   key="comm_txt_libre", height=120))
 
     body = "\n\n".join(p for p in parts if p and p.strip())
+
+    # Une variable mal orthographiée partirait telle quelle dans l'email.
+    inconnues = unknown_variables(f"{subject}\n{body}")
+    if inconnues:
+        st.warning(
+            "⚠️ Variable(s) non reconnue(s) : " + ", ".join(f"`{v}`" for v in inconnues)
+            + " — elles partiront **telles quelles**. Variables valides : "
+            + ", ".join(f"`{v}`" for v in VARIABLES_CONNUES) + "."
+        )
 
     st.divider()
 
@@ -381,6 +396,148 @@ def _render_templates():
             if c2.button("🗑️ Supprimer", key=f"deltpl_{tpl['_id']}"):
                 cc.delete_template(tpl.get("name"))
                 st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  4. TEXTES DES BLOCS (édition sans passer par le code)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _render_platform_url_setting(author: str):
+    """Lien inséré dans les emails via `{lien}` et le bouton du gabarit HTML."""
+    from services.app_settings import (
+        platform_url_detail, set_platform_url, reset_platform_url,
+    )
+
+    detail = platform_url_detail()
+    st.markdown("##### 🔗 Lien de la plateforme")
+    st.caption(
+        "Ce lien remplace la variable `{lien}` dans les messages et alimente le "
+        "bouton « Accéder à ISMaiLa » du gabarit des emails. Le définir ici évite "
+        "de modifier `.env` ou les secrets Streamlit Cloud."
+    )
+
+    source = "✏️ défini ici" if detail["personnalise"] else "⚙️ issu de .env / secrets"
+    st.caption(f"Valeur active : `{detail['effectif']}` — {source}")
+    if detail["personnalise"] and detail["env"] != detail["effectif"]:
+        st.caption(f"Valeur de `.env` / secrets, ignorée : `{detail['env']}`")
+
+    nouveau = st.text_input(
+        "Lien de la plateforme", value=detail["effectif"], key="setting_platform_url",
+        help="https:// est ajouté automatiquement si vous l'omettez.",
+    )
+
+    u1, u2 = st.columns([1, 1])
+    if u1.button("💾 Enregistrer le lien", key="setting_url_save", type="primary",
+                 use_container_width=True, disabled=(nouveau.strip() == detail["effectif"])):
+        ok, err = set_platform_url(nouveau, author)
+        if ok:
+            st.success("✅ Lien enregistré — il s'applique aux prochains envois.")
+            st.rerun()
+        else:
+            st.error(err)
+
+    if u2.button("↩️ Revenir à la valeur de .env", key="setting_url_reset",
+                 use_container_width=True, disabled=not detail["personnalise"]):
+        ok, err = reset_platform_url(author)
+        if ok:
+            st.session_state.pop("setting_platform_url", None)
+            st.success("↩️ Lien restauré depuis `.env` / secrets.")
+            st.rerun()
+        else:
+            st.error(err)
+
+    st.link_button("🔎 Tester le lien", detail["effectif"], use_container_width=False)
+    st.divider()
+
+
+def _render_blocks_editor():
+    user = st.session_state.get("user", {})
+    author = user.get("email", "admin")
+
+    _render_platform_url_setting(author)
+
+    st.markdown("##### 📝 Textes proposés par défaut dans le composeur")
+    st.caption(
+        "Ces textes pré-remplissent les blocs de l'onglet « Nouvelle campagne ». "
+        "Les modifier ici évite de toucher au code. Chaque bloc peut revenir à "
+        "son texte d'origine à tout moment."
+    )
+    st.info(
+        "Variables remplacées à l'envoi : "
+        + ", ".join(f"`{v}`" for v in VARIABLES_CONNUES)
+        + ". Une modification ici ne change **pas** les campagnes déjà envoyées."
+    )
+
+    for bloc in cc.get_blocks_detail():
+        key = bloc["key"]
+        etat = "✏️ personnalisé" if bloc["personnalise"] else "⚙️ texte d'origine"
+        with st.expander(f"{bloc['label']} — {etat}", expanded=False):
+            st.caption(bloc["help"])
+            if bloc["updated_at"]:
+                st.caption(f"Dernière modification : {str(bloc['updated_at'])[:16]} "
+                           f"par {bloc['updated_by'] or '—'}")
+
+            widget_key = f"blocedit_{key}"
+            if bloc["kind"] == "subject":
+                nouveau = st.text_input("Objet", value=bloc["text"], key=widget_key)
+            else:
+                nouveau = st.text_area("Texte du bloc", value=bloc["text"],
+                                       key=widget_key, height=180)
+
+            inconnues = unknown_variables(nouveau)
+            if inconnues:
+                st.warning("⚠️ Variable(s) non reconnue(s) : "
+                           + ", ".join(f"`{v}`" for v in inconnues)
+                           + " — elles partiront telles quelles.")
+            if key == "connexion" and "{motdepasse}" not in nouveau:
+                st.warning(
+                    "⚠️ Ce bloc ne contient plus `{motdepasse}` : le mot de passe "
+                    "sera bien réinitialisé, mais **ne sera communiqué à personne**."
+                )
+
+            b1, b2 = st.columns([1, 1])
+            if b1.button("💾 Enregistrer", key=f"blocsave_{key}",
+                         type="primary", use_container_width=True,
+                         disabled=(nouveau == bloc["text"])):
+                ok, err = cc.save_block(key, nouveau, author)
+                if ok:
+                    # Le composeur mémorise ses champs dans st.session_state :
+                    # sans purge, il continuerait d'afficher l'ancien texte.
+                    _forget_composer_field(bloc["widget_key"])
+                    st.success(f"✅ « {bloc['label']} » enregistré.")
+                    st.rerun()
+                else:
+                    st.error(err)
+
+            if b2.button("↩️ Revenir au texte d'origine", key=f"blocreset_{key}",
+                         use_container_width=True, disabled=not bloc["personnalise"]):
+                ok, err = cc.reset_block(key, author)
+                if ok:
+                    _forget_composer_field(bloc["widget_key"])
+                    st.session_state.pop(widget_key, None)
+                    st.success(f"↩️ « {bloc['label']} » restauré.")
+                    st.rerun()
+                else:
+                    st.error(err)
+
+            if bloc["personnalise"]:
+                with st.popover("👁️ Voir le texte d'origine"):
+                    st.text(bloc["texte_usine"] or "(vide)")
+
+
+def _forget_composer_field(widget_key: str):
+    """Oublie la valeur mémorisée d'un champ du composeur.
+
+    Streamlit ignore le paramètre `value` d'un widget dont la clé existe déjà
+    en session : sans cette purge, le composeur afficherait l'ancien texte
+    jusqu'à la fin de la session.
+    """
+    st.session_state.pop(widget_key, None)
+    # L'objet a un second niveau de mémorisation, alimenté par les modèles.
+    if widget_key == "comm_subject":
+        st.session_state.pop("comm_subject_val", None)
+    if widget_key == "comm_txt_libre":
+        st.session_state.pop("comm_libre_val", None)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
