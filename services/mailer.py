@@ -15,9 +15,10 @@ from email.utils import formataddr, formatdate, make_msgid
 from typing import Optional, Tuple
 
 from config.settings import (
-    SMTP_SERVER, SMTP_PORT, SMTP_USER, SMTP_PASS, PLATFORM_URL,
+    SMTP_SERVER, SMTP_PORT, SMTP_USER, SMTP_PASS,
     SMTP_FROM, SMTP_FROM_NAME, SMTP_REPLY_TO, SMTP_SSL,
 )
+from services.app_settings import get_platform_url
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -44,6 +45,8 @@ def send_campaign_email_ex(recipient_email: str, subject: str, body_text: str) -
         body_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         .replace("\n", "<br>")
     )
+    # Résolu à l'envoi, pas à l'import : le lien est modifiable depuis l'interface.
+    platform_url = get_platform_url()
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
       <div style="background:#1a3c5e;padding:20px;border-radius:8px 8px 0 0;">
@@ -52,7 +55,7 @@ def send_campaign_email_ex(recipient_email: str, subject: str, body_text: str) -
       <div style="border:1px solid #e0e0e0;padding:24px;border-radius:0 0 8px 8px;color:#333;">
         <div style="line-height:1.6;">{safe_html}</div>
         <div style="text-align:center;margin:24px 0 8px;">
-          <a href="{PLATFORM_URL}" style="background:#1a3c5e;color:white;text-decoration:none;
+          <a href="{platform_url}" style="background:#1a3c5e;color:white;text-decoration:none;
              padding:12px 24px;border-radius:6px;display:inline-block;">Accéder à ISMaiLa</a>
         </div>
         <p style="color:#999;font-size:12px;text-align:center;margin-top:16px;">
