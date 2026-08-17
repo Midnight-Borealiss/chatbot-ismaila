@@ -77,18 +77,18 @@ def render_admin_view():
         _render_stats_tab()
     with tabs[1]:
         st.header("📝 Centralisation des Contributions")
-        sous_onglet_questions = st.radio("Filtrer :", ["📥 À traiter", "✨ Validées récemment", "🧪 Hors-contexte (Test)", "🗄️ Santé de la Base de Données"], horizontal=True, key="questions_subtab")
+        sous_onglet_questions = st.radio("Filtrer :", ["📥 À traiter", "✨ Validées récemment", "🧪 Hors-contexte (Test)", "🏢 Services & Instituts", "🗄️ Santé de la Base de Données"], horizontal=True, key="questions_subtab")
         st.divider()
         if sous_onglet_questions == "📥 À traiter": _render_pending_questions(user)
         elif sous_onglet_questions == "✨ Validées récemment": _render_validated_questions()
         elif sous_onglet_questions == "🧪 Hors-contexte (Test)": _render_test_questions(user)
+        elif sous_onglet_questions == "🏢 Services & Instituts": _render_structures_management(user)
         elif sous_onglet_questions == "🗄️ Santé de la Base de Données": _render_db_health_subtab()
     with tabs[2]:
         st.header("👥 Équipes, Thématiques & Flux")
-        sous_onglet_profils = st.radio("Config :", ["👥 Gestion Globale des Membres & Droits", "🏢 Services & Instituts", "📣 Communication"], horizontal=True, key="profils_notifs_subtab")
+        sous_onglet_profils = st.radio("Config :", ["👥 Gestion Globale des Membres & Droits", "📣 Communication"], horizontal=True, key="profils_notifs_subtab")
         st.divider()
         if sous_onglet_profils == "👥 Gestion Globale des Membres & Droits": _render_master_detail_user_management(user)
-        elif sous_onglet_profils == "🏢 Services & Instituts": _render_structures_management(user)
         elif sous_onglet_profils == "📣 Communication": _render_communication_subtab(user)
     with tabs[3]:
         _render_feedback_moderation_tab()
