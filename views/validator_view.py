@@ -24,6 +24,7 @@ from config.categories import (
 )
 from config.permissions import get_domain_level, can_validate, can_answer, get_user_domains_summary
 from config.response_helpers import has_real_response, has_no_real_response
+from config.structures import get_services, get_instituts
 from views.shared_components import render_comments_and_delete
 
 
@@ -142,14 +143,32 @@ def render_validator_view():
             # ── Recatégorisation (validateur) ─────────────────────────
             # Le validateur a l'expertise finale sur la bonne catégorie.
             # Si la catégorie change, on recalcule ses droits en temps réel.
-            with st.expander("📂 Modifier la catégorie", expanded=False):
-                all_cats    = get_categories_for_select()
-                current_idx = all_cats.index(category) if category in all_cats else 0
+            with st.expander("📂 Modifier le rattachement & la catégorie", expanded=False):
+                # 1. Rattachement : service OU institut (routage vers le bon expert).
+                cur_struct = "INSTITUT" if item.get("structural_type") == "INSTITUT" else "SERVICE"
+                stype = st.radio(
+                    "Rattachement", ["SERVICE", "INSTITUT"],
+                    index=0 if cur_struct == "SERVICE" else 1, horizontal=True,
+                    format_func=lambda s: "🏢 Service" if s == "SERVICE" else "🎓 Institut",
+                    key=f"val_struct_{item_id}",
+                )
+                entities = get_services() if stype == "SERVICE" else get_instituts()
+                cur_entity = item.get("service") if stype == "SERVICE" else item.get("institution")
+                ent_idx = entities.index(cur_entity) if cur_entity in entities else 0
+                entity = st.selectbox(
+                    "Service concerné" if stype == "SERVICE" else "Institut concerné",
+                    entities, index=ent_idx, key=f"val_ent_{item_id}",
+                )
+
+                # 2. Thème à 2 niveaux : Pôle → sous-thème (pré-rempli, éditable).
+                poles = get_top_categories()
+                cur_pole = get_parent_category(category) or (poles[0] if poles else "")
+                pole_idx = poles.index(cur_pole) if cur_pole in poles else 0
+                pole = st.selectbox("Pôle (thème)", poles, index=pole_idx, key=f"val_pole_{item_id}")
+                subs = get_subcategories_by_parent(pole)
+                sub_idx = subs.index(category) if category in subs else 0
                 new_cat = st.selectbox(
-                    "Catégorie",
-                    all_cats,
-                    index=current_idx,
-                    key=f"val_cat_{item_id}",
+                    "Sous-thème", subs, index=sub_idx, key=f"val_cat_{item_id}",
                     help="Choisissez la catégorie qui correspond le mieux à cette question.",
                 )
 
@@ -165,16 +184,15 @@ def render_validator_view():
                     else:
                         st.caption(f"⚠️ Vous n'avez pas les droits en {new_cat} — la question sera visible par d'autres experts.")
 
-                    if st.button("💾 Appliquer la recatégorisation", key=f"recat_{item_id}"):
-                        kb_controller.recategorize(item_id, new_cat, user["email"])
-                        st.toast(f"Catégorie mise à jour → {new_cat}")
-                        # Recalcul des droits pour la suite de l'affichage
-                        category         = new_cat
-                        user_can_validate = new_cat_can_validate
-                        user_can_answer   = new_cat_can_answer
-                        st.rerun()
-                else:
-                    st.caption("Catégorie actuelle — aucune modification.")
+                if st.button("💾 Appliquer la recatégorisation", key=f"recat_{item_id}"):
+                    kb_controller.recategorize(item_id, new_cat, user["email"],
+                                               structural_type=stype, entity=entity)
+                    st.toast(f"↪ {entity} · {new_cat}")
+                    # Recalcul des droits pour la suite de l'affichage
+                    category          = new_cat
+                    user_can_validate = new_cat_can_validate
+                    user_can_answer   = new_cat_can_answer
+                    st.rerun()
 
             # Zone de saisie : accessible si l'utilisateur peut au moins proposer
             if user_can_answer or user_can_validate:
