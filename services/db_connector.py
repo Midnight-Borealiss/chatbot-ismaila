@@ -229,6 +229,15 @@ INDEX_DEFINITIONS = {
         },
     ],
 
+    # ── structures_extra (services/instituts dynamiques) ──────────────────────
+    "structures_extra": [
+        {
+            "keys":   [("type", ASCENDING), ("name", ASCENDING)],
+            "options": {"name": "idx_type_name", "unique": True},
+            "reason": "Dédup (upsert) des rattachements service/institut ajoutés en admin"
+        },
+    ],
+
     # ── user_audit_logs ──────────────────────────────────────────────────────
     # Requêtes : find(user_email), find(user_email+action), sort(timestamp)
     "user_audit_logs": [

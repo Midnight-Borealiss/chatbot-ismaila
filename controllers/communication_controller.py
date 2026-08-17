@@ -29,15 +29,9 @@ from config.roles import (
     ADMIN, SUPER_ADMIN, VALIDATOR, CONTRIBUTOR, STUDENT, role_query_values,
 )
 
-# Référentiels de rattachement (alignés sur l'espace admin).
-SERVICES = [
-    "Call Center / Orientation", "Scolarité", "Admission & Recrutement",
-    "Marketing & Communication", "Soft Skills Academy (Vie estudiantine)",
-]
-INSTITUTS = [
-    "Institut Ingénieur", "Institut Management", "Institut Droit",
-    "Madiba Leadership Institute",
-]
+# Référentiels de rattachement — source unique éditable (config/structures).
+# Exposés en fonctions pour refléter les ajouts dynamiques faits en admin.
+from config.structures import get_services, get_instituts
 ROLES = [CONTRIBUTOR, VALIDATOR, ADMIN, SUPER_ADMIN, STUDENT]
 
 

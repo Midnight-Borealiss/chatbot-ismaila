@@ -15,8 +15,9 @@ import streamlit as st
 from services.db_connector import db_instance
 from controllers.communication_controller import (
     communication_controller as cc,
-    unknown_variables, VARIABLES_CONNUES, SERVICES, INSTITUTS, ROLES,
+    unknown_variables, VARIABLES_CONNUES, ROLES,
 )
+from config.structures import get_services, get_instituts
 
 
 def render_communication_view():
@@ -67,10 +68,10 @@ def _render_compose():
         picked = st.multiselect("Personne(s) :", list(options.keys()), key="comm_persons")
         target = {"mode": "person", "emails": [options[p] for p in picked]}
     elif mode == "Par service":
-        svc = st.multiselect("Service(s) :", SERVICES, key="comm_services")
+        svc = st.multiselect("Service(s) :", get_services(), key="comm_services")
         target = {"mode": "services", "services": svc}
     elif mode == "Par institut":
-        ins = st.multiselect("Institut(s) :", INSTITUTS, key="comm_instituts")
+        ins = st.multiselect("Institut(s) :", get_instituts(), key="comm_instituts")
         target = {"mode": "instituts", "instituts": ins}
     elif mode == "Par rôle":
         rls = st.multiselect("Rôle(s) :", ROLES, key="comm_roles")

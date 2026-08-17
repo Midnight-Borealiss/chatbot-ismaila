@@ -106,10 +106,12 @@ def main():
     if not st.session_state.get("_extra_categories_loaded"):
         try:
             from config.categories import load_persisted_categories, load_learned_anchors
+            from config.structures import load_persisted_structures
             load_persisted_categories()
             load_learned_anchors()
+            load_persisted_structures()
         except Exception as e:
-            logging.warning(f"Préchargement catégories/ancres ignoré : {e}")
+            logging.warning(f"Préchargement catégories/ancres/structures ignoré : {e}")
         st.session_state["_extra_categories_loaded"] = True
 
     st.sidebar.title("🎓 ISMaiLa")

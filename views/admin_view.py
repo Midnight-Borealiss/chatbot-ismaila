@@ -31,6 +31,10 @@ from config.roles import (
     ADMIN, SUPER_ADMIN, VALIDATOR, CONTRIBUTOR, STUDENT,
     is_admin_or_higher, is_super_admin, normalize_role,
 )
+from config.structures import (
+    get_services, get_instituts, add_structure, remove_structure,
+    DEFAULT_SERVICES, DEFAULT_INSTITUTS,
+)
 
 # Vocabulaire canonique des rôles (constantes = valeurs réellement stockées/testées)
 ROLE_OPTIONS = [STUDENT, CONTRIBUTOR, VALIDATOR, ADMIN, SUPER_ADMIN]
@@ -81,9 +85,10 @@ def render_admin_view():
         elif sous_onglet_questions == "🗄️ Santé de la Base de Données": _render_db_health_subtab()
     with tabs[2]:
         st.header("👥 Équipes, Thématiques & Flux")
-        sous_onglet_profils = st.radio("Config :", ["👥 Gestion Globale des Membres & Droits", "📣 Communication"], horizontal=True, key="profils_notifs_subtab")
+        sous_onglet_profils = st.radio("Config :", ["👥 Gestion Globale des Membres & Droits", "🏢 Services & Instituts", "📣 Communication"], horizontal=True, key="profils_notifs_subtab")
         st.divider()
         if sous_onglet_profils == "👥 Gestion Globale des Membres & Droits": _render_master_detail_user_management(user)
+        elif sous_onglet_profils == "🏢 Services & Instituts": _render_structures_management(user)
         elif sous_onglet_profils == "📣 Communication": _render_communication_subtab(user)
     with tabs[3]:
         _render_feedback_moderation_tab()
@@ -320,6 +325,44 @@ def _render_db_health_subtab():
         st.rerun()
 
 
+def _render_structures_management(current_user):
+    """Gestion ÉDITABLE des rattachements structurels (services & instituts).
+
+    Source unique consommée par les droits utilisateurs, le routage des questions
+    et les communications. Le socle par défaut est protégé (non supprimable) ;
+    les ajouts dynamiques sont persistés (config.structures / structures_extra).
+    """
+    st.subheader("🏢 Services & Instituts")
+    st.caption(
+        "Référentiel de rattachement (droits, routage des questions, communications). "
+        "Les entrées 🔒 par défaut ne sont pas supprimables ici."
+    )
+
+    def _panel(col, structural_type, titre, defaults):
+        with col:
+            st.markdown(f"##### {titre}")
+            entries = get_services() if structural_type == "SERVICE" else get_instituts()
+            for name in entries:
+                is_default = name in defaults
+                c1, c2 = st.columns([5, 1], vertical_alignment="center")
+                c1.write(f"{'🔒 ' if is_default else '• '}{name}")
+                if not is_default and c2.button("🗑️", key=f"del_struct_{structural_type}_{name}", help="Retirer"):
+                    ok, msg = remove_structure(structural_type, name)
+                    st.toast(msg)
+                    if ok:
+                        st.rerun()
+            new_name = st.text_input(f"Ajouter un {titre[:-1].lower()}", key=f"add_struct_{structural_type}")
+            if st.button("➕ Ajouter", key=f"btn_add_struct_{structural_type}"):
+                ok, msg = add_structure(structural_type, new_name)
+                st.success(msg) if ok else st.error(msg)
+                if ok:
+                    st.rerun()
+
+    col_s, col_i = st.columns(2, gap="large")
+    _panel(col_s, "SERVICE", "Services", DEFAULT_SERVICES)
+    _panel(col_i, "INSTITUT", "Instituts", DEFAULT_INSTITUTS)
+
+
 def _render_master_detail_user_management(current_user):
     """Annuaire des testeurs en cartes ; les droits se déroulent sous la carte
     sélectionnée (v7.34).
@@ -464,8 +507,8 @@ def _render_user_rights(target_user, db):
     uid = str(target_user["_id"])
     current_scope = target_user.get("scope", {}) or {}
 
-    liste_services = ["Call Center / Orientation", "Scolarité", "Admission & Recrutement", "Marketing & Communication", "Soft Skills Academy (Vie estudiantine)"]
-    liste_instituts = ["Institut Ingénieur", "Institut Management", "Institut Droit", "Madiba Leadership Institute"]
+    liste_services = get_services()
+    liste_instituts = get_instituts()
 
     raw_role = normalize_role(target_user.get("role", "")) or STUDENT
     default_role_index = ROLE_OPTIONS.index(raw_role) if raw_role in ROLE_OPTIONS else 0
