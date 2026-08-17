@@ -23,7 +23,7 @@ from bson import ObjectId
 from services.db_connector import db_instance
 from services.mailer import send_answer_to_student
 from typing import Optional
-from config.categories import normalize_category, get_all_canonical, add_learned_anchor
+from config.categories import normalize_category, get_all_canonical, add_learned_anchor, get_parent_category
 
 
 class KBController:
@@ -110,22 +110,37 @@ class KBController:
                     validator_name=validator_email,
                 )
 
-    def recategorize(self, c_id: str, new_category: str, author_email: str):
+    def recategorize(self, c_id: str, new_category: str, author_email: str,
+                     structural_type: str = None, entity: str = None):
         """
-        Point 6 : le contributeur peut recatégoriser une question existante.
-        La catégorie est normalisée avant sauvegarde (point 8).
+        Recatégorisation manuelle (humaine) d'une question.
+
+        Deux axes stockés côté contribution :
+          - THÈME : `category` (sous-catégorie normalisée) + `parent_category`
+            → filtrage & recherche sémantique.
+          - RATTACHEMENT (optionnel) : `structural_type` (SERVICE|INSTITUT) +
+            `service`/`institution` → routage vers le bon expert & permissions.
+
         La correction (humaine) enrichit les ancres sémantiques (Phase 3, 3a).
         """
         canonical = normalize_category(new_category)
         doc = self.col.find_one({"_id": ObjectId(c_id)}, {"question": 1})
-        self.col.update_one(
-            {"_id": ObjectId(c_id)},
-            {"$set": {
-                "category":       canonical,
-                "recategorized_by": author_email,
-                "recategorized_at": datetime.now(),
-            }}
-        )
+
+        update = {
+            "category":         canonical,
+            "parent_category":  get_parent_category(canonical),
+            "recategorized_by": author_email,
+            "recategorized_at": datetime.now(),
+        }
+        # Rattachement structurel (l'un OU l'autre, aligné sur le modèle utilisateur).
+        st = str(structural_type).upper() if structural_type else None
+        if st in ("SERVICE", "INSTITUT") and entity:
+            update["structural_type"] = st
+            update["service"]     = entity if st == "SERVICE" else ""
+            update["institution"] = entity if st == "INSTITUT" else ""
+
+        self.col.update_one({"_id": ObjectId(c_id)}, {"$set": update})
+
         # Boucle d'apprentissage : la question devient une ancre de la catégorie.
         if doc and doc.get("question"):
             add_learned_anchor(canonical, doc["question"], source_id=str(c_id), added_by=author_email)

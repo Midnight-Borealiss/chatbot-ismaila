@@ -46,7 +46,7 @@ from config.categories import (
 from config.response_helpers import has_real_response
 from config.permissions import build_domain_permissions_from_form
 from views.ai_categorization_view import render_ai_categorization_view
-from views.shared_components import render_comments_and_delete
+from views.shared_components import render_comments_and_delete, render_recategorization
 from views.communication_view import render_communication_view
 # Source unique des types de feedback (identique à la saisie utilisateur)
 from views.feedback_view import FEEDBACK_TYPES
@@ -261,6 +261,8 @@ def _render_pending_questions(user):
             if st.button("✅ Valider", key=f"v_{item_id}"):
                 kb_controller.update_contribution(item_id, resp, user["email"])
                 st.rerun()
+            with st.expander("🏷️ Recatégoriser (rattachement + thème)"):
+                render_recategorization(item, user["email"], key_prefix="admin_pending_")
             render_comments_and_delete(
                 kb_col, item, user,
                 key_prefix="admin_pending", on_delete=kb_controller.delete,

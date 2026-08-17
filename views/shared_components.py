@@ -90,3 +90,54 @@ def render_comments_and_delete(collection, doc, user, *, key_prefix,
                     collection.delete_one({"_id": ObjectId(doc_id)})
                 st.toast("Élément supprimé.")
                 st.rerun()
+
+
+def render_recategorization(item, author_email, *, key_prefix=""):
+    """Sélecteur de recatégorisation à 2 niveaux, partagé (admin/validateur/contributeur).
+
+    RATTACHEMENT (service ⊻ institut) puis THÈME (Pôle → sous-thème), pré-remplis
+    depuis la contribution. Applique via kb_controller.recategorize (stocke le
+    rattachement + le thème et enrichit les ancres sémantiques).
+    """
+    from config.structures import get_services, get_instituts
+    from config.categories import (
+        get_top_categories, get_subcategories_by_parent, get_parent_category,
+    )
+    from controllers.kb_controller import kb_controller
+
+    item_id = str(item["_id"])
+    kp = f"{key_prefix}{item_id}"
+
+    # 1. Rattachement : service OU institut (aligné sur le modèle utilisateur).
+    cur_struct = "INSTITUT" if item.get("structural_type") == "INSTITUT" else "SERVICE"
+    stype = st.radio(
+        "Rattachement",
+        options=["SERVICE", "INSTITUT"],
+        index=0 if cur_struct == "SERVICE" else 1,
+        horizontal=True,
+        format_func=lambda s: "🏢 Service" if s == "SERVICE" else "🎓 Institut",
+        key=f"recat_struct_{kp}",
+    )
+    entities = get_services() if stype == "SERVICE" else get_instituts()
+    cur_entity = item.get("service") if stype == "SERVICE" else item.get("institution")
+    ent_idx = entities.index(cur_entity) if cur_entity in entities else 0
+    entity = st.selectbox(
+        "Service concerné" if stype == "SERVICE" else "Institut concerné",
+        options=entities, index=ent_idx, key=f"recat_ent_{kp}",
+    )
+
+    # 2. Thème à 2 niveaux : Pôle → sous-thème (pré-rempli, éditable).
+    cur_cat = item.get("category", "")
+    poles = get_top_categories()
+    cur_pole = item.get("parent_category") or get_parent_category(cur_cat)
+    pole_idx = poles.index(cur_pole) if cur_pole in poles else 0
+    pole = st.selectbox("Pôle (thème)", options=poles, index=pole_idx, key=f"recat_pole_{kp}")
+    subs = get_subcategories_by_parent(pole)
+    sub_idx = subs.index(cur_cat) if cur_cat in subs else 0
+    sub = st.selectbox("Sous-thème", options=subs, index=sub_idx, key=f"recat_sub_{kp}")
+
+    if st.button("💾 Appliquer la recatégorisation", key=f"recat_apply_{kp}"):
+        kb_controller.recategorize(item_id, sub, author_email,
+                                   structural_type=stype, entity=entity)
+        st.toast(f"↪ {entity} · {sub}")
+        st.rerun()

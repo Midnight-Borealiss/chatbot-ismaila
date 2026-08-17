@@ -26,7 +26,7 @@ from config.categories import (
 )
 from config.permissions import get_domain_level, can_answer, get_user_domains_summary
 from config.response_helpers import has_real_response, has_no_real_response
-from views.shared_components import render_comments_and_delete
+from views.shared_components import render_comments_and_delete, render_recategorization
 
 
 def _insert_contribution(kb_col, question: str, response: str, canonical_cat: str, user: dict):
@@ -173,21 +173,9 @@ def render_contributor_view():
                             "Vérifiez / corrigez ci-dessous."
                         )
 
-                    # Recatégorisation (accessible à tous les contributeurs)
-                    col_cat, _ = st.columns([2, 3])
-                    with col_cat:
-                        current_cat = item.get("category", "Général")
-                        new_cat = st.selectbox(
-                            "Recatégoriser",
-                            get_categories_for_select(),
-                            index=get_categories_for_select().index(current_cat)
-                                  if current_cat in get_categories_for_select() else 0,
-                            key=f"cat_{item_id}",
-                        )
-                        if st.button("💾 Changer la catégorie", key=f"recat_{item_id}"):
-                            kb_controller.recategorize(item_id, new_cat, user["email"])
-                            st.toast(f"Catégorie → {new_cat}")
-                            st.rerun()
+                    # Recatégorisation à 2 niveaux (rattachement + thème)
+                    with st.expander("🏷️ Recatégoriser (rattachement + thème)"):
+                        render_recategorization(item, user["email"], key_prefix="contrib_")
 
                     # Zone de réponse : conditionnelle selon les droits
                     if user_can:
