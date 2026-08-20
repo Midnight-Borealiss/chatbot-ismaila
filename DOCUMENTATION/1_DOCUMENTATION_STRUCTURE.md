@@ -69,6 +69,13 @@ Ce dossier contient la documentation complète du projet **ISMaiLa** - Système 
 - Les 6 blocages identifiés, dont 2 relèvent de la DSI (compte d'envoi sur le
   tenant Microsoft 365, machine pour l'ordonnancement)
 
+### 14. **HISTORIQUE_VERSIONS.md**
+- Cartographie des branches : les deux branches vivantes (`dev` et
+  `pilote-v3-KMS`, deployee), le cycle de livraison, et les six versions
+  archivees sous forme de tags
+- Pourquoi aucune branche ne doit etre supprimee (sources uniques du backend
+  Google Sheets et du tableau de bord plotly)
+
 ---
 
 ## 🎯 Guide de Mise à Jour
