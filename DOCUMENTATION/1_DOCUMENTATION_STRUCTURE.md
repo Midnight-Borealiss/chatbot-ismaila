@@ -58,6 +58,17 @@ Ce dossier contient la documentation complète du projet **ISMaiLa** - Système 
   incompatibilité d'Ollama avec Streamlit Cloud
 - Principe directeur : ne pas rompre la chaîne de certification
 
+### 12. **NOTE_HEBERGEMENT_LLM.md**
+- Note d'arbitrage autoportante sur l'hébergement du LLM, destinée à être
+  discutée hors du dépôt (aucun prérequis de contexte pour la lire)
+- Les trois configurations envisagées, le matériel disponible, les questions
+  ouvertes et les décideurs attendus
+
+### 13. **ETAT_CENTRE_COMMUNICATION.md**
+- Centre de Communication : évolution en 7 étapes, état actuel, garde-fous acquis
+- Les 6 blocages identifiés, dont 2 relèvent de la DSI (compte d'envoi sur le
+  tenant Microsoft 365, machine pour l'ordonnancement)
+
 ---
 
 ## 🎯 Guide de Mise à Jour
