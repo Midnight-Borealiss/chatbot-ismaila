@@ -3,9 +3,17 @@ KBController — Cycle de vie des contributions (base de connaissances ISMaiLa).
 
 Statuts d'une contribution, dans la collection `contributions` :
     en_attente ──(certification)──▶ valide ──(invalidation)──▶ en_attente
-         │                             │
-         │                             └──(archivage)──▶ archive
-         └──(hors sujet)──▶ test
+         ├──(archivage)──▶ archive ──(restauration)──▶ en_attente
+         └──(hors sujet)──▶ test   ──(restauration)──▶ en_attente
+
+Seule une contribution `en_attente` est modifiable (réponse, catégorie, statut).
+Les statuts `valide`, `archive` et `test` sont figés : il faut d'abord
+invalider / restaurer. Le verrou est posé dans le filtre de chaque `update_one`
+(atomique) ; les méthodes renvoient False si la contribution était figée.
+Une contribution `valide` ne peut pas non plus être supprimée.
+
+Chaque action est tracée dans le tableau `history` du document
+({action, by, at, ...détails}) pour l'audit « qui a proposé / qui a validé ».
 
 Deux effets de bord importants à la certification :
   - l'embedding de la question est généré, ce qui la rend interrogeable par la
@@ -24,6 +32,10 @@ from services.db_connector import db_instance
 from services.mailer import send_answer_to_student
 from typing import Optional
 from config.categories import normalize_category, get_all_canonical, add_learned_anchor, get_parent_category
+
+# Statuts figés : aucune modification tant qu'on n'a pas invalidé / restauré.
+LOCKED_STATUSES = ("valide", "archive", "test")
+_EDITABLE = {"status": {"$nin": list(LOCKED_STATUSES)}}
 
 
 class KBController:
@@ -85,33 +97,53 @@ class KBController:
         except Exception:
             pass  # silencieux : la validation ne doit jamais échouer pour ça
 
-    def update_contribution(self, c_id: str, response: str, validator_email: str):
-        """Certifie + génère l'embedding + notifie l'étudiant."""
+    @staticmethod
+    def _event(action: str, by: str, at: Optional[datetime] = None, **details) -> dict:
+        """Entrée d'historique ; les détails vides ne sont pas stockés."""
+        event = {"action": action, "by": by or "", "at": at or datetime.now()}
+        event.update({k: v for k, v in details.items() if v not in (None, "", False)})
+        return event
+
+    def update_contribution(self, c_id: str, response: str, validator_email: str) -> bool:
+        """Certifie + génère l'embedding + notifie l'étudiant.
+
+        Refusé (False) si la contribution est déjà figée (validée, archivée, test).
+        """
         ticket = self.col.find_one({"_id": ObjectId(c_id)})
-        self.col.update_one(
-            {"_id": ObjectId(c_id)},
+        if not ticket:
+            return False
+        # Le validateur a-t-il retouché la proposition d'un contributeur ?
+        edited = bool(ticket.get("author_email")) and \
+            (response or "").strip() != (ticket.get("response") or "").strip()
+        now = datetime.now()
+        res = self.col.update_one(
+            {"_id": ObjectId(c_id), **_EDITABLE},
             {"$set": {
-                "response":     response,
-                "status":       "valide",
-                "validated_by": validator_email,
-                "updated_at":   datetime.now(),
-            }}
+                "response":             response,
+                "status":               "valide",
+                "validated_by":         validator_email,
+                "validated_at":         now,
+                "validated_with_edits": edited,
+                "updated_at":           now,
+            },
+             "$push": {"history": self._event("validation", validator_email, now, edited=edited)}}
         )
+        if not res.matched_count:
+            return False
         # Auto-embedding : la question devient interrogeable en recherche sémantique.
-        if ticket:
-            self._ensure_question_embedding(c_id, ticket.get("question", ""))
-        if ticket:
-            student_email = ticket.get("user_email", "")
-            if student_email and student_email not in ("anonyme", "public", ""):
-                send_answer_to_student(
-                    student_email=student_email,
-                    question=ticket.get("question", ""),
-                    answer=response,
-                    validator_name=validator_email,
-                )
+        self._ensure_question_embedding(c_id, ticket.get("question", ""))
+        student_email = ticket.get("user_email", "")
+        if student_email and student_email not in ("anonyme", "public", ""):
+            send_answer_to_student(
+                student_email=student_email,
+                question=ticket.get("question", ""),
+                answer=response,
+                validator_name=validator_email,
+            )
+        return True
 
     def recategorize(self, c_id: str, new_category: str, author_email: str,
-                     structural_type: str = None, entity: str = None):
+                     structural_type: str = None, entity: str = None) -> bool:
         """
         Recatégorisation manuelle (humaine) d'une question.
 
@@ -122,15 +154,17 @@ class KBController:
             `service`/`institution` → routage vers le bon expert & permissions.
 
         La correction (humaine) enrichit les ancres sémantiques (Phase 3, 3a).
+        Refusé (False) si la contribution est figée.
         """
         canonical = normalize_category(new_category)
-        doc = self.col.find_one({"_id": ObjectId(c_id)}, {"question": 1})
+        doc = self.col.find_one({"_id": ObjectId(c_id)}, {"question": 1, "category": 1})
+        now = datetime.now()
 
         update = {
             "category":         canonical,
             "parent_category":  get_parent_category(canonical),
             "recategorized_by": author_email,
-            "recategorized_at": datetime.now(),
+            "recategorized_at": now,
         }
         # Rattachement structurel (l'un OU l'autre, aligné sur le modèle utilisateur).
         st = str(structural_type).upper() if structural_type else None
@@ -139,70 +173,108 @@ class KBController:
             update["service"]     = entity if st == "SERVICE" else ""
             update["institution"] = entity if st == "INSTITUT" else ""
 
-        self.col.update_one({"_id": ObjectId(c_id)}, {"$set": update})
+        event = self._event("recategorisation", author_email, now,
+                            from_category=(doc or {}).get("category"),
+                            to_category=canonical,
+                            entity=update.get("service") or update.get("institution"))
+        res = self.col.update_one({"_id": ObjectId(c_id), **_EDITABLE},
+                                  {"$set": update, "$push": {"history": event}})
+        if not res.matched_count:
+            return False
 
         # Boucle d'apprentissage : la question devient une ancre de la catégorie.
         if doc and doc.get("question"):
             add_learned_anchor(canonical, doc["question"], source_id=str(c_id), added_by=author_email)
+        return True
 
     def submit_proposal(self, c_id: str, response: str, author_email: str,
-                        new_category: Optional[str] = None):
+                        new_category: Optional[str] = None) -> bool:
         """
         Soumet une proposition de réponse + recatégorisation optionnelle.
-        Déclenche st.rerun() via le flag retourné (point 9).
+        Refusé (False) si la contribution est figée.
         """
+        now = datetime.now()
         update = {
             "response":     response,
             "author_email": author_email,
-            "updated_at":   datetime.now(),
+            "updated_at":   now,
         }
         canonical = None
         if new_category:
             canonical = normalize_category(new_category)
             update["category"] = canonical
         doc = self.col.find_one({"_id": ObjectId(c_id)}, {"question": 1}) if canonical else None
-        self.col.update_one({"_id": ObjectId(c_id)}, {"$set": update})
+        res = self.col.update_one(
+            {"_id": ObjectId(c_id), **_EDITABLE},
+            {"$set": update,
+             "$push": {"history": self._event("proposition", author_email, now, to_category=canonical)}}
+        )
+        if not res.matched_count:
+            return False
         # Boucle d'apprentissage : recatégorisation humaine → ancre sémantique.
         if canonical and doc and doc.get("question"):
             add_learned_anchor(canonical, doc["question"], source_id=str(c_id), added_by=author_email)
+        return True
 
-    def invalidate(self, c_id: str):
+    def invalidate(self, c_id: str, by: str = "") -> bool:
         """Retire la certification : la contribution retourne en file d'attente.
 
         La réponse est conservée — elle sert de point de départ à la correction.
+        Le validateur précédent reste lisible dans l'historique.
         """
-        self.col.update_one(
-            {"_id": ObjectId(c_id)},
-            {"$set": {"status": "en_attente", "updated_at": datetime.now()}}
+        now = datetime.now()
+        res = self.col.update_one(
+            {"_id": ObjectId(c_id), "status": "valide"},
+            {"$set":   {"status": "en_attente", "updated_at": now},
+             "$unset": {"validated_by": "", "validated_at": "", "validated_with_edits": ""},
+             "$push":  {"history": self._event("invalidation", by, now)}}
         )
+        return bool(res.matched_count)
 
-    def archive(self, c_id: str):
+    def restore(self, c_id: str, by: str = "") -> bool:
+        """Remet une contribution archivée ou hors-contexte en file d'attente."""
+        now = datetime.now()
+        res = self.col.update_one(
+            {"_id": ObjectId(c_id), "status": {"$in": ["archive", "test"]}},
+            {"$set":  {"status": "en_attente", "updated_at": now},
+             "$push": {"history": self._event("restauration", by, now)}}
+        )
+        return bool(res.matched_count)
+
+    def archive(self, c_id: str, by: str = "") -> bool:
         """Sort la contribution du service actif sans la supprimer (traçabilité)."""
-        self.col.update_one(
-            {"_id": ObjectId(c_id)},
-            {"$set": {"status": "archive", "archived_at": datetime.now()}}
+        now = datetime.now()
+        res = self.col.update_one(
+            {"_id": ObjectId(c_id), **_EDITABLE},
+            {"$set":  {"status": "archive", "archived_at": now, "archived_by": by},
+             "$push": {"history": self._event("archivage", by, now)}}
         )
+        return bool(res.matched_count)
 
-    def move_to_test(self, c_id: str, author_email: str = ""):
+    def move_to_test(self, c_id: str, author_email: str = "") -> bool:
         """
         Écarte une contribution hors-contexte du flux normal en la basculant
         au statut "test" (récupérable). Elle disparaît des files d'attente et
         de validation mais reste consultable via le filtre 'Test'.
         """
-        self.col.update_one(
-            {"_id": ObjectId(c_id)},
+        now = datetime.now()
+        res = self.col.update_one(
+            {"_id": ObjectId(c_id), **_EDITABLE},
             {"$set": {
-                "status":         "test",
+                "status":          "test",
                 "flagged_test_by": author_email,
-                "flagged_test_at": datetime.now(),
-                "updated_at":      datetime.now(),
-            }}
+                "flagged_test_at": now,
+                "updated_at":      now,
+            },
+             "$push": {"history": self._event("hors_contexte", author_email, now)}}
         )
+        return bool(res.matched_count)
 
-    def delete(self, c_id: str):
-        """Suppression définitive. Préférer `archive()` ou `move_to_test()`,
-        qui préservent la traçabilité."""
-        self.col.delete_one({"_id": ObjectId(c_id)})
+    def delete(self, c_id: str) -> bool:
+        """Suppression définitive, interdite sur une contribution validée.
+        Préférer `archive()` ou `move_to_test()`, qui préservent la traçabilité."""
+        res = self.col.delete_one({"_id": ObjectId(c_id), "status": {"$ne": "valide"}})
+        return bool(res.deleted_count)
 
     def add_comment(self, c_id: str, author_email: str, text: str):
         """Ajoute un commentaire interne (annotation staff) à une contribution."""

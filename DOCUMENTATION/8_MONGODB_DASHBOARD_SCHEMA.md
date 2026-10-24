@@ -214,12 +214,24 @@ Ajouter ces champs optionnels au profil utilisateur pour enrichir le dashboard:
   "_id": ObjectId,
   "question": "Comment trouver ma classe ?",
   "response": "...",
-  "status": "valide",                          // en_attente | valide | archive
+  "status": "valide",                          // en_attente | valide | archive | test
   "category": "Déroulement et Planning de cours", // SOUS-catégorie (tag fin)
   "parent_category": "Pédagogie",              // Catégorie parente (v7.15)
-  "question_embedding": [0.01, -0.04, ...]      // Vecteur 384 dim (Atlas Vector Search, v7.15)
+  "question_embedding": [0.01, -0.04, ...],     // Vecteur 384 dim (Atlas Vector Search, v7.15)
+  "author_email": "contrib@groupeism.sn",      // auteur de la proposition
+  "validated_by": "expert@groupeism.sn",       // retiré à l'invalidation (v7.39)
+  "validated_at": ISODate,                     // v7.39
+  "validated_with_edits": false,               // proposition retouchée par le validateur (v7.39)
+  "history": [                                 // journal d'audit (v7.39)
+    { "action": "proposition", "by": "contrib@groupeism.sn", "at": ISODate },
+    { "action": "validation",  "by": "expert@groupeism.sn",  "at": ISODate }
+  ]
 }
 ```
+
+Actions possibles dans `history` : `proposition`, `validation`, `invalidation`,
+`recategorisation` (+ `from_category`, `to_category`, `entity`), `archivage`,
+`hors_contexte`, `restauration`.
 
 **Index Atlas Vector Search** : `autoembed_index` (type `vectorSearch`, `question_embedding`, 384 dim, cosine).
 Créé/listé via `python scripts/create_vector_index.py`. Vecteurs générés via `scripts/init_embeddings.py`.
