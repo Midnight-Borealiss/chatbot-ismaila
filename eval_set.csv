@@ -1,0 +1,54 @@
+﻿id;question;origine;couverte;chunk_attendu;commentaire
+C001;Est-ce que se serait possible d'intégrer la SSA pour la distribution de ndoggou durant le ramadan;corpus;oui;qr:699492ee9d74bc8d510353c6:0;
+C002;Je suis en classe et je ne me sens pas bien ?;corpus;oui;qr:69a5c9be2d3b104b10188dc4:0;
+C003;Il n'y a personne dans la salle, que faire?;corpus;oui;qr:69b81c1729d3de2b66dabbdc:0;
+C004;Quelle est la tenue réglementaire autorisée à ISM?;corpus;oui;qr:698cc3a53a3b5e3915628ca8:0;
+C005;Combien d'écoles est-ce qu'il y a un Groupe ISM ?;corpus;oui;qr:69a56eee2d3b104b10188d7d:0;
+C006;comment trouver mon emploi du temps ?;corpus;oui;qr:69958c7a5aabbd040cf23d4b:0;
+C007;Est-ce que je dois porter la veste tous les jours ?;corpus;oui;qr:698cad91dc5bcdc509ab63c7:0;
+C008;Comment voir les enregistrements des cours en ligne?;corpus;oui;qr:69a588d12d3b104b10188d86:0;
+C009;Comment je sais qu’un cours est annulé ?;corpus;oui;qr:698cc3a53a3b5e3915628cae:0;
+C010;Comment rejoindre la salle du prof?;corpus;oui;qr:69b81b9a29d3de2b66dabbda:0;
+C011;Que faire si je tombe malade pendant une période d’examen ?;corpus;oui;qr:699c933450405ecf1b7abc6f:0;
+C012;Est-ce que je dois porter la veste tous les jours ?;corpus;oui;qr:698cc3a53a3b5e3915628ca9:0;
+C013;C’est quoi l’année de fondation de ISM ?;corpus;oui;qr:6994c7939d74bc8d510353ce:0;
+C014;Dans quelle école/université à l’international je peux continuer mes études ?;corpus;oui;qr:698cc3a73a3b5e3915628cc2:0;
+C015;Comment puis-je rattraper un cours ou une évaluation manquée ?;corpus;oui;qr:699c90c650405ecf1b7abc6d:0;
+C016;En quelle année ISM a été créé  ?;corpus;oui;qr:698cf2f951908fc7f8ff45e7:0;
+C017;Dans quel délai dois-je soumettre mon justificatif ?;corpus;oui;qr:699c8f4450405ecf1b7abc67:0;
+C018;Comment se fait la sélection des candidats au programme d’échange ?;corpus;oui;qr:698cc3a73a3b5e3915628cc1:0;
+C019;Comment puis-je t’aider à t’améliorer ?;corpus;oui;qr:69a54f1b2d3b104b10188d7c:0;
+C020;Qui est le fondateur de ISM ?;corpus;oui;qr:6994c76b9d74bc8d510353cc:0;
+C021;Comment pourrai-je participer aux cours en ligne programmés dans mon agenda ?;corpus;oui;qr:698cc3a73a3b5e3915628cbe:0;
+C022;Est ce que tu as des limites ?;corpus;oui;qr:69a54f062d3b104b10188d7b:0;
+C023;Qu’est ce que le code d’un cours ?;corpus;oui;qr:698cc3a53a3b5e3915628ca7:0;
+C024;Comment je reçois les informations importantes ?;corpus;oui;qr:698cc3a63a3b5e3915628cb5:0;
+C025;Les absences influencent-elles la note finale ou l’admissibilité aux examens ?;corpus;oui;qr:699c908b50405ecf1b7abc6c:0;
+R026;Puis-je partir en échange ?;logs;oui;LA NOTE D'INFORMATION_OK.docx — PROGRAMMES INTERNATIONAUX;rang=1
+R027;Le programme est-il reconnu par l’État ?;logs;oui;qr:699466129d74bc8d510353b8;rang=1
+R028;Comment rattraper un cours manqué ?;logs;oui;qr:699c90c650405ecf1b7abc6d;rang=1
+R029;Pourquoi ?;logs;non;;
+R030;Quel est votre but principal ?;logs;oui;qr:6993683629cd4c8ea923af72;rang=3
+R031;Quels débouchés après le diplôme ?;logs;non;;
+R032;Comment pourrai-je participer aux cours en ligne programmés dans mon agenda ?;logs;oui;qr:698cc3a43a3b5e3915628ca5;rang=3
+R033;Comment puis-je faire pour aller en échange ?;logs;oui;qr:698cc3a73a3b5e3915628cc1;rang=3
+R034;Comment je trouver mon emploi du temps ?;logs;oui;qr:69958c7a5aabbd040cf23d4b;rang=3
+R035;Quels sont les critères d’admission ?;logs;oui;RPI  ISM ACTUALISE MASTER 25-26.pdf — Article 2. De l’Admission;rang=2
+R036;Y a-t-il une bibliothèque ?;logs;oui;qr:698cc3a63a3b5e3915628cb2;rang=1
+R037;je veux parler a un conseiller;logs;oui;qr:69a5c43c2d3b104b10188dc0;rang=1
+R038;Avez-vous une licence en marketing ?;logs;non;;
+R039;Comment suivre ma candidature ?;logs;oui;qr:698cc3a43a3b5e3915628ca3;rang=3
+R040;Comment fonctionne le rattrapage ?;logs;oui;RPI ACTUALISE LICENCE PRO 25-26.pdf — Article 11. Du Rattrapage;rang=1
+R041;Quels événements sont prévus ?;logs;non;;
+R042;J’ai oublié mon mot de passe;logs;oui;qr:69a587f12d3b104b10188d82;rang=1
+R043;Où trouver mon emploi du temps ?;logs;non;;
+R044;Comment demander une attestation ?;logs;non;;
+R045;Comment mettre à jour mes informations ?;logs;oui;qr:69eb2bd348b5f5d1e1a14672;rang=3
+H046;Quel temps fera-t-il demain a Dakar ?;hors_domaine;non;;
+H047;Comment preparer le thieboudienne ?;hors_domaine;non;;
+H048;Quel est le resultat du match d'hier ?;hors_domaine;non;;
+H049;Combien coute un billet d'avion pour Paris ?;hors_domaine;non;;
+H050;Qui a gagne la Coupe du monde 2022 ?;hors_domaine;non;;
+H051;Comment soigner un mal de tete ?;hors_domaine;non;;
+H052;Quelle est la capitale de l'Australie ?;hors_domaine;non;;
+H053;Peux-tu m'ecrire un poeme ?;hors_domaine;non;;

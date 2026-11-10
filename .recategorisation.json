@@ -1,0 +1,248 @@
+{
+ "etiquettes": {
+  "Dois-je toujours mettre ma cravate": {
+   "sujet": "Tenue et apparence",
+   "service": "Scolarite"
+  },
+  "Dois-je toujours mettre ma lavallière": {
+   "sujet": "Tenue et apparence",
+   "service": "Scolarite"
+  },
+  "Dois-je toujours mettre mon gilet ?": {
+   "sujet": "Tenue et apparence",
+   "service": "Scolarite"
+  },
+  "Dois-je toujours mettre mon pull ?": {
+   "sujet": "Tenue et apparence",
+   "service": "Scolarite"
+  },
+  "J’ai le droit de mettre des accessoires comme chaîne ou boucle d’oreille ?": {
+   "sujet": "Tenue et apparence",
+   "service": "Scolarite"
+  },
+  "J’ai le droit de mettre des accessoires comme chaîne ou boucle d’oreille?": {
+   "sujet": "Tenue et apparence",
+   "service": "Scolarite"
+  },
+  "Puis-je faire des mèches de couleurs ?": {
+   "sujet": "Tenue et apparence",
+   "service": "Scolarite"
+  },
+  "Puis-je faire des tresses ?": {
+   "sujet": "Tenue et apparence",
+   "service": "Scolarite"
+  },
+  "Puis-je garder mes locs ?": {
+   "sujet": "Tenue et apparence",
+   "service": "Scolarite"
+  },
+  "Puis-je mettre des sneakers ?": {
+   "sujet": "Tenue et apparence",
+   "service": "Scolarite"
+  },
+  "Puis-je mettre des talons ?": {
+   "sujet": "Tenue et apparence",
+   "service": "Scolarite"
+  },
+  "Puis-je teindre mes cheveux ?": {
+   "sujet": "Tenue et apparence",
+   "service": "Scolarite"
+  },
+  "Que puis-je mettre comme chaussure ?": {
+   "sujet": "Tenue et apparence",
+   "service": "Scolarite"
+  },
+  "Quelle couleur je ne dois pas porter ?": {
+   "sujet": "Tenue et apparence",
+   "service": "Scolarite"
+  },
+  "Comment avoir un laissez passer ?": {
+   "sujet": "Documents administratifs",
+   "service": "Scolarite"
+  },
+  "Comment avoir un laissez passer?": {
+   "sujet": "Documents administratifs",
+   "service": "Scolarite"
+  },
+  "Comment faire pour avoir un laisser passer ?": {
+   "sujet": "Documents administratifs",
+   "service": "Scolarite"
+  },
+  "Comment obtenir un duplicata de mon bulletin ?": {
+   "sujet": "Documents administratifs",
+   "service": "Scolarite"
+  },
+  "Dans quelle situation je peux avoir besoin du quitus ?": {
+   "sujet": "Documents administratifs",
+   "service": "Scolarite"
+  },
+  "Où est-ce que je peux le récupérer ?": {
+   "sujet": "Documents administratifs",
+   "service": "Scolarite"
+  },
+  "Où puis je avoir un laissez-passer": {
+   "sujet": "Documents administratifs",
+   "service": "Scolarite"
+  },
+  "Puis-je avoir plusieurs laissez-passer ?": {
+   "sujet": "Documents administratifs",
+   "service": "Scolarite"
+  },
+  "Quelle est la durée de validité d’un laissez-passer ?": {
+   "sujet": "Documents administratifs",
+   "service": "Scolarite"
+  },
+  "Qu’est ce que le quitus ?": {
+   "sujet": "Documents administratifs",
+   "service": "Scolarite"
+  },
+  "Comment consulter mes notes ?": {
+   "sujet": "Examens et rattrapage",
+   "service": "Directions d'instituts"
+  },
+  "Comment faire une réclamation sur une note ?": {
+   "sujet": "Examens et rattrapage",
+   "service": "Directions d'instituts"
+  },
+  "Comment fonctionne le rattrapage ?": {
+   "sujet": "Examens et rattrapage",
+   "service": "Directions d'instituts"
+  },
+  "Comment rattraper un cours manqué ?": {
+   "sujet": "Examens et rattrapage",
+   "service": "Directions d'instituts"
+  },
+  "J’ai raté un examen, que faire ?": {
+   "sujet": "Examens et rattrapage",
+   "service": "Directions d'instituts"
+  },
+  "J’ai raté une evaluation, que faire ?": {
+   "sujet": "Examens et rattrapage",
+   "service": "Directions d'instituts"
+  },
+  "Quelle est la moyenne pour valider ?": {
+   "sujet": "Examens et rattrapage",
+   "service": "Directions d'instituts"
+  },
+  "J'ai faim, je fais comment?": {
+   "sujet": "Vie associative et campus",
+   "service": "Soft Skills Academy"
+  },
+  "Le campus est-il accessible en transport public ?": {
+   "sujet": "Vie associative et campus",
+   "service": "Communication / Direction"
+  },
+  "Qu'est ce que le JBA ?": {
+   "sujet": "Examens et rattrapage",
+   "service": "Directions d'instituts"
+  },
+  "Qu'est ce que les deux jours humanitaires ?": {
+   "sujet": "Vie associative et campus",
+   "service": "Soft Skills Academy"
+  },
+  "Restauration?": {
+   "sujet": "Vie associative et campus",
+   "service": "Accueil & Admission"
+  },
+  "c'est quoi JBA": {
+   "sujet": "Examens et rattrapage",
+   "service": "Directions d'instituts"
+  },
+  "Comment récupérer les supports de cours ?": {
+   "sujet": "Acces aux cours",
+   "service": "Directions d'instituts"
+  },
+  "C’est quoi une maquette ? À quoi ça sert ?": {
+   "sujet": "Offre de formation",
+   "service": "Directions d'instituts"
+  },
+  "Avez-vous une licence en marketing ?": {
+   "sujet": "Offre de formation",
+   "service": "Accueil & Admission"
+  },
+  "Quelle couleur je peux porter ?": {
+   "sujet": "Tenue et apparence",
+   "service": "Scolarite"
+  },
+  "Je ne connais pas mon mail ism": {
+   "sujet": "Comptes et mots de passe",
+   "service": "DSI"
+  },
+  "Puis-je intégrer en cours d’année ?": {
+   "sujet": "Admission et inscription",
+   "service": "Accueil & Admission"
+  },
+  "Pourquoi as-tu été conçu ?": {
+   "sujet": "Infos Chatbot",
+   "service": "DSI"
+  },
+  "Avez vous un bachelor pro": {
+   "sujet": "Admission et inscription",
+   "service": "Accueil & Admission"
+  },
+  "Quelles sont les filières concernées par les programmes d’échanges ?": {
+   "sujet": "Offre de formation",
+   "service": "Relations Internationales"
+  },
+  "Quels débouchés après le diplôme ?": {
+   "sujet": "Offre de formation",
+   "service": "Directions d'instituts"
+  },
+  "Quels masters sont disponibles ?": {
+   "sujet": "Offre de formation",
+   "service": "Accueil & Admission"
+  },
+  "Quels sont les Masters disponibles ?": {
+   "sujet": "Offre de formation",
+   "service": "Accueil & Admission"
+  },
+  "Comment intégrer une école partenaire ?": {
+   "sujet": "Mobilite internationale",
+   "service": "Relations Internationales"
+  },
+  "Quels sont les critères pour intégrer un programme de double diplomation ?": {
+   "sujet": "Mobilite internationale",
+   "service": "Relations Internationales"
+  },
+  "Quels sont les critères pour intégrer un programme d’échange ?": {
+   "sujet": "Mobilite internationale",
+   "service": "Relations Internationales"
+  },
+  "À quel niveau peut-on intégrer un programme d’échange ?": {
+   "sujet": "Mobilite internationale",
+   "service": "Relations Internationales"
+  },
+  "Comment puis-je faire pour aller en échange ?": {
+   "sujet": "Mobilite internationale",
+   "service": "Relations Internationales"
+  },
+  "Je veux aller en échange, comment se font les sélections ?": {
+   "sujet": "Mobilite internationale",
+   "service": "Relations Internationales"
+  },
+  "Puis-je partir en échange ?": {
+   "sujet": "Mobilite internationale",
+   "service": "Relations Internationales"
+  },
+  "Quels doubles diplômes existe-t-il ?": {
+   "sujet": "Admission et inscription",
+   "service": "Accueil & Admission"
+  },
+  "Comment récupérer mon diplôme ?": {
+   "sujet": "Documents administratifs",
+   "service": "Scolarite"
+  },
+  "Quels diplômes acceptez-vous ?": {
+   "sujet": "Admission et inscription",
+   "service": "Accueil & Admission"
+  },
+  "Quels sont les programmes d’échanges de ISM ?": {
+   "sujet": "Mobilite internationale",
+   "service": "Relations Internationales"
+  },
+  "Avez-vous des partenariats internationaux ?": {
+   "sujet": "Mobilite internationale",
+   "service": "Relations Internationales"
+  }
+ }
+}

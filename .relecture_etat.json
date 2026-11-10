@@ -1,0 +1,135 @@
+{
+ "valides": {
+  "Où est ce je peux avoir une plaquette d'enseignement ?": {
+   "reponse": "Vous pouvez obtenir une plaquette d'enseignement en allant au rez-de-chaussée du Campus Baobab et en demandant après la scolarité qui se trouve au rez de chaussée à gauche au niveau du bureau du fond.",
+   "categorie": "Formations",
+   "origine": "generee",
+   "confiance": 0.811,
+   "source": "Comment avoir mon certificat de scolarité?"
+  },
+  "Quels sont les critères pour intégrer une école partenaire ?": {
+   "reponse": "L'admission dans une école partenaire du Groupe ISM est soumise à des critères spécifiques. Vous pouvez consulter la liste des écoles disponibles pour le programme d'échange dans le document \"LISTE DES UNIVERSITÉS PARTENAIRE DU GROUPE ISM_OK.docx\". Les critères d'admission peuvent varier d'une école à l'autre.",
+   "categorie": "Formations",
+   "origine": "generee",
+   "confiance": 0.789,
+   "source": "LISTE DES UNIVERSITÉS PARTENAIRE DU GROUPE ISM_OK.docx — PROGRAMMES D’ÉCHANGE"
+  },
+  "code cours": {
+   "reponse": "Le code cours est l'appellation unique d'un cours qui permet de le distinguer des autres portant le même nom. Vérifiez si vous avez choisi le bon code cours, si le cas persiste, merci de vous rapprochez de votre assistant de programme.",
+   "categorie": "Formations",
+   "origine": "generee",
+   "confiance": 0.875,
+   "source": "Qu’est ce que le code d’un cours ?"
+  },
+  "Les cours sont-ils en anglais ?": {
+   "reponse": "Oui, certains des formations Bilingues et tous les cours de formations Full English sont en anglais.",
+   "categorie": "Formations",
+   "origine": "generee",
+   "confiance": 0.956,
+   "source": "Les cours sont-ils en anglais ?"
+  },
+  "Quelle est la durée du programme en finance ?": {
+   "reponse": "Le programme en finance se déroule sur deux années.",
+   "categorie": "Formations",
+   "origine": "generee",
+   "confiance": 0.792,
+   "source": "RPI ACTUALISE LICENCE PRO 25-26.pdf — Article 12. Du business plan de Fin d’Etudes"
+  },
+  "Je vois deux codes de cours avec le même nom": {
+   "reponse": "Les codes de cours portant le même nom peuvent être différents. Vérifiez s'il s'agit de cours différents en regardant l'appellation unique de chaque cours. Si vous avez des difficultés à identifier le bon cours, adressez-vous à votre assistant de programme.",
+   "categorie": "Formations",
+   "origine": "generee",
+   "confiance": 0.874,
+   "source": "Qu’est ce que le code d’un cours ?"
+  },
+  "J’ai besoin des informations concernant le coût de la scolarité pour une formation en génie logiciel à ISM": {
+   "reponse": "Les frais de scolarité pour une formation en génie logiciel à ISM ne sont pas spécifiés fournis. Vous pouvez consulter le site web de l'établissement pour obtenir ces informations.",
+   "categorie": "Formations",
+   "origine": "generee",
+   "confiance": 0.798,
+   "source": "RPI  ISM ACTUALISE MASTER 25-26.pdf — Article 4. Des frais de scolarité"
+  }
+ },
+ "corriges": {
+  "Je ne vois pas le cours": {
+   "reponse": "Vérifie d'abord que tu as saisi le bon cours mais Si le cours ne s'affiche pas, merci de le signaler à votre assistant de programme",
+   "categorie": "Formations",
+   "origine": "corrigee",
+   "confiance": 0.826,
+   "source": "Je ne vois pas le cours"
+  },
+  "Début des cours?": {
+   "reponse": "Il faudra me préciser de quel début de cours vous parlez",
+   "categorie": "Formations",
+   "origine": "corrigee",
+   "confiance": 0.801,
+   "source": "Comment rejoindre la salle du prof?"
+  },
+  "Je connais pas lien de mon cours": {
+   "reponse": "v",
+   "categorie": "Formations",
+   "origine": "trouvee par recherche",
+   "confiance": 0.799,
+   "source": "Je ne vois pas le cours"
+  },
+  "Le code du cours ne marche pas": {
+   "reponse": "Vérifiez si vous avez choisi le bon code cours, si le cas persiste, merci de vous rapprochez de votre assistant de programme.",
+   "categorie": "Formations",
+   "origine": "trouvee par recherche",
+   "confiance": 0.805,
+   "source": "Que faire si il n'y a personne dans le cours?"
+  },
+  "Puis-je avoir le lien du cours ?": {
+   "reponse": "Merci de vous rendre sur learn.groupeism.sn puis renseignez vos identifiants à savoir votre mail ism.edu.sn et votre mot de passe ensuite assurez vous d'avoir saisi le bon code cours, si le cours ne s'affiche pas merci de le signaler à votre assistant de programme",
+   "categorie": "Formations",
+   "origine": "trouvee par recherche",
+   "confiance": 0.832,
+   "source": "Je me suis connecté sur ClassExpert pour suivre les cours en ligne et ça ne passe pas."
+  },
+  "Je n’ai pas le code du cours": {
+   "reponse": "Vérifiez qu'il n'a pas encore été envoyé dans votre groupe de classe et si ce n'est pas le cas interpellez votre assistant de programme pour obtenir le code du cours",
+   "categorie": "Formations",
+   "origine": "corrigee",
+   "confiance": 0.854,
+   "source": "Je ne vois pas le cours"
+  },
+  "Quels sont les écoles partenaires ?": {
+   "reponse": "LISTE DES UNIVERSITÉS PARTENAIRE DU GROUPE ISM_OK.docx > ADMISSIONS INTERNATIONALES L’Admission Internationale est possible dans une des écoles faisant partie du groupe Galileo et du réseau studialis. Afin de trouver le master qu’il vous convient nous vous invitons à vous rendre sur le site internet des différentes écoles. Nous vous partagerons également en temps voulu une liste des Formations disponible dans ces différentes écoles.",
+   "categorie": "Formations",
+   "origine": "trouvee par recherche",
+   "confiance": 0.792,
+   "source": "LISTE DES UNIVERSITÉS PARTENAIRE DU GROUPE ISM_OK.docx — ADMISSIONS INTERNATIONALES"
+  }
+ },
+ "rejetes": {
+  "Je peux télécharger les enregistrements du cours ?": {
+   "categorie": "Formations",
+   "motif": "confiance 0.764 < seuil 0.779",
+   "confiance": 0.764
+  },
+  "Comment télécharger les enregistrements du cours ?": {
+   "categorie": "Formations",
+   "motif": "confiance 0.758 < seuil 0.779",
+   "confiance": 0.758
+  },
+  "Faites-vous de la formation continue ?": {
+   "categorie": "Formations",
+   "motif": "confiance 0.747 < seuil 0.779",
+   "confiance": 0.747
+  },
+  "Quels programmes sont disponibles en alternance ?": {
+   "categorie": "Formations",
+   "motif": "confiance 0.732 < seuil 0.779",
+   "confiance": 0.732
+  },
+  "Le programme est-il reconnu par l’État ?": {
+   "categorie": "Formations",
+   "motif": "confiance 0.747 < seuil 0.779",
+   "confiance": 0.747
+  }
+ },
+ "passes": [
+  "J’ai oublié le code de mon cours",
+  "Quelles sont les formations disponibles à l’école d’ingénieurs)"
+ ]
+}

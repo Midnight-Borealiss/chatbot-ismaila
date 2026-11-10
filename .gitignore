@@ -34,3 +34,6 @@ __pycache__/
 *.log
 rapport_*.json
 rapport_*.txt
+
+.venv-local/
+.venv-1/

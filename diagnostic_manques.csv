@@ -1,0 +1,7 @@
+﻿question;origine;verdict;motif;mots_cles;meilleur_candidat;action
+Pourquoi ?;logs;A VERIFIER;la recherche elargie ramene des candidats;pourquoi;;ameliorer la recuperation
+Quels débouchés après le diplôme ?;logs;A VERIFIER;la recherche elargie ramene des candidats;debouches apres diplome;;ameliorer la recuperation
+Avez-vous une licence en marketing ?;logs;A VERIFIER;la recherche elargie ramene des candidats;licence marketing;;ameliorer la recuperation
+Quels événements sont prévus ?;logs;A VERIFIER;la recherche elargie ramene des candidats;evenements prevus;;ameliorer la recuperation
+Où trouver mon emploi du temps ?;logs;PRESENTE;les termes de la question figurent dans le corpus;trouver emploi temps;"Il faut vous rendre au niveau de votre mail edu puis chercher le mail dont le libellé est ""Mon agenda"" après cliquer sur cet email pour l'ouvrir. Vous verrez un";ameliorer la recuperation
+Comment demander une attestation ?;logs;A VERIFIER;la recherche elargie ramene des candidats;demander attestation;;ameliorer la recuperation
