@@ -46,7 +46,9 @@ from config.categories import (
 from config.response_helpers import has_real_response
 from config.permissions import build_domain_permissions_from_form
 from views.ai_categorization_view import render_ai_categorization_view
-from views.shared_components import render_comments_and_delete, render_recategorization
+from views.shared_components import (
+    render_comments_and_delete, render_recategorization, render_history, provenance_caption,
+)
 from views.communication_view import render_communication_view
 # Source unique des types de feedback (identique à la saisie utilisateur)
 from views.feedback_view import FEEDBACK_TYPES
@@ -259,8 +261,10 @@ def _render_pending_questions(user):
             st.write(f"**Q:** {item['question']}")
             resp = st.text_area("Réponse", value=item.get("response", ""), key=f"a_{item_id}")
             if st.button("✅ Valider", key=f"v_{item_id}"):
-                kb_controller.update_contribution(item_id, resp, user["email"])
-                st.rerun()
+                if kb_controller.update_contribution(item_id, resp, user["email"]):
+                    st.rerun()
+                else:
+                    st.error("Validation refusée : la question a changé de statut.")
             with st.expander("🏷️ Recatégoriser (rattachement + thème)"):
                 render_recategorization(item, user["email"], key_prefix="admin_pending_")
             render_comments_and_delete(
@@ -279,10 +283,14 @@ def _render_validated_questions():
     kb_col = db_instance.get_collection("contributions")
     for item in admin_controller.get_recent_validated(limit=10):
         with st.expander(f"Q: {item['question']}"):
+            provenance = provenance_caption(item)
+            if provenance:
+                st.caption(provenance)
             st.success(f"R: {item['response']}")
             if st.button("↩️ Invalider", key=f"inv_{item['_id']}"):
-                kb_controller.invalidate(str(item['_id']))
+                kb_controller.invalidate(str(item['_id']), user.get("email", ""))
                 st.rerun()
+            render_history(item)
             render_comments_and_delete(
                 kb_col, item, user,
                 key_prefix="admin_valid", on_delete=kb_controller.delete,
@@ -307,7 +315,7 @@ def _render_test_questions(user):
                 f"Le : {str(item.get('flagged_test_at', ''))[:16]}"
             )
             if st.button("↩️ Restaurer (remettre en attente)", key=f"restore_{item_id}"):
-                kb_controller.invalidate(item_id)
+                kb_controller.restore(item_id, user["email"])
                 st.toast("Contribution restaurée en file d'attente.")
                 st.rerun()
             render_comments_and_delete(

@@ -11,11 +11,14 @@ certifier hors de son périmètre — il peut seulement proposer (`can_answer`).
 
 Certifier déclenche, via `kb_controller.update_contribution()`, la génération de
 l'embedding de la question et la notification de l'étudiant.
+
+Une question validée, archivée ou en test est figée (lecture seule) : seul un
+expert du domaine peut l'invalider / la restaurer pour la remettre en attente.
 """
 
 import streamlit as st
 
-from controllers.kb_controller import kb_controller
+from controllers.kb_controller import kb_controller, LOCKED_STATUSES
 from services.db_connector import db_instance
 from config.roles import VALIDATOR, ADMIN, SUPER_ADMIN, is_admin_or_higher
 from config.categories import (
@@ -25,7 +28,33 @@ from config.categories import (
 from config.permissions import get_domain_level, can_validate, can_answer, get_user_domains_summary
 from config.response_helpers import has_real_response, has_no_real_response
 from config.structures import get_services, get_instituts
-from views.shared_components import render_comments_and_delete
+from views.shared_components import render_comments_and_delete, render_history, provenance_caption
+
+_STATUS_ICONS  = {"valide": "✅", "archive": "🗄️", "test": "🧪"}
+_STATUS_LABELS = {"en_attente": "En attente", "valide": "Validée",
+                  "archive": "Archivée", "test": "Hors-contexte (test)"}
+_LOCKED_MSG = "Action refusée : la question a changé de statut (validée, archivée ou test)."
+
+# Libellé du compteur selon le filtre « Statut » (singulier/pluriel via (s)).
+_COUNT_LABELS = {
+    "En attente":           "question(s) en attente",
+    "Validée":              "question(s) validée(s)",
+    "Archivée":             "question(s) archivée(s)",
+    "Test (hors-contexte)": "question(s) hors-contexte (test)",
+}
+
+
+def _count_label(f_status: str, items: list) -> str:
+    """« 133 question(s) validée(s) », ou total + répartition si « Toutes »."""
+    if f_status in _COUNT_LABELS:
+        return f"📋 **{len(items)}** {_COUNT_LABELS[f_status]}."
+    counts = {}
+    for it in items:
+        s = it.get("status", "en_attente")
+        counts[s] = counts.get(s, 0) + 1
+    detail = " · ".join(f"{n} {_STATUS_LABELS.get(s, s).lower()}"
+                        for s, n in sorted(counts.items(), key=lambda kv: -kv[1]))
+    return f"📋 **{len(items)}** question(s) au total — {detail}."
 
 
 def render_validator_view():
@@ -83,41 +112,44 @@ def render_validator_view():
         # Aucune sous-catégorie précise : on filtre sur tout le pôle.
         query["category"] = {"$in": get_subcategories_by_parent(f_pole)}
 
-    pending = list(kb_col.find(query).sort("created_at", -1))
+    items = list(kb_col.find(query).sort("created_at", -1))
 
     # Filtre "mes domaines" — ne montre que les catégories où l'utilisateur peut agir
     if f_mine and not is_admin_or_higher(user.get("role")):
         expert_cats = summary.get("expert", []) + summary.get("contributor", [])
         if expert_cats:
-            pending = [p for p in pending if p.get("category") in expert_cats]
+            items = [p for p in items if p.get("category") in expert_cats]
 
     if f_kw:
         kw = f_kw.lower()
-        pending = [p for p in pending
-                   if kw in p.get("question","").lower()
-                   or kw in p.get("category","").lower()
-                   or kw in p.get("user_email","").lower()]
+        items = [p for p in items
+                 if kw in p.get("question","").lower()
+                 or kw in p.get("category","").lower()
+                 or kw in p.get("user_email","").lower()]
 
-    if not pending:
+    if not items:
         st.success("🎉 Aucune question ne correspond à vos filtres !")
         return
 
-    st.info(f"📋 **{len(pending)}** question(s) en attente.")
+    st.info(_count_label(f_status, items))
 
-    for item in pending:
+    for item in items:
         item_id  = str(item["_id"])
         category = item.get("category", "Général")
         source   = item.get("source", "user_question")
+        status   = item.get("status", "en_attente")
+        locked   = status in LOCKED_STATUSES
 
         # Calcul des droits de l'utilisateur sur cette question
         user_can_validate = can_validate(user, category)
         user_can_answer   = can_answer(user, category)
         user_level        = get_domain_level(user, category)
 
-        # Badge visuel selon le type de question
+        # Badge visuel selon le statut, puis le type de question
         source_badge = "💡 Suggestion expert" if source == "expert_suggestion" else ""
         has_prop = has_real_response(item.get("response", ""))
-        label = f"{'📝' if has_prop else '❓'} [{category}] {item['question'][:65]} {source_badge}"
+        icon = _STATUS_ICONS.get(status) or ("📝" if has_prop else "❓")
+        label = f"{icon} [{category}] {item['question'][:65]} {source_badge}"
 
         with st.expander(label, expanded=False):
             meta_cols = st.columns([3, 1])
@@ -127,11 +159,14 @@ def render_validator_view():
                     f"Catégorie : **{category}** | "
                     f"Date : {str(item.get('created_at',''))[:10]}"
                 )
-                if item.get("author_email"):
-                    st.caption(f"Proposition de : **{item.get('author_email')}**")
+                provenance = provenance_caption(item)
+                if provenance:
+                    st.caption(provenance)
             with meta_cols[1]:
                 # Badge indiquant les droits de l'utilisateur sur cette question
-                if user_can_validate:
+                if locked:
+                    st.info(f"🔒 {_STATUS_LABELS[status]}")
+                elif user_can_validate:
                     st.success("🏅 Vous êtes expert")
                 elif user_can_answer:
                     st.info("✍️ Vous pouvez proposer")
@@ -139,6 +174,35 @@ def render_validator_view():
                     st.warning("📖 Lecture seule")
 
             current_resp = "" if has_no_real_response(item.get("response", "")) else item.get("response", "")
+
+            # ── Question figée : lecture seule + seule issue invalider/restaurer ──
+            if locked:
+                st.text_area("Réponse certifiée" if status == "valide" else "Réponse",
+                             value=current_resp, height=120,
+                             key=f"locked_{item_id}", disabled=True)
+                if user_can_validate or is_admin_or_higher(user.get("role")):
+                    if status == "valide":
+                        if st.button("↩️ Invalider (remettre en attente)", key=f"inv_{item_id}"):
+                            if kb_controller.invalidate(item_id, user["email"]):
+                                st.toast("Question remise en attente.")
+                                st.rerun()
+                            else:
+                                st.error("La question n'est plus validée.")
+                    elif st.button("♻️ Restaurer (remettre en attente)", key=f"rest_{item_id}"):
+                        if kb_controller.restore(item_id, user["email"]):
+                            st.toast("Question restaurée en file d'attente.")
+                            st.rerun()
+                        else:
+                            st.error("La question a déjà changé de statut.")
+
+                render_history(item)
+                st.divider()
+                render_comments_and_delete(
+                    kb_col, item, user,
+                    key_prefix="val", on_delete=kb_controller.delete,
+                    on_mark_test=kb_controller.move_to_test,
+                )
+                continue
 
             # ── Recatégorisation (validateur) ─────────────────────────
             # Le validateur a l'expertise finale sur la bonne catégorie.
@@ -185,14 +249,12 @@ def render_validator_view():
                         st.caption(f"⚠️ Vous n'avez pas les droits en {new_cat} — la question sera visible par d'autres experts.")
 
                 if st.button("💾 Appliquer la recatégorisation", key=f"recat_{item_id}"):
-                    kb_controller.recategorize(item_id, new_cat, user["email"],
-                                               structural_type=stype, entity=entity)
-                    st.toast(f"↪ {entity} · {new_cat}")
-                    # Recalcul des droits pour la suite de l'affichage
-                    category          = new_cat
-                    user_can_validate = new_cat_can_validate
-                    user_can_answer   = new_cat_can_answer
-                    st.rerun()
+                    if kb_controller.recategorize(item_id, new_cat, user["email"],
+                                                  structural_type=stype, entity=entity):
+                        st.toast(f"↪ {entity} · {new_cat}")
+                        st.rerun()
+                    else:
+                        st.error(_LOCKED_MSG)
 
             # Zone de saisie : accessible si l'utilisateur peut au moins proposer
             if user_can_answer or user_can_validate:
@@ -208,28 +270,32 @@ def render_validator_view():
                     if user_can_validate:
                         # L'expert peut certifier directement
                         if st.button("✅ Certifier et Publier", key=f"val_{item_id}", type="primary"):
-                            if resp.strip():
-                                kb_controller.update_contribution(item_id, resp, user["email"])
+                            if not resp.strip():
+                                st.error("La réponse ne peut pas être vide.")
+                            elif kb_controller.update_contribution(item_id, resp, user["email"]):
                                 st.toast("✅ Certifiée ! L'étudiant a été notifié.")
                                 st.rerun()
                             else:
-                                st.error("La réponse ne peut pas être vide.")
+                                st.error(_LOCKED_MSG)
                     else:
                         # Le contributeur peut seulement proposer
                         if st.button("📤 Soumettre pour validation", key=f"sub_{item_id}", type="primary"):
-                            if resp.strip():
-                                kb_controller.submit_proposal(item_id, resp, user["email"])
+                            if not resp.strip():
+                                st.error("La réponse ne peut pas être vide.")
+                            elif kb_controller.submit_proposal(item_id, resp, user["email"]):
                                 st.success("Réponse soumise ! Un expert va la certifier.")
                                 st.rerun()
                             else:
-                                st.error("La réponse ne peut pas être vide.")
+                                st.error(_LOCKED_MSG)
 
                 with action_cols[1]:
                     if user_can_validate:
                         if st.button("🗄️ Archiver", key=f"arc_{item_id}"):
-                            kb_controller.archive(item_id)
-                            st.toast("Archivée.")
-                            st.rerun()
+                            if kb_controller.archive(item_id, user["email"]):
+                                st.toast("Archivée.")
+                                st.rerun()
+                            else:
+                                st.error(_LOCKED_MSG)
             else:
                 # Lecture seule : l'utilisateur voit la question mais ne peut pas agir
                 if current_resp:
@@ -239,6 +305,8 @@ def render_validator_view():
                     f"Vous êtes *{user_level}* dans le domaine {category}. "
                     "Contactez un administrateur pour obtenir les droits de contribution."
                 )
+
+            render_history(item)
 
             # Commentaire interne + suppression
             st.divider()

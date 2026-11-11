@@ -129,7 +129,7 @@ Ajouter à `.env.example` : `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT`.
 # 2. Télécharger le modèle (~4 Go)
 ollama pull mistral:7b-instruct-q4_0
 # 3. Vérifier
-python -m scripts.test_direct          # liste les modèles disponibles
+python -m scripts.diagnostic_ollama_tags          # liste les modèles disponibles
 python -m scripts.black_box_ollama     # test de bout en bout + latence
 ```
 

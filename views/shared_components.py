@@ -2,8 +2,8 @@
 Briques d'interface transverses ISMaiLa.
 
 Regroupe ce qui est rendu à l'identique dans plusieurs vues, pour éviter la
-divergence. Aujourd'hui : le fil de commentaires internes, monté par les vues
-admin, validateur et contributeur.
+divergence : le fil de commentaires internes, la recatégorisation, et la
+provenance / l'historique d'une contribution (vues admin, validateur, contributeur).
 """
 
 from datetime import datetime
@@ -65,16 +65,24 @@ def render_comments_and_delete(collection, doc, user, *, key_prefix,
             else:
                 st.warning("Commentaire vide.")
 
+    status = doc.get("status")
+    if status == "valide":
+        st.caption("🔒 Question validée : invalidez-la pour pouvoir la modifier, "
+                   "l'écarter ou la supprimer.")
+
     # ── Basculer en Test / Hors-contexte (récupérable) ───────────────────
-    if on_mark_test and doc.get("status") != "test":
+    # Uniquement depuis la file d'attente : les statuts figés sont exclus.
+    if on_mark_test and status not in ("test", "valide", "archive"):
         if st.button("🧪 Marquer hors-contexte (Test)",
                      key=f"test_{key_prefix}_{doc_id}", use_container_width=True):
-            on_mark_test(doc_id, email)
-            st.toast("Contribution basculée en Test.")
-            st.rerun()
+            if on_mark_test(doc_id, email) is False:
+                st.error("Action impossible : la question a changé de statut.")
+            else:
+                st.toast("Contribution basculée en Test.")
+                st.rerun()
 
     # ── Suppression (avec confirmation) ──────────────────────────────────
-    if allow_delete:
+    if allow_delete and status != "valide":
         d_chk, d_btn = st.columns([3, 1])
         with d_chk:
             confirm = st.checkbox(
@@ -85,11 +93,121 @@ def render_comments_and_delete(collection, doc, user, *, key_prefix,
             if st.button("🗑️ Supprimer", key=f"delb_{key_prefix}_{doc_id}",
                          disabled=not confirm, use_container_width=True):
                 if on_delete:
-                    on_delete(doc_id)
+                    ok = on_delete(doc_id)
                 else:
-                    collection.delete_one({"_id": ObjectId(doc_id)})
-                st.toast("Élément supprimé.")
-                st.rerun()
+                    ok = collection.delete_one({"_id": ObjectId(doc_id)}).deleted_count > 0
+                if ok is False:
+                    st.error("Suppression refusée : la question est validée.")
+                else:
+                    st.toast("Élément supprimé.")
+                    st.rerun()
+
+
+# ── Provenance & historique des contributions ────────────────────────────
+
+_HISTORY_LABELS = {
+    "question":         "❓ Question posée",
+    "proposition":      "✍️ Réponse proposée",
+    "validation":       "✅ Certifiée et publiée",
+    "invalidation":     "↩️ Invalidée (remise en attente)",
+    "recategorisation": "📂 Recatégorisée",
+    "archivage":        "🗄️ Archivée",
+    "hors_contexte":    "🧪 Marquée hors-contexte",
+    "restauration":     "♻️ Restaurée en attente",
+}
+
+
+def _as_dt(value):
+    """datetime, ISO string ou rien → datetime (ou None)."""
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str) and value:
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _fmt(value) -> str:
+    dt = _as_dt(value)
+    return dt.strftime("%d/%m/%Y %H:%M") if dt else "date inconnue"
+
+
+def provenance_caption(doc) -> str:
+    """« Proposée par X | Validée par Y le … » — vide si rien à dire."""
+    author    = doc.get("author_email")
+    validator = doc.get("validated_by")
+    if doc.get("status") == "valide" and validator:
+        when = _fmt(doc.get("validated_at") or doc.get("updated_at"))
+        if author and author != validator:
+            v = f"Validée par **{validator}** le {when}"
+            if doc.get("validated_with_edits"):
+                v += " (réponse modifiée)"
+            return f"Proposée par **{author}** | {v}"
+        return f"Rédigée et validée par **{validator}** le {when}"
+    if author:
+        return f"Proposée par **{author}** — en attente de certification"
+    return ""
+
+
+def _legacy_events(doc) -> list:
+    """Reconstitue un historique approximatif depuis les champs « dernier état »
+    des contributions antérieures au tableau `history`."""
+    events = [{"action": "question", "by": doc.get("user_email") or "anonyme",
+               "at": doc.get("created_at")}]
+    if doc.get("author_email"):
+        events.append({"action": "proposition", "by": doc["author_email"],
+                       "at": None, "legacy": True})
+    if doc.get("recategorized_by"):
+        events.append({"action": "recategorisation", "by": doc["recategorized_by"],
+                       "at": doc.get("recategorized_at"), "to_category": doc.get("category"),
+                       "legacy": True})
+    if doc.get("status") == "valide" and doc.get("validated_by"):
+        events.append({"action": "validation", "by": doc["validated_by"],
+                       "at": doc.get("validated_at") or doc.get("updated_at"), "legacy": True})
+    if doc.get("archived_at"):
+        events.append({"action": "archivage", "by": doc.get("archived_by", ""),
+                       "at": doc.get("archived_at"), "legacy": True})
+    if doc.get("flagged_test_by") or doc.get("flagged_test_at"):
+        events.append({"action": "hors_contexte", "by": doc.get("flagged_test_by", ""),
+                       "at": doc.get("flagged_test_at"), "legacy": True})
+    return events
+
+
+def build_history(doc) -> list:
+    """Historique chronologique : `history` + événements reconstitués antérieurs."""
+    tracked = list(doc.get("history") or [])
+    legacy  = _legacy_events(doc)
+    if tracked:
+        first = min((_as_dt(e.get("at")) for e in tracked if _as_dt(e.get("at"))),
+                    default=None)
+        # On ne garde du reconstitué que ce qui précède le suivi réel.
+        legacy = [e for e in legacy
+                  if e["action"] == "question"
+                  or (first and _as_dt(e.get("at")) and _as_dt(e["at"]) < first)]
+    created = _as_dt(doc.get("created_at")) or datetime.min
+    return sorted(legacy + tracked, key=lambda e: _as_dt(e.get("at")) or created)
+
+
+def render_history(doc, *, expanded=False):
+    """Expander « 🕓 Historique » : qui a fait quoi, quand."""
+    events = build_history(doc)
+    with st.expander(f"🕓 Historique ({len(events)})", expanded=expanded):
+        for e in events:
+            label = _HISTORY_LABELS.get(e.get("action"), e.get("action", "?"))
+            line = f"- **{_fmt(e.get('at')) if e.get('at') else '—'}** · {label}"
+            if e.get("by"):
+                line += f" — *{e['by']}*"
+            if e.get("to_category"):
+                src = f"{e['from_category']} → " if e.get("from_category") else ""
+                line += f" ({src}{e['to_category']}"
+                line += f" · {e['entity']})" if e.get("entity") else ")"
+            if e.get("edited"):
+                line += " · réponse modifiée par le validateur"
+            if e.get("legacy"):
+                line += " · *reconstitué*"
+            st.markdown(line)
 
 
 def render_recategorization(item, author_email, *, key_prefix=""):
@@ -137,7 +255,9 @@ def render_recategorization(item, author_email, *, key_prefix=""):
     sub = st.selectbox("Sous-thème", options=subs, index=sub_idx, key=f"recat_sub_{kp}")
 
     if st.button("💾 Appliquer la recatégorisation", key=f"recat_apply_{kp}"):
-        kb_controller.recategorize(item_id, sub, author_email,
-                                   structural_type=stype, entity=entity)
-        st.toast(f"↪ {entity} · {sub}")
-        st.rerun()
+        if kb_controller.recategorize(item_id, sub, author_email,
+                                      structural_type=stype, entity=entity):
+            st.toast(f"↪ {entity} · {sub}")
+            st.rerun()
+        else:
+            st.error("Recatégorisation refusée : la question est figée (validée, archivée ou test).")

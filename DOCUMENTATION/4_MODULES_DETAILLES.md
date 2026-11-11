@@ -170,7 +170,11 @@ Un incident MongoDB retombe silencieusement sur les niveaux suivants.
 - `submit_proposal(c_id, response, author_email, new_category)` → proposition de réponse
 - `update_contribution(c_id, response, validator_email)` → certification, génération
   de l'embedding (`_ensure_question_embedding`) et notification de l'étudiant
-- `recategorize()`, `invalidate()`, `archive()`, `move_to_test()`, `delete()`
+- `recategorize()`, `invalidate(c_id, by)`, `restore(c_id, by)`, `archive(c_id, by)`,
+  `move_to_test()`, `delete()`
+- Verrou : les statuts `LOCKED_STATUSES` (`valide`, `archive`, `test`) sont figés ;
+  les méthodes d'écriture renvoient `False` si la contribution l'est (rien n'est
+  écrit). Chaque action ajoute une entrée à `history` ({action, by, at, …}).
 - `add_comment()` → annotation interne (staff)
 - `find_similar_questions()` → détection de doublons avant enregistrement
 - `is_empty_or_pending(response)` → détecte les réponses vides ou en placeholder

@@ -125,12 +125,18 @@ Contributeur soumet une réponse
     │              • enregistrement d'une ancre apprise (learned_anchors)
     │              • mailer.send_answer_to_student()
     │
-    ├─ Invalider → status = "en_attente" (retour en file)
     ├─ Archiver  → status = "archive"
     └─ Hors sujet → status = "test"
+
+    Statuts figés (valide | archive | test) : lecture seule
+    ├─ Invalider  (valide)        → invalidate() → status = "en_attente"
+    └─ Restaurer  (archive|test)  → restore()    → status = "en_attente"
 ```
 
 > Statuts réellement stockés : `en_attente` | `valide` | `archive` | `test`.
+> Seule une contribution `en_attente` est modifiable ; le verrou est posé dans
+> le filtre MongoDB de chaque écriture. Une contribution `valide` ne peut pas
+> être supprimée. Chaque action est tracée dans `history`.
 
 ### 4. Flux : Campagne de communication (v7.35)
 
@@ -236,7 +242,11 @@ cibler en base.
   parent_category: str                # pôle (4 catégories parentes)
   needs_review: bool                  # classification incertaine (Phase 3)
   question_embedding: List[float]     # 384 dim, généré à la certification
-  validated_by: str
+  validated_by: str                   # retiré à l'invalidation
+  validated_at: datetime
+  validated_with_edits: bool          # le validateur a retouché la proposition
+  archived_by: str
+  history: List[dict]                 # {action, by, at, ...} — journal d'audit
   comments: List[dict]                # annotations internes (staff)
   created_at / updated_at: datetime
 }

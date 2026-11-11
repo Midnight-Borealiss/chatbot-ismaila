@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(python -m pytest -q --ignore=tests/test_search_controller.py)",
+      "Bash(python -m pytest -q --continue-on-collection-errors)",
+      "Bash(cd \"c:\\\\Users\\\\HP ELITEBOOK 1030\\\\Documents\\\\#Mes Docs\\\\Projet\\\\ISMAILA\\\\MVP 7 Pilote V3\\\\chatbot-ismaila\" && ls \"C:\\\\Users\\\\HP ELITEBOOK 1030\\\\.claude\\\\projects\\\\c--Users-HP-ELITEBOOK-1030-Documents--Mes-Docs-Projet-ISMAILA-MVP-7-Pilote-V3-chatbot-ismaila\\\\memory\\\\\" 2>&1 | head)",
+      "Read(//c/Users/HP ELITEBOOK 1030/.claude/projects/c--Users-HP-ELITEBOOK-1030-Documents--Mes-Docs-Projet-ISMAILA-MVP-7-Pilote-V3-chatbot-ismaila/**)",
+      "Bash(python scripts/recategorize_hierarchy.py)",
+      "Bash(grep -v \"Loading weights\\\\|LOAD REPORT\\\\|position_ids\\\\|UNEXPECTED\\\\|^Key\\\\|^---\\\\|^Notes\\\\|can be ignored\\\\|^$\")",
+      "Bash(python -m pytest tests/test_search_controller.py tests/test_audit_service.py -q)",
+      "Bash(python -m pytest -q)",
+      "Bash(python scripts/recategorize_hierarchy.py --apply)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app.py', encoding='utf-8'\\).read\\(\\)\\); print\\('app.py: syntax OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app.py',encoding='utf-8'\\).read\\(\\)\\); print\\('app.py syntax OK'\\)\")",
+      "Bash(python -c \"from views.feedback_view import render_feedback_sidebar; print\\('import OK'\\)\")",
+      "Bash(python scripts/audit_categories.py --top 0)",
+      "Bash(python -m py_compile config/categories.py app.py controllers/kb_controller.py scripts/review_recategorizations.py services/db_connector.py tests/test_learned_anchors.py)",
+      "Bash(python -m pytest tests/test_learned_anchors.py -q)",
+      "Bash(python -m pytest tests/test_communication_controller.py -q -p no:warnings)"
+    ]
+  }
+}

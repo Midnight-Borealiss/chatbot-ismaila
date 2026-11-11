@@ -38,6 +38,54 @@ Brève description du changement
 
 ## Historique des Versions
 
+### Version 7.39 — 2026-10-24
+
+#### 🎯 Objectif
+Espace Validateur : compteur juste quel que soit le statut, traçabilité
+« qui a proposé / qui a validé », et questions validées figées.
+
+#### 📋 Modifications
+- **views/validator_view.py** : le compteur suit le filtre Statut
+  (« N question(s) validée(s) », « … en attente », total + répartition si
+  « Toutes ») — il affichait toujours « en attente ». Icône de statut dans le
+  titre (✅ 🗄️ 🧪). Une question `valide` / `archive` / `test` est en lecture
+  seule ; seule issue : « ↩️ Invalider » (validée) ou « ♻️ Restaurer »
+  (archivée / test), réservée aux experts du domaine et aux admins.
+- **views/shared_components.py** : `provenance_caption()` (« Proposée par X |
+  Validée par Y le … (réponse modifiée) » ou « Rédigée et validée par Y »),
+  `render_history()` / `build_history()` (chronologie des actions).
+  `render_comments_and_delete()` masque « Marquer hors-contexte » sur les
+  statuts figés et « Supprimer » sur une question validée.
+- **controllers/kb_controller.py** : verrou des statuts figés dans le filtre de
+  chaque écriture (atomique) ; historique `history` alimenté à chaque action ;
+  nouvelle méthode `restore()`.
+- **views/admin_view.py** : provenance + historique dans « Validées
+  récemment » ; l'invalidation trace son auteur ; l'onglet Test utilise
+  `restore()`.
+
+#### 🔧 Détails Techniques
+- `update_contribution`, `submit_proposal`, `recategorize`, `archive`,
+  `move_to_test`, `delete`, `invalidate`, `restore` renvoient `bool`
+  (False = contribution figée ou statut déjà changé, rien n'est écrit).
+- `invalidate(c_id)` → `invalidate(c_id, by="")` ; `archive(c_id)` →
+  `archive(c_id, by="")`.
+- Nouveaux champs : `history[]` ({action, by, at, …}), `validated_at`,
+  `validated_with_edits`, `archived_by`. L'invalidation retire
+  `validated_by` / `validated_at` (conservés dans `history`).
+- Constante `LOCKED_STATUSES = ("valide", "archive", "test")`.
+
+#### ⚠️ Notes
+- Pas de migration : pour les contributions antérieures, l'historique est
+  reconstitué depuis les champs existants et marqué « reconstitué » (date des
+  anciennes propositions inconnue).
+- Une question archivée ne peut plus être certifiée directement : la restaurer
+  d'abord.
+
+#### ✅ Tests
+- `tests/test_kb_lifecycle.py` (12 tests) : verrou, invalidation, restauration,
+  suppression interdite sur validée, provenance, historique. Suite complète
+  verte (282 tests).
+
 ### Version 7.38 — 2026-08-06
 
 #### 🎯 Objectif

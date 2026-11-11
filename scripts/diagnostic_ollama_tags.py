@@ -4,7 +4,7 @@ Vérification minimale qu'Ollama répond en local : liste les modèles installé
 Premier réflexe avant d'utiliser l'auto-catégorisation. Pour un test de bout en
 bout avec un vrai prompt et une mesure de latence, voir `black_box_ollama.py`.
 
-    python -m scripts.test_direct
+    python -m scripts.diagnostic_ollama_tags
 """
 
 import requests
