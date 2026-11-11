@@ -1,0 +1,47 @@
+# ISMaiLa — orchestration
+#
+#   docker compose up -d --build     construire et demarrer
+#   docker compose logs -f app       suivre les journaux
+#   docker compose down              arreter
+#   docker compose up -d --build     redeployer apres un git pull
+
+services:
+  app:
+    build: .
+    container_name: ismaila-app
+    restart: unless-stopped
+
+    # Le port n'est publie que sur l'interface locale : le serveur web
+    # en frontal s'occupe de l'exposition publique et du certificat.
+    ports:
+      - "8501:8501"
+
+    # Les secrets vivent dans .env, jamais dans ce fichier ni dans git.
+    env_file:
+      - .env
+
+    volumes:
+      # Le modele de vectorisation est telecharge une fois et conserve.
+      # Sans ce volume, chaque reconstruction impose 450 Mo de telechargement.
+      - modele:/home/app/.cache/huggingface
+      # Donnees produites par l'application : index local, cache, etats.
+      - donnees:/app/data
+
+    # La machine dispose de 6 Go. On borne le conteneur pour qu'un pic
+    # ne fasse pas tomber le systeme entier.
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  modele:
+  donnees:

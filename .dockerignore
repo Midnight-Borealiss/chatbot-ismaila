@@ -1,0 +1,53 @@
+# Ce qui ne doit pas entrer dans l'image.
+# Sans ce fichier, les environnements virtuels et le corpus gonflent
+# l'image de plusieurs gigaoctets et ralentissent chaque construction.
+
+# Environnements virtuels — specifiques a la machine de developpement
+.venv/
+.venv-1/
+.venv-local/
+venv/
+env/
+
+# Caches Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Git et outils
+.git/
+.gitignore
+.githooks/
+.github/
+.vs/
+.vscode/
+.idea/
+.claude/
+
+# Secrets — ils arrivent par env_file, jamais dans l'image
+.env
+.env.*
+*.key
+*.pem
+
+# Documents sources : ils servent a l'indexation hors ligne, pas a
+# l'execution. L'index est dans la base.
+corpus/
+
+# Etats de travail locaux
+.relecture_etat.json
+.recategorisation.json
+*.csv
+
+# Documentation et livrables
+DOCUMENTATION/
+"Fiche eval"/
+*.pdf
+*.xlsx
+*.docx
+
+# Divers
+.DS_Store
+Thumbs.db
+*.log
